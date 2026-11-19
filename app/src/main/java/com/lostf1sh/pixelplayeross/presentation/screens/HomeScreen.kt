@@ -89,6 +89,8 @@ import com.lostf1sh.pixelplayeross.presentation.components.AlbumArtCollage
 import com.lostf1sh.pixelplayeross.presentation.components.BetaInfoBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.components.ChangelogBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.components.DailyMixSection
+import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselPlaceholder
+import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselSection
 import com.lostf1sh.pixelplayeross.presentation.components.HomeGradientTopBar
 import com.lostf1sh.pixelplayeross.presentation.components.HomeOptionsBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
@@ -157,6 +159,7 @@ fun HomeScreen(
     val statsViewModel: StatsViewModel = hiltViewModel()
     val recapEntryViewModel: RecapEntryViewModel = hiltViewModel()
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val discoverAlbums by playerViewModel.discoverAlbums.collectAsStateWithLifecycle()
     val dailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
     val curatedYourMixSongs by playerViewModel.yourMixSongs.collectAsStateWithLifecycle()
     val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
@@ -240,7 +243,7 @@ fun HomeScreen(
     }
 
     ReportDrawnWhen {
-        yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
+        discoverAlbums.isNotEmpty() || yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
     }
 
     val yourMixSubtitle = stringResource(R.string.home_your_mix_subtitle)
@@ -386,144 +389,36 @@ fun HomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                if (yourMixSongs.isEmpty()) {
+                if (discoverAlbums.isNotEmpty()) {
                     item(
-                        key = "your_mix_placeholder",
-                        contentType = "your_mix_placeholder"
+                        key = "discover_carousel",
+                        contentType = "discover_carousel"
                     ) {
-                        if (shouldShowYourMixLoadingPlaceholder) {
-                            YourMixLoadingPlaceholder()
-                        } else {
-                            YourMixEmptyPlaceholder(
-                                onRefresh = {
-                                    homePlaceholderRefreshGeneration++
-                                    settingsViewModel.refreshLibrary()
-                                    playerViewModel.forceUpdateDailyMix()
-                                }
-                            )
-                        }
-                    }
-                } else if (useNavigationRail) {
-                    item(
-                        key = "your_mix_hero_wide",
-                        contentType = "your_mix_hero_wide"
-                    ) {
-                        val basePattern = settingsUiState.collagePattern
-                        val isAutoRotate = settingsUiState.collageAutoRotate
-                        val patterns = remember { CollagePattern.entries }
-
-                        val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
-                                patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                            }
-                        } else {
-                            basePattern
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(modifier = Modifier.weight(0.46f)) {
-                                YourMixHeader(
-                                    song = yourMixSubtitle,
-                                    isShuffleEnabled = isShuffleEnabled,
-                                    onPlayShuffled = {
-                                        if (usesFallbackHomeMix) {
-                                            playerViewModel.shuffleAllSongs(queueName = yourMixQueueName)
-                                        } else {
-                                            playerViewModel.playSongsShuffled(
-                                                songsToPlay = yourMixSongs,
-                                                queueName = yourMixQueueName,
-                                                startAtZero = true,
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-                            Box(modifier = Modifier.weight(0.54f)) {
-                                AlbumArtCollage(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    songs = yourMixSongs,
-                                    padding = 12.dp,
-                                    height = 290.dp,
-                                    pattern = activePattern,
-                                    onSongLongClick = { song ->
-                                        songForOptions = HomeSongOptions(
-                                            song, yourMixSongs, yourMixQueueName, playFromLibrary = usesFallbackHomeMix
-                                        )
-                                    },
-                                    onSongClick = { song ->
-                                        if (usesFallbackHomeMix) {
-                                            playerViewModel.showAndPlaySongFromLibrary(song, queueName = yourMixQueueName)
-                                        } else {
-                                            playerViewModel.showAndPlaySong(song, yourMixSongs, yourMixQueueName)
-                                        }
-                                    }
-                                )
-                            }
-                        }
+                        DiscoverCarouselSection(
+                            albums = discoverAlbums,
+                            onAlbumClick = { album ->
+                                navController.navigateSafely(Screen.AlbumDetail.createRoute(album.id))
+                            },
+                            onPlayAlbum = { album ->
+                                playerViewModel.playAlbum(album)
+                            },
+                            useNavigationRail = useNavigationRail,
+                            autoScroll = settingsUiState.discoverAutoScroll,
+                            showAlbumName = settingsUiState.discoverShowAlbumName,
+                            showArtistName = settingsUiState.discoverShowArtistName,
+                            showYear = settingsUiState.discoverShowYear,
+                            showPlayButton = settingsUiState.discoverShowPlayButton,
+                            showGradient = settingsUiState.discoverShowGradient
+                        )
                     }
                 } else {
                     item(
-                        key = "your_mix_header",
-                        contentType = "your_mix_header"
+                        key = "discover_carousel_placeholder",
+                        contentType = "discover_carousel_placeholder"
                     ) {
-                        YourMixHeader(
-                            song = yourMixSubtitle,
-                            isShuffleEnabled = isShuffleEnabled,
-                            onPlayShuffled = {
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.shuffleAllSongs(queueName = yourMixQueueName)
-                                } else {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = yourMixSongs,
-                                        queueName = yourMixQueueName,
-                                        startAtZero = true,
-                                    )
-                                }
-                            }
-                        )
-                    }
-                    item(
-                        key = "album_art_collage",
-                        contentType = "album_art_collage"
-                    ) {
-                        val basePattern = settingsUiState.collagePattern
-                        val isAutoRotate = settingsUiState.collageAutoRotate
-                        val patterns = remember { CollagePattern.entries }
-
-                        val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
-                                patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                            }
-                        } else {
-                            basePattern
-                        }
-
-                        AlbumArtCollage(
-                            modifier = Modifier.fillMaxWidth(),
-                            songs = yourMixSongs,
-                            padding = 14.dp,
-                            height = 400.dp,
-                            pattern = activePattern,
-                            onSongLongClick = { song ->
-                                songForOptions = HomeSongOptions(
-                                    song, yourMixSongs, yourMixQueueName, playFromLibrary = usesFallbackHomeMix
-                                )
-                            },
-                            onSongClick = { song ->
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.showAndPlaySongFromLibrary(song, queueName = yourMixQueueName)
-                                } else {
-                                    playerViewModel.showAndPlaySong(song, yourMixSongs, yourMixQueueName)
-                                }
+                        DiscoverCarouselPlaceholder(
+                            onRefresh = {
+                                settingsViewModel.refreshLibrary()
                             }
                         )
                     }

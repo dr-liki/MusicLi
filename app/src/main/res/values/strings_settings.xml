@@ -397,4 +397,21 @@
     <string name="updates_notification_text">PixelPlayerOSS %1$s is ready to install.</string>
     <string name="updates_notification_confirm_title">Finish updating PixelPlayerOSS</string>
     <string name="updates_notification_confirm_text">Tap to confirm the installation.</string>
+
+    <!-- Discover Carousel Settings -->
+    <string name="setcat_home_discover_carousel">Discover Carousel</string>
+    <string name="setcat_discover_item_count_label">Featured Albums Count</string>
+    <string name="setcat_discover_item_count_desc">Number of albums to show in the carousel</string>
+    <string name="setcat_discover_auto_scroll_title">Auto-scroll</string>
+    <string name="setcat_discover_auto_scroll_subtitle">Automatically cycle through featured albums</string>
+    <string name="setcat_discover_show_album_name_title">Show Album Title</string>
+    <string name="setcat_discover_show_album_name_subtitle">Display title on the album card</string>
+    <string name="setcat_discover_show_artist_name_title">Show Artist Name</string>
+    <string name="setcat_discover_show_artist_name_subtitle">Display artist name on the album card</string>
+    <string name="setcat_discover_show_year_title">Show Release Year</string>
+    <string name="setcat_discover_show_year_subtitle">Display release year when available</string>
+    <string name="setcat_discover_show_play_button_title">Show Play Button</string>
+    <string name="setcat_discover_show_play_button_subtitle">Display quick play button on the card</string>
+    <string name="setcat_discover_show_gradient_title">Show Gradient Overlay</string>
+    <string name="setcat_discover_show_gradient_subtitle">Display gradient behind text for legibility</string>
 </resources>

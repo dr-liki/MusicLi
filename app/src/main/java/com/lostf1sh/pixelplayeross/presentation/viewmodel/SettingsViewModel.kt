@@ -128,6 +128,13 @@ data class SettingsUiState(
     val wrongBackupPassword: Boolean = false,
     val collagePattern: CollagePattern = CollagePattern.default,
     val collageAutoRotate: Boolean = false,
+    val discoverItemCount: Int = 10,
+    val discoverAutoScroll: Boolean = true,
+    val discoverShowAlbumName: Boolean = true,
+    val discoverShowArtistName: Boolean = true,
+    val discoverShowYear: Boolean = true,
+    val discoverShowPlayButton: Boolean = true,
+    val discoverShowGradient: Boolean = true,
     val minSongDuration: Int = 10000,
     val minTracksPerAlbum: Int = 1,
     val replayGainEnabled: Boolean = false,
@@ -260,6 +267,48 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.collageAutoRotateFlow.collect { autoRotate ->
                 _uiState.update { it.copy(collageAutoRotate = autoRotate) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverItemCountFlow.collect { count ->
+                _uiState.update { it.copy(discoverItemCount = count) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverAutoScrollFlow.collect { autoScroll ->
+                _uiState.update { it.copy(discoverAutoScroll = autoScroll) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowAlbumNameFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowAlbumName = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowArtistNameFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowArtistName = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowYearFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowYear = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowPlayButtonFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowPlayButton = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowGradientFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowGradient = show) }
             }
         }
 
@@ -674,6 +723,48 @@ class SettingsViewModel @Inject constructor(
     fun setCollageAutoRotate(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setCollageAutoRotate(enabled)
+        }
+    }
+
+    fun setDiscoverItemCount(count: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverItemCount(count)
+        }
+    }
+
+    fun setDiscoverAutoScroll(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverAutoScroll(enabled)
+        }
+    }
+
+    fun setDiscoverShowAlbumName(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowAlbumName(enabled)
+        }
+    }
+
+    fun setDiscoverShowArtistName(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowArtistName(enabled)
+        }
+    }
+
+    fun setDiscoverShowYear(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowYear(enabled)
+        }
+    }
+
+    fun setDiscoverShowPlayButton(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowPlayButton(enabled)
+        }
+    }
+
+    fun setDiscoverShowGradient(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowGradient(enabled)
         }
     }
 

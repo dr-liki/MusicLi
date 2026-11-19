@@ -481,6 +481,83 @@ object SettingsRegistry {
                 onToggle = { viewModel, checked -> viewModel.setCollageAutoRotate(checked) }
             ),
             SettingSpec(
+                id = "appearance_discover_item_count",
+                itemKey = "item_appearance_discover_item_count",
+                titleRes = R.string.setcat_discover_item_count_label,
+                subtitleRes = R.string.setcat_discover_item_count_desc,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.NAVIGABLE_CARD,
+                keywordsStatic = listOf("discover", "carousel", "featured", "albums", "count", "home")
+            ),
+            SettingSpec(
+                id = "appearance_discover_auto_scroll",
+                itemKey = "item_appearance_discover_auto_scroll",
+                titleRes = R.string.setcat_discover_auto_scroll_title,
+                subtitleRes = R.string.setcat_discover_auto_scroll_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("auto scroll", "carousel", "slide", "cycle", "discover", "home"),
+                getValue = { it.discoverAutoScroll },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverAutoScroll(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_album_name",
+                itemKey = "item_appearance_discover_show_album_name",
+                titleRes = R.string.setcat_discover_show_album_name_title,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("album title", "discover", "carousel", "home"),
+                getValue = { it.discoverShowAlbumName },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowAlbumName(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_artist_name",
+                itemKey = "item_appearance_discover_show_artist_name",
+                titleRes = R.string.setcat_discover_show_artist_name_title,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("artist name", "discover", "carousel", "home"),
+                getValue = { it.discoverShowArtistName },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowArtistName(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_year",
+                itemKey = "item_appearance_discover_show_year",
+                titleRes = R.string.setcat_discover_show_year_title,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("year", "release year", "discover", "carousel", "home"),
+                getValue = { it.discoverShowYear },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowYear(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_play_button",
+                itemKey = "item_appearance_discover_show_play_button",
+                titleRes = R.string.setcat_discover_show_play_button_title,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("play button", "discover", "carousel", "quick play", "home"),
+                getValue = { it.discoverShowPlayButton },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowPlayButton(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_gradient",
+                itemKey = "item_appearance_discover_show_gradient",
+                titleRes = R.string.setcat_discover_show_gradient_title,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("gradient", "scrim", "discover", "carousel", "home"),
+                getValue = { it.discoverShowGradient },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowGradient(checked) }
+            ),
+            SettingSpec(
                 id = "appearance_navbar_style",
                 itemKey = "item_appearance_navbar_style",
                 titleRes = R.string.setcat_navbar_style_label,

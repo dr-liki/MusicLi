@@ -262,6 +262,15 @@ constructor(
 
         val COLLAGE_PATTERN = stringPreferencesKey("collage_pattern")
         val COLLAGE_AUTO_ROTATE = booleanPreferencesKey("collage_auto_rotate")
+
+        val DISCOVER_ITEM_COUNT = intPreferencesKey("discover_item_count")
+        val DISCOVER_AUTO_SCROLL = booleanPreferencesKey("discover_auto_scroll")
+        val DISCOVER_SHOW_ALBUM_NAME = booleanPreferencesKey("discover_show_album_name")
+        val DISCOVER_SHOW_ARTIST_NAME = booleanPreferencesKey("discover_show_artist_name")
+        val DISCOVER_SHOW_YEAR = booleanPreferencesKey("discover_show_year")
+        val DISCOVER_SHOW_PLAY_BUTTON = booleanPreferencesKey("discover_show_play_button")
+        val DISCOVER_SHOW_GRADIENT = booleanPreferencesKey("discover_show_gradient")
+
         val SIDEBAR_SHORTCUTS = stringSetPreferencesKey("sidebar_shortcuts")
 
         val LAST_PLAYLIST_ID = stringPreferencesKey("last_playlist_id")
@@ -2216,6 +2225,83 @@ constructor(
     suspend fun setCollageAutoRotate(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.COLLAGE_AUTO_ROTATE] = enabled
+        }
+    }
+
+    val discoverItemCountFlow: Flow<Int> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_ITEM_COUNT] ?: 10
+        }
+
+    suspend fun setDiscoverItemCount(count: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_ITEM_COUNT] = count.coerceIn(3, 20)
+        }
+    }
+
+    val discoverAutoScrollFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_AUTO_SCROLL] ?: true
+        }
+
+    suspend fun setDiscoverAutoScroll(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_AUTO_SCROLL] = enabled
+        }
+    }
+
+    val discoverShowAlbumNameFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_ALBUM_NAME] ?: true
+        }
+
+    suspend fun setDiscoverShowAlbumName(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_ALBUM_NAME] = enabled
+        }
+    }
+
+    val discoverShowArtistNameFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_ARTIST_NAME] ?: true
+        }
+
+    suspend fun setDiscoverShowArtistName(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_ARTIST_NAME] = enabled
+        }
+    }
+
+    val discoverShowYearFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_YEAR] ?: true
+        }
+
+    suspend fun setDiscoverShowYear(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_YEAR] = enabled
+        }
+    }
+
+    val discoverShowPlayButtonFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_PLAY_BUTTON] ?: true
+        }
+
+    suspend fun setDiscoverShowPlayButton(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_PLAY_BUTTON] = enabled
+        }
+    }
+
+    val discoverShowGradientFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_GRADIENT] ?: true
+        }
+
+    suspend fun setDiscoverShowGradient(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_GRADIENT] = enabled
         }
     }
 

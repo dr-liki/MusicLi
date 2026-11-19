@@ -105,6 +105,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -873,6 +874,7 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.initialize(viewModelScope, lyricsLoadCallback, playbackStateHolder.stablePlayerState)
         playbackStateHolder.initialize(coroutineScope = viewModelScope)
         themeStateHolder.initialize(viewModelScope)
+        initDiscoverAlbums()
 
         viewModelScope.launch {
             val snapshot = runCatching {
@@ -1346,6 +1348,45 @@ class PlayerViewModel @Inject constructor(
 
     val dailyMixSongs: StateFlow<ImmutableList<Song>> = dailyMixStateHolder.dailyMixSongs
     val yourMixSongs: StateFlow<ImmutableList<Song>> = dailyMixStateHolder.yourMixSongs
+
+    private val _discoverAlbums = MutableStateFlow<ImmutableList<Album>>(persistentListOf())
+    val discoverAlbums: StateFlow<ImmutableList<Album>> = _discoverAlbums.asStateFlow()
+
+    private fun initDiscoverAlbums() {
+        viewModelScope.launch {
+            combine(
+                musicRepository.getAlbums(com.lostf1sh.pixelplayeross.data.model.StorageFilter.ALL, minTracks = 1),
+                userPreferencesRepository.discoverItemCountFlow
+            ) { allAlbums: List<Album>, targetCount: Int ->
+                allAlbums to targetCount.coerceAtLeast(1)
+            }.conflate().collect { pair: Pair<List<Album>, Int> ->
+                val allAlbums = pair.first
+                val targetCount = pair.second
+                if (allAlbums.isEmpty()) {
+                    _discoverAlbums.value = persistentListOf()
+                    return@collect
+                }
+                val current = _discoverAlbums.value
+                if (current.isEmpty()) {
+                    _discoverAlbums.value = allAlbums.shuffled().take(targetCount).toImmutableList()
+                } else {
+                    val mapById = allAlbums.associateBy { it.id }
+                    val updated = current.mapNotNull { mapById[it.id] }
+                    if (updated.size < targetCount && allAlbums.size > updated.size) {
+                        val existingIds = updated.map { it.id }.toSet()
+                        val remaining = allAlbums.filter { it.id !in existingIds }.shuffled()
+                        _discoverAlbums.value = (updated + remaining).take(targetCount).toImmutableList()
+                    } else if (updated.size > targetCount) {
+                        _discoverAlbums.value = updated.take(targetCount).toImmutableList()
+                    } else if (updated.isNotEmpty()) {
+                        _discoverAlbums.value = updated.toImmutableList()
+                    } else {
+                        _discoverAlbums.value = allAlbums.shuffled().take(targetCount).toImmutableList()
+                    }
+                }
+            }
+        }
+    }
 
     fun removeFromDailyMix(songId: String) {
         dailyMixStateHolder.removeFromDailyMix(songId)

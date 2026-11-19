@@ -811,6 +811,61 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
+                            SettingsSubsection(title = stringResource(R.string.setcat_home_discover_carousel)) {
+                                SliderSettingsItem(
+                                    label = stringResource(R.string.setcat_discover_item_count_label),
+                                    value = uiState.discoverItemCount.toFloat(),
+                                    valueRange = 3f..20f,
+                                    steps = 16,
+                                    onValueChange = { settingsViewModel.setDiscoverItemCount(it.toInt()) },
+                                    valueText = { "${it.toInt()}" },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_item_count", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_auto_scroll_title),
+                                    subtitle = stringResource(R.string.setcat_discover_auto_scroll_subtitle),
+                                    checked = uiState.discoverAutoScroll,
+                                    onCheckedChange = { settingsViewModel.setDiscoverAutoScroll(it) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_auto_scroll", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_album_name_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_album_name_subtitle),
+                                    checked = uiState.discoverShowAlbumName,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowAlbumName(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_album_name", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_artist_name_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_artist_name_subtitle),
+                                    checked = uiState.discoverShowArtistName,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowArtistName(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_artist_name", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_year_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_year_subtitle),
+                                    checked = uiState.discoverShowYear,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowYear(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_year", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_play_button_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_play_button_subtitle),
+                                    checked = uiState.discoverShowPlayButton,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowPlayButton(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_play_button", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_gradient_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_gradient_subtitle),
+                                    checked = uiState.discoverShowGradient,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowGradient(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_gradient", highlightKey)
+                                )
+                            }
+
                             SettingsSubsection(title = stringResource(R.string.setcat_navigation_bar)) {
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.setcat_navbar_style_label),
