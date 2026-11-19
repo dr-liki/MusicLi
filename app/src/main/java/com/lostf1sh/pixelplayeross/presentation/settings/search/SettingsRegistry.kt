@@ -459,28 +459,6 @@ object SettingsRegistry {
                 keywordsStatic = listOf("carousel", "peek", "album covers", "swipe")
             ),
             SettingSpec(
-                id = "appearance_collage_pattern",
-                itemKey = "item_appearance_collage_pattern",
-                titleRes = R.string.setcat_collage_pattern_label,
-                subtitleRes = R.string.setcat_collage_pattern_desc,
-                category = SettingsCategory.APPEARANCE,
-                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
-                type = SettingType.NAVIGABLE_CARD,
-                keywordsStatic = listOf("collage", "home", "your mix", "pattern", "grid")
-            ),
-            SettingSpec(
-                id = "appearance_collage_auto_rotate",
-                itemKey = "item_appearance_collage_auto_rotate",
-                titleRes = R.string.setcat_auto_rotate_patterns_title,
-                subtitleRes = R.string.setcat_auto_rotate_patterns_subtitle,
-                category = SettingsCategory.APPEARANCE,
-                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
-                type = SettingType.SWITCH,
-                keywordsStatic = listOf("rotate", "collage", "cycle", "shuffle patterns"),
-                getValue = { it.collageAutoRotate },
-                onToggle = { viewModel, checked -> viewModel.setCollageAutoRotate(checked) }
-            ),
-            SettingSpec(
                 id = "appearance_discover_item_count",
                 itemKey = "item_appearance_discover_item_count",
                 titleRes = R.string.setcat_discover_item_count_label,
@@ -489,6 +467,16 @@ object SettingsRegistry {
                 subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
                 type = SettingType.NAVIGABLE_CARD,
                 keywordsStatic = listOf("discover", "carousel", "featured", "albums", "count", "home")
+            ),
+            SettingSpec(
+                id = "appearance_discover_refresh_interval",
+                itemKey = "item_appearance_discover_refresh_interval",
+                titleRes = R.string.setcat_discover_refresh_interval_label,
+                subtitleRes = R.string.setcat_discover_refresh_interval_desc,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.NAVIGABLE_CARD,
+                keywordsStatic = listOf("refresh", "interval", "frequency", "discover", "carousel", "featured", "albums", "home")
             ),
             SettingSpec(
                 id = "appearance_discover_auto_scroll",
@@ -545,6 +533,18 @@ object SettingsRegistry {
                 keywordsStatic = listOf("play button", "discover", "carousel", "quick play", "home"),
                 getValue = { it.discoverShowPlayButton },
                 onToggle = { viewModel, checked -> viewModel.setDiscoverShowPlayButton(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_discover_show_next_button",
+                itemKey = "item_appearance_discover_show_next_button",
+                titleRes = R.string.setcat_discover_show_next_button_title,
+                subtitleRes = R.string.setcat_discover_show_next_button_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("next button", "play next", "discover", "carousel", "home"),
+                getValue = { it.discoverShowNextButton },
+                onToggle = { viewModel, checked -> viewModel.setDiscoverShowNextButton(checked) }
             ),
             SettingSpec(
                 id = "appearance_discover_show_gradient",

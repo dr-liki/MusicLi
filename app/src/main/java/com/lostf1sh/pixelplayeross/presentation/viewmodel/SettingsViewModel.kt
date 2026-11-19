@@ -129,11 +129,13 @@ data class SettingsUiState(
     val collagePattern: CollagePattern = CollagePattern.default,
     val collageAutoRotate: Boolean = false,
     val discoverItemCount: Int = 10,
+    val discoverRefreshIntervalMinutes: Int = 5,
     val discoverAutoScroll: Boolean = true,
     val discoverShowAlbumName: Boolean = true,
     val discoverShowArtistName: Boolean = true,
     val discoverShowYear: Boolean = true,
     val discoverShowPlayButton: Boolean = true,
+    val discoverShowNextButton: Boolean = true,
     val discoverShowGradient: Boolean = true,
     val minSongDuration: Int = 10000,
     val minTracksPerAlbum: Int = 1,
@@ -277,6 +279,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.discoverRefreshIntervalMinutesFlow.collect { interval ->
+                _uiState.update { it.copy(discoverRefreshIntervalMinutes = interval) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.discoverAutoScrollFlow.collect { autoScroll ->
                 _uiState.update { it.copy(discoverAutoScroll = autoScroll) }
             }
@@ -303,6 +311,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.discoverShowPlayButtonFlow.collect { show ->
                 _uiState.update { it.copy(discoverShowPlayButton = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowNextButtonFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowNextButton = show) }
             }
         }
 
@@ -732,6 +746,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setDiscoverRefreshIntervalMinutes(minutes: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverRefreshIntervalMinutes(minutes)
+        }
+    }
+
     fun setDiscoverAutoScroll(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setDiscoverAutoScroll(enabled)
@@ -759,6 +779,12 @@ class SettingsViewModel @Inject constructor(
     fun setDiscoverShowPlayButton(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setDiscoverShowPlayButton(enabled)
+        }
+    }
+
+    fun setDiscoverShowNextButton(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowNextButton(enabled)
         }
     }
 

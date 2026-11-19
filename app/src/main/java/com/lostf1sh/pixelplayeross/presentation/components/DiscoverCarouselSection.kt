@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.size.Size
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Album
 import kotlinx.collections.immutable.ImmutableList
@@ -77,7 +81,9 @@ fun DiscoverCarouselSection(
     showArtistName: Boolean = true,
     showYear: Boolean = true,
     showPlayButton: Boolean = true,
-    showGradient: Boolean = true
+    showNextButton: Boolean = true,
+    showGradient: Boolean = true,
+    onPlayAlbumNext: (Album) -> Unit = {}
 ) {
     if (albums.isEmpty()) return
 
@@ -87,6 +93,18 @@ fun DiscoverCarouselSection(
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+
+    val phoneTargetSize = remember(screenWidth, density) {
+        val px = with(density) { screenWidth.roundToPx() }
+        Size(px, px)
+    }
+    val preferredItemWidth = if (configuration.screenWidthDp >= 840) 360.dp else 300.dp
+    val tabletTargetSize = remember(preferredItemWidth, density) {
+        val wPx = with(density) { preferredItemWidth.roundToPx() }
+        val hPx = with(density) { 290.dp.roundToPx() }
+        Size(wPx, hPx)
+    }
 
     if (useNavigationRail) {
         // Wide screen / Tablet layout: multi-browse card carousel
@@ -159,7 +177,9 @@ fun DiscoverCarouselSection(
                             model = album.albumArtUriString,
                             contentDescription = stringResource(R.string.cd_album_art_for_title, album.title),
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            targetSize = tabletTargetSize,
+                            allowHardware = true
                         )
 
                         if (showGradient) {
@@ -215,34 +235,64 @@ fun DiscoverCarouselSection(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (showPlayButton) {
-                                    Button(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onPlayAlbum(album)
-                                        },
-                                        shape = RoundedCornerShape(percent = 50),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(40.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PlayArrow,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = stringResource(R.string.home_discover_action_play),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (showPlayButton) {
+                                        Button(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                onPlayAlbum(album)
+                                            },
+                                            shape = RoundedCornerShape(percent = 50),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.PlayArrow,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = stringResource(R.string.home_discover_action_play),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
-                                } else {
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    if (showNextButton) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                onPlayAlbumNext(album)
+                                            },
+                                            shape = RoundedCornerShape(percent = 50),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.SkipNext,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = stringResource(R.string.home_discover_action_next),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
 
                                 Row(
@@ -338,7 +388,9 @@ fun DiscoverCarouselSection(
                         model = album.albumArtUriString,
                         contentDescription = stringResource(R.string.cd_album_art_for_title, album.title),
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        targetSize = phoneTargetSize,
+                        allowHardware = true
                     )
 
                     if (showGradient) {
@@ -396,34 +448,64 @@ fun DiscoverCarouselSection(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (showPlayButton) {
-                                Button(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onPlayAlbum(album)
-                                    },
-                                    shape = RoundedCornerShape(percent = 50),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.home_discover_action_play),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (showPlayButton) {
+                                    Button(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onPlayAlbum(album)
+                                        },
+                                        shape = RoundedCornerShape(percent = 50),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                        modifier = Modifier.height(44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.home_discover_action_play),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
-                            } else {
-                                Spacer(modifier = Modifier.width(8.dp))
+                                if (showNextButton) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onPlayAlbumNext(album)
+                                        },
+                                        shape = RoundedCornerShape(percent = 50),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        modifier = Modifier.height(44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.SkipNext,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.home_discover_action_next),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
 
                             Row(

@@ -264,11 +264,13 @@ constructor(
         val COLLAGE_AUTO_ROTATE = booleanPreferencesKey("collage_auto_rotate")
 
         val DISCOVER_ITEM_COUNT = intPreferencesKey("discover_item_count")
+        val DISCOVER_REFRESH_INTERVAL_MINUTES = intPreferencesKey("discover_refresh_interval_minutes")
         val DISCOVER_AUTO_SCROLL = booleanPreferencesKey("discover_auto_scroll")
         val DISCOVER_SHOW_ALBUM_NAME = booleanPreferencesKey("discover_show_album_name")
         val DISCOVER_SHOW_ARTIST_NAME = booleanPreferencesKey("discover_show_artist_name")
         val DISCOVER_SHOW_YEAR = booleanPreferencesKey("discover_show_year")
         val DISCOVER_SHOW_PLAY_BUTTON = booleanPreferencesKey("discover_show_play_button")
+        val DISCOVER_SHOW_NEXT_BUTTON = booleanPreferencesKey("discover_show_next_button")
         val DISCOVER_SHOW_GRADIENT = booleanPreferencesKey("discover_show_gradient")
 
         val SIDEBAR_SHORTCUTS = stringSetPreferencesKey("sidebar_shortcuts")
@@ -2239,6 +2241,17 @@ constructor(
         }
     }
 
+    val discoverRefreshIntervalMinutesFlow: Flow<Int> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_REFRESH_INTERVAL_MINUTES] ?: 5
+        }
+
+    suspend fun setDiscoverRefreshIntervalMinutes(minutes: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_REFRESH_INTERVAL_MINUTES] = minutes.coerceIn(1, 20)
+        }
+    }
+
     val discoverAutoScrollFlow: Flow<Boolean> =
         dataStore.data.map { preferences ->
             preferences[PreferencesKeys.DISCOVER_AUTO_SCROLL] ?: true
@@ -2291,6 +2304,17 @@ constructor(
     suspend fun setDiscoverShowPlayButton(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.DISCOVER_SHOW_PLAY_BUTTON] = enabled
+        }
+    }
+
+    val discoverShowNextButtonFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_NEXT_BUTTON] ?: true
+        }
+
+    suspend fun setDiscoverShowNextButton(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_NEXT_BUTTON] = enabled
         }
     }
 

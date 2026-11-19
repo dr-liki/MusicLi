@@ -155,6 +155,7 @@
     <string name="home_empty_placeholder_subtitle">Your mix will appear here when PixelPlayerOSS finds songs or syncs a source.</string>
     <string name="home_empty_placeholder_refresh">Refresh</string>
     <string name="home_discover_action_play">Play</string>
+    <string name="home_discover_action_next">Next</string>
     <string name="home_discover_empty_title">No featured albums</string>
     <string name="home_discover_empty_subtitle">Add music to your library or scan folders to explore featured albums.</string>
     <string name="home_discover_tracks_count">%1$d tracks</string>

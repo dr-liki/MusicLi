@@ -117,6 +117,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -1386,6 +1387,20 @@ class PlayerViewModel @Inject constructor(
                 }
             }
         }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverRefreshIntervalMinutesFlow.collectLatest { minutes ->
+                val intervalMillis = minutes.coerceIn(1, 20) * 60_000L
+                while (isActive) {
+                    delay(intervalMillis)
+                    val allAlbums = musicRepository.getAlbums(com.lostf1sh.pixelplayeross.data.model.StorageFilter.ALL, minTracks = 1).first()
+                    val targetCount = userPreferencesRepository.discoverItemCountFlow.first().coerceAtLeast(1)
+                    if (allAlbums.isNotEmpty()) {
+                        _discoverAlbums.value = allAlbums.shuffled().take(targetCount).toImmutableList()
+                    }
+                }
+            }
+        }
     }
 
     fun removeFromDailyMix(songId: String) {
@@ -2147,6 +2162,36 @@ class PlayerViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.tag("PlayerViewModel").e(e, "Error playing album ${album.title}")
+            }
+        }
+    }
+
+    fun playAlbumNext(album: Album) {
+        Timber.tag("PlayerViewModel").d("playAlbumNext called for album: ${album.title}")
+        viewModelScope.launch {
+            try {
+                val songsList: List<Song> = withContext(dispatchers.io) {
+                    musicRepository.getSongsForAlbum(album.id).first()
+                }
+
+                if (songsList.isNotEmpty()) {
+                    val sortedSongs = songsList.sortedWith(
+                        compareBy<Song> { it.discNumber ?: 1 }
+                            .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
+                            .thenBy { it.title.lowercase() }
+                    )
+
+                    if (stablePlayerState.value.currentSong == null) {
+                        playSongs(sortedSongs, sortedSongs.first(), album.title, null)
+                        _isSheetVisible.value = true
+                    } else {
+                        addSelectedAsNext(sortedSongs)
+                    }
+                } else {
+                    Timber.tag("PlayerViewModel").w("Album '${album.title}' has no playable songs.")
+                }
+            } catch (e: Exception) {
+                Timber.tag("PlayerViewModel").e(e, "Error playing album next ${album.title}")
             }
         }
     }

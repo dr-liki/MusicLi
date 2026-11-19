@@ -169,7 +169,6 @@ import com.lostf1sh.pixelplayeross.data.backup.model.RestorePlan
 import com.lostf1sh.pixelplayeross.data.model.AudioOutputMode
 import com.lostf1sh.pixelplayeross.data.preferences.AppLanguage
 import com.lostf1sh.pixelplayeross.data.preferences.AppThemeMode
-import com.lostf1sh.pixelplayeross.data.preferences.CollagePattern
 import com.lostf1sh.pixelplayeross.data.preferences.CarouselStyle
 import com.lostf1sh.pixelplayeross.data.preferences.LaunchTab
 import com.lostf1sh.pixelplayeross.data.preferences.LibraryNavigationMode
@@ -789,28 +788,6 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
-                            SettingsSubsection(title = stringResource(R.string.setcat_home_collage)) {
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.setcat_collage_pattern_label),
-                                    description = stringResource(R.string.setcat_collage_pattern_desc),
-                                    options = CollagePattern.entries.associate { it.storageKey to stringResource(it.labelRes) },
-                                    selectedKey = uiState.collagePattern.storageKey,
-                                    onSelectionChanged = { key ->
-                                        settingsViewModel.setCollagePattern(CollagePattern.fromStorageKey(key))
-                                    },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_appearance_collage_pattern", highlightKey)
-                                )
-                                SwitchSettingItem(
-                                    title = stringResource(R.string.setcat_auto_rotate_patterns_title),
-                                    subtitle = stringResource(R.string.setcat_auto_rotate_patterns_subtitle),
-                                    checked = uiState.collageAutoRotate,
-                                    onCheckedChange = { settingsViewModel.setCollageAutoRotate(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_appearance_collage_auto_rotate", highlightKey)
-                                )
-                            }
-
                             SettingsSubsection(title = stringResource(R.string.setcat_home_discover_carousel)) {
                                 SliderSettingsItem(
                                     label = stringResource(R.string.setcat_discover_item_count_label),
@@ -820,6 +797,15 @@ fun SettingsCategoryScreen(
                                     onValueChange = { settingsViewModel.setDiscoverItemCount(it.toInt()) },
                                     valueText = { "${it.toInt()}" },
                                     modifier = Modifier.settingHighlight("item_appearance_discover_item_count", highlightKey)
+                                )
+                                SliderSettingsItem(
+                                    label = stringResource(R.string.setcat_discover_refresh_interval_label),
+                                    value = uiState.discoverRefreshIntervalMinutes.toFloat(),
+                                    valueRange = 1f..20f,
+                                    steps = 18,
+                                    onValueChange = { settingsViewModel.setDiscoverRefreshIntervalMinutes(it.toInt()) },
+                                    valueText = { "${it.toInt()} min" },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_refresh_interval", highlightKey)
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.setcat_discover_auto_scroll_title),
@@ -856,6 +842,13 @@ fun SettingsCategoryScreen(
                                     checked = uiState.discoverShowPlayButton,
                                     onCheckedChange = { settingsViewModel.setDiscoverShowPlayButton(it) },
                                     modifier = Modifier.settingHighlight("item_appearance_discover_show_play_button", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_next_button_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_next_button_subtitle),
+                                    checked = uiState.discoverShowNextButton,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowNextButton(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_next_button", highlightKey)
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.setcat_discover_show_gradient_title),
