@@ -62,8 +62,10 @@ class SyncedVideoRepository @Inject constructor(
     suspend fun resolveVideo(
         trackTitle: String,
         trackArtist: String,
+        genre: String? = null,
         expectedDurationMs: Long? = null,
         selectedVideoId: String? = null,
+        forceRefresh: Boolean = false,
     ): Result<SyncedVideoStreamBundle> = withContext(Dispatchers.IO) {
         runCatching {
             val userOverride = selectedVideoId?.takeIf { it.isNotBlank() } ?: savedVideoOverride(trackTitle, trackArtist)
@@ -73,15 +75,25 @@ class SyncedVideoRepository @Inject constructor(
                     trackArtist = trackArtist,
                     expectedDurationMs = expectedDurationMs,
                 )
-                ?: throw IllegalStateException("No verified music video found for $trackTitle — $trackArtist")
+                ?: findFallbackVideoId(
+                    trackTitle = trackTitle,
+                    trackArtist = trackArtist,
+                    genre = genre,
+                    expectedDurationMs = expectedDurationMs,
+                )
+                ?: throw IllegalStateException("No video found for $trackTitle — $trackArtist")
 
             val now = System.currentTimeMillis()
-            cache[targetVideoId]?.let { cached ->
-                if (cached.expiresAtMs > now) {
-                    return@runCatching cached.bundle
-                } else {
-                    cache.remove(targetVideoId)
+            if (!forceRefresh) {
+                cache[targetVideoId]?.let { cached ->
+                    if (cached.expiresAtMs > now) {
+                        return@runCatching cached.bundle
+                    } else {
+                        cache.remove(targetVideoId)
+                    }
                 }
+            } else {
+                cache.remove(targetVideoId)
             }
 
             val bundle = coroutineScope {
@@ -106,6 +118,7 @@ class SyncedVideoRepository @Inject constructor(
     suspend fun searchVideoCandidates(
         trackTitle: String,
         trackArtist: String,
+        genre: String? = null,
         expectedDurationMs: Long? = null,
     ): List<VideoSearchCandidate> = withContext(Dispatchers.IO) {
         val cleanTitle = cleanTrackTitle(trackTitle)
@@ -120,7 +133,7 @@ class SyncedVideoRepository @Inject constructor(
             }
         }
 
-        found.values.mapNotNull { candidate ->
+        val officialCandidates = found.values.mapNotNull { candidate ->
             val score = scoreVideoCandidate(
                 candidateTitle = candidate.title,
                 candidateArtist = candidate.channel,
@@ -137,14 +150,140 @@ class SyncedVideoRepository @Inject constructor(
                 durationSeconds = candidate.durationSeconds,
                 matchScore = score,
             )
+        }
+
+        if (officialCandidates.isNotEmpty()) {
+            return@withContext officialCandidates.sortedWith(
+                compareByDescending<VideoSearchCandidate> { it.matchScore }
+                    .thenBy { durationDistance(expectedDurationMs, it.durationSeconds) }
+            ).take(25)
+        }
+
+        // Tier 2: Fallback YouTube search with metadata key terms & tags (including 4K, 8K)
+        val fallbackQuery = fallbackVideoSearchQuery(cleanTitle, cleanArtist, genre)
+        searchByCustomQuery(fallbackQuery, expectedDurationMs, cleanTitle, cleanArtist)
+    }
+
+    suspend fun searchByCustomQuery(
+        query: String,
+        expectedDurationMs: Long? = null,
+        wantedTitle: String? = null,
+        wantedArtist: String? = null,
+    ): List<VideoSearchCandidate> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+        val results = runCatching {
+            streamExtractor.searchVideos(query.trim(), limit = 25)
+        }.getOrDefault(emptyList())
+
+        results.filter { it.videoId.isNotBlank() }.map { candidate ->
+            val score = if (!wantedTitle.isNullOrBlank()) {
+                scoreVideoCandidate(
+                    candidateTitle = candidate.title,
+                    candidateArtist = candidate.channel,
+                    candidateDurationSec = candidate.durationSeconds,
+                    wantedTitle = wantedTitle,
+                    wantedArtist = wantedArtist.orEmpty(),
+                    expectedDurationMs = expectedDurationMs,
+                ) ?: calculateRelaxedScore(candidate, wantedTitle, wantedArtist.orEmpty(), expectedDurationMs)
+            } else {
+                calculateDurationScore(candidate.durationSeconds, expectedDurationMs)
+            }
+
+            VideoSearchCandidate(
+                videoId = candidate.videoId,
+                title = candidate.title,
+                channel = candidate.channel,
+                durationSeconds = candidate.durationSeconds,
+                matchScore = score,
+            )
         }.sortedWith(
             compareByDescending<VideoSearchCandidate> { it.matchScore }
-                .thenBy {
-                    val expected = expectedDurationMs?.takeIf { it > 0 }?.div(1_000L)
-                    val actual = it.durationSeconds?.takeIf { s -> s > 0 }?.toLong()
-                    if (expected != null && actual != null) kotlin.math.abs(expected - actual) else Long.MAX_VALUE
-                }
-        ).take(20)
+                .thenBy { durationDistance(expectedDurationMs, it.durationSeconds) }
+        ).take(25)
+    }
+
+    fun fallbackVideoSearchQuery(cleanTitle: String, cleanArtist: String, genre: String?): String {
+        val g = genre?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }?.let { " $it" }.orEmpty()
+        return "$cleanTitle $cleanArtist$g full video official video official lyrical 4K 8K".trim()
+    }
+
+    private fun durationDistance(expectedMs: Long?, actualSec: Int?): Long {
+        val expected = expectedMs?.takeIf { it > 0 }?.div(1_000L) ?: return Long.MAX_VALUE
+        val actual = actualSec?.takeIf { it > 0 }?.toLong() ?: return Long.MAX_VALUE
+        return kotlin.math.abs(expected - actual)
+    }
+
+    private fun calculateRelaxedScore(
+        candidate: RawVideoResult,
+        wantedTitle: String,
+        wantedArtist: String,
+        expectedDurationMs: Long?,
+    ): Int {
+        var score = 100
+        val lowerTitle = candidate.title.lowercase(java.util.Locale.ROOT)
+        val lowerWantedTitle = wantedTitle.lowercase(java.util.Locale.ROOT)
+        val lowerWantedArtist = wantedArtist.lowercase(java.util.Locale.ROOT)
+
+        if (lowerWantedTitle.isNotBlank() && lowerTitle.contains(lowerWantedTitle)) {
+            score += 150
+        }
+        if (lowerWantedArtist.isNotBlank() && (lowerTitle.contains(lowerWantedArtist) || candidate.channel.lowercase(java.util.Locale.ROOT).contains(lowerWantedArtist))) {
+            score += 80
+        }
+        if (lowerTitle.contains("official")) score += 40
+        if (lowerTitle.contains("video")) score += 30
+        if (lowerTitle.contains("4k") || lowerTitle.contains("8k")) score += 20
+
+        if (expectedDurationMs != null && expectedDurationMs > 0 && candidate.durationSeconds != null) {
+            val diffSec = kotlin.math.abs(expectedDurationMs / 1000L - candidate.durationSeconds)
+            if (diffSec <= 5) score += 60
+            else if (diffSec <= 15) score += 30
+            else if (diffSec > 60) score -= 40
+        }
+        return score.coerceAtLeast(10)
+    }
+
+    private fun calculateDurationScore(actualSec: Int?, expectedDurationMs: Long?): Int {
+        var score = 100
+        if (expectedDurationMs != null && expectedDurationMs > 0 && actualSec != null) {
+            val diffSec = kotlin.math.abs(expectedDurationMs / 1000L - actualSec)
+            if (diffSec <= 5) score += 80
+            else if (diffSec <= 20) score += 40
+            else if (diffSec > 60) score -= 30
+        }
+        return score.coerceAtLeast(10)
+    }
+
+    private suspend fun findFallbackVideoId(
+        trackTitle: String,
+        trackArtist: String,
+        genre: String? = null,
+        expectedDurationMs: Long? = null,
+    ): String? = withContext(Dispatchers.IO) {
+        val cleanTitle = cleanTrackTitle(trackTitle)
+        val cleanArtist = trackArtist.takeUnless { it.equals("Unknown artist", ignoreCase = true) }.orEmpty()
+        val query = fallbackVideoSearchQuery(cleanTitle, cleanArtist, genre)
+        val results = runCatching {
+            streamExtractor.searchVideos(query, limit = 15)
+        }.getOrNull().orEmpty()
+
+        val candidates = results.filter { it.videoId.isNotBlank() }
+        if (candidates.isEmpty()) return@withContext null
+
+        val scored = candidates.map { track ->
+            val score = scoreVideoCandidate(
+                candidateTitle = track.title,
+                candidateArtist = track.channel,
+                candidateDurationSec = track.durationSeconds,
+                wantedTitle = cleanTitle,
+                wantedArtist = cleanArtist,
+                expectedDurationMs = expectedDurationMs,
+            ) ?: calculateRelaxedScore(track, cleanTitle, cleanArtist, expectedDurationMs)
+            track to score
+        }.sortedByDescending { it.second }
+
+        val best = scored.firstOrNull { it.second >= 120 }?.first ?: scored.firstOrNull()?.first
+        best?.videoId
     }
 
     private suspend fun findOfficialVideoId(

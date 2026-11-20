@@ -65,4 +65,26 @@ class VideoCandidateMatchTest {
         assertNull(extractYoutubeVideoId("not_a_valid_url_at_all"))
         assertNull(extractYoutubeVideoId("invalid"))
     }
+
+    @Test
+    fun fallbackQueryIncludesKeytermsGenreAnd4K8KTags() {
+        val extractor = io.mockk.mockk<YouTubeStreamExtractor>(relaxed = true)
+        val http = okhttp3.OkHttpClient()
+        val context = io.mockk.mockk<android.content.Context>(relaxed = true)
+        val repo = SyncedVideoRepository(extractor, http, context)
+
+        val queryWithGenre = repo.fallbackVideoSearchQuery("Blinding Lights", "The Weeknd", "Synthwave")
+        assertTrue(queryWithGenre.contains("Blinding Lights"))
+        assertTrue(queryWithGenre.contains("The Weeknd"))
+        assertTrue(queryWithGenre.contains("Synthwave"))
+        assertTrue(queryWithGenre.contains("4K"))
+        assertTrue(queryWithGenre.contains("8K"))
+        assertTrue(queryWithGenre.contains("official video"))
+
+        val queryWithoutGenre = repo.fallbackVideoSearchQuery("Starboy", "The Weeknd", null)
+        assertTrue(queryWithoutGenre.contains("Starboy"))
+        assertTrue(queryWithoutGenre.contains("The Weeknd"))
+        assertTrue(queryWithoutGenre.contains("4K"))
+        assertTrue(queryWithoutGenre.contains("8K"))
+    }
 }

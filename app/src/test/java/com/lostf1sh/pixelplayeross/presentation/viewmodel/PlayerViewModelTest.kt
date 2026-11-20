@@ -153,6 +153,7 @@ class PlayerViewModelTest {
         coEvery { mockUserPreferencesRepository.discoverItemCountFlow } returns flowOf(10)
         coEvery { mockUserPreferencesRepository.discoverRefreshIntervalMinutesFlow } returns flowOf(5)
         coEvery { mockUserPreferencesRepository.syncedVideoEnabledFlow } returns flowOf(true)
+        coEvery { mockUserPreferencesRepository.preferredVideoQualityFlow } returns flowOf(null)
         every { mockUserPreferencesRepository.repeatModeFlow } returns _repeatModeFlow
         coEvery { mockThemePreferencesRepository.playerThemePreferenceFlow } returns flowOf("Global")
         every { mockSyncManager.isSyncing } returns isSyncingFlow

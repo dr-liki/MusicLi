@@ -16,6 +16,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
 import com.lostf1sh.pixelplayeross.data.video.ChunkedRangeDataSource
 import com.lostf1sh.pixelplayeross.data.video.SyncedVideoRepository
 import com.lostf1sh.pixelplayeross.data.video.SyncedVideoStreamBundle
@@ -28,6 +29,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import javax.inject.Inject
@@ -42,6 +44,7 @@ sealed interface SyncedVideoUiState {
         val bundle: SyncedVideoStreamBundle,
         val activeStream: YouTubeVideoStream,
         val selectedHeight: Int? = null,
+        val isRefreshing: Boolean = false,
     ) : SyncedVideoUiState {
         val stream: YouTubeVideoStream get() = activeStream
         val isAuto: Boolean get() = selectedHeight == null || selectedHeight <= 0
@@ -61,6 +64,7 @@ sealed interface VideoPickerUiState {
 @HiltViewModel
 class SyncedVideoViewModel @Inject constructor(
     private val videoRepository: SyncedVideoRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
     private val okHttpClient: OkHttpClient,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
@@ -77,14 +81,23 @@ class SyncedVideoViewModel @Inject constructor(
     private val _videoPickerState = MutableStateFlow<VideoPickerUiState>(VideoPickerUiState.Hidden)
     val videoPickerState: StateFlow<VideoPickerUiState> = _videoPickerState.asStateFlow()
 
+    private val _currentSearchQuery = MutableStateFlow("")
+    val currentSearchQuery: StateFlow<String> = _currentSearchQuery.asStateFlow()
+
     private var currentKey: String? = null
     private var loadJob: Job? = null
     private var videoSearchJob: Job? = null
     private var linkRefreshesLeft = 0
 
+    private var currentTitle: String? = null
+    private var currentArtist: String? = null
+    private var currentGenre: String? = null
+    private var currentDurationMs: Long? = null
+
     private data class VideoPickerRequest(
         val title: String,
         val artist: String,
+        val genre: String?,
         val durationMs: Long?,
     )
     private var videoPickerRequest: VideoPickerRequest? = null
@@ -140,9 +153,14 @@ class SyncedVideoViewModel @Inject constructor(
         setVideoActive(!_isVideoActive.value)
     }
 
-    fun loadVideo(title: String, artist: String, durationMs: Long? = null) {
+    fun loadVideo(title: String, artist: String, genre: String? = null, durationMs: Long? = null) {
+        currentTitle = title
+        currentArtist = artist
+        currentGenre = genre
+        currentDurationMs = durationMs
+
         val selectedVideoId = videoRepository.savedVideoOverride(title, artist)
-        val key = "$title|$artist|$durationMs|$selectedVideoId"
+        val key = "$title|$artist|$genre|$durationMs|$selectedVideoId"
         if (currentKey == key && (_uiState.value is SyncedVideoUiState.Ready || loadJob?.isActive == true)) return
 
         loadJob?.cancel()
@@ -154,12 +172,13 @@ class SyncedVideoViewModel @Inject constructor(
         }
         currentKey = key
         linkRefreshesLeft = MAX_LINK_REFRESHES_PER_SONG
-        resolveStream(title, artist, durationMs, selectedVideoId)
+        resolveStream(title, artist, genre, durationMs, selectedVideoId)
     }
 
     private fun resolveStream(
         title: String,
         artist: String,
+        genre: String?,
         durationMs: Long?,
         selectedVideoId: String?,
     ) {
@@ -168,21 +187,31 @@ class SyncedVideoViewModel @Inject constructor(
             videoRepository.resolveVideo(
                 trackTitle = title,
                 trackArtist = artist,
+                genre = genre,
                 expectedDurationMs = durationMs,
                 selectedVideoId = selectedVideoId,
             )
                 .onSuccess { bundle ->
+                    val preferredHeight = userPreferencesRepository.preferredVideoQualityFlow.first()
+                    val (activeStream, selectedHeight) = if (preferredHeight != null && preferredHeight > 0) {
+                        val matching = bundle.availableStreams.firstOrNull { (it.height ?: 0) == preferredHeight }
+                        if (matching != null) matching to preferredHeight
+                        else bundle.defaultStream to null
+                    } else {
+                        bundle.defaultStream to null
+                    }
+
                     _uiState.value = SyncedVideoUiState.Ready(
                         bundle = bundle,
-                        activeStream = bundle.defaultStream,
-                        selectedHeight = null,
+                        activeStream = activeStream,
+                        selectedHeight = selectedHeight,
                     )
-                    prepareMediaItem(bundle.defaultStream.url)
+                    prepareMediaItem(activeStream.url)
                 }
                 .onFailure { error ->
                     _uiState.value = SyncedVideoUiState.Error(
                         message = error.message ?: "Unable to resolve video stream",
-                        noMatchingVideo = error.message?.startsWith("No verified music video found") == true,
+                        noMatchingVideo = error.message?.startsWith("No video found") == true,
                     )
                 }
         }
@@ -197,6 +226,9 @@ class SyncedVideoViewModel @Inject constructor(
     }
 
     fun selectQuality(height: Int?) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPreferredVideoQuality(height)
+        }
         val current = _uiState.value as? SyncedVideoUiState.Ready ?: return
         val targetStream = if (height == null || height <= 0) {
             current.bundle.defaultStream
@@ -211,12 +243,76 @@ class SyncedVideoViewModel @Inject constructor(
         )
         if (_playerInitialized) {
             val currentPos = player.currentPosition
-            val isPlaying = player.isPlaying
+            val isPlaying = player.playWhenReady
             val mediaItem = MediaItem.Builder().setUri(targetStream.url).build()
             player.setMediaItem(mediaItem)
             player.seekTo(currentPos)
             player.prepare()
             if (isPlaying) player.play()
+        }
+    }
+
+    fun refreshCurrentVideoLink() {
+        val title = currentTitle ?: return
+        val artist = currentArtist ?: return
+        val genre = currentGenre
+        val durationMs = currentDurationMs
+        val ready = _uiState.value as? SyncedVideoUiState.Ready
+        val currentPos = if (_playerInitialized) player.currentPosition else 0L
+        val wasPlaying = if (_playerInitialized) player.playWhenReady else false
+
+        if (ready != null) {
+            videoRepository.invalidate(ready.bundle.videoId)
+            _uiState.value = ready.copy(isRefreshing = true)
+        } else {
+            _uiState.value = SyncedVideoUiState.Loading
+        }
+
+        currentKey = null
+        loadJob?.cancel()
+
+        loadJob = viewModelScope.launch {
+            val selectedVideoId = videoRepository.savedVideoOverride(title, artist)
+            videoRepository.resolveVideo(
+                trackTitle = title,
+                trackArtist = artist,
+                genre = genre,
+                expectedDurationMs = durationMs,
+                selectedVideoId = selectedVideoId,
+                forceRefresh = true,
+            ).onSuccess { bundle ->
+                val preferredHeight = userPreferencesRepository.preferredVideoQualityFlow.first()
+                val (activeStream, selectedHeight) = if (preferredHeight != null && preferredHeight > 0) {
+                    val matching = bundle.availableStreams.firstOrNull { (it.height ?: 0) == preferredHeight }
+                    if (matching != null) matching to preferredHeight
+                    else bundle.defaultStream to null
+                } else {
+                    bundle.defaultStream to null
+                }
+
+                _uiState.value = SyncedVideoUiState.Ready(
+                    bundle = bundle,
+                    activeStream = activeStream,
+                    selectedHeight = selectedHeight,
+                    isRefreshing = false,
+                )
+
+                if (_playerInitialized || _isVideoActive.value) {
+                    val mediaItem = MediaItem.Builder().setUri(activeStream.url).build()
+                    player.setMediaItem(mediaItem)
+                    if (currentPos > 0L) {
+                        player.seekTo(currentPos)
+                    }
+                    player.prepare()
+                    if (wasPlaying) {
+                        player.play()
+                    }
+                }
+            }.onFailure { error ->
+                _uiState.value = SyncedVideoUiState.Error(
+                    message = error.message ?: "Unable to refresh video stream",
+                )
+            }
         }
     }
 
@@ -226,31 +322,25 @@ class SyncedVideoViewModel @Inject constructor(
             selectQuality(null)
             return
         }
-        videoRepository.invalidate(ready.bundle.videoId)
-        if (_playerInitialized) {
-            player.stop()
-            player.clearMediaItems()
-        }
         if (linkRefreshesLeft > 0) {
             linkRefreshesLeft--
-            currentKey = null
-            ready.bundle.let {
-                // reload current song
-            }
+            refreshCurrentVideoLink()
         } else {
             _uiState.value = SyncedVideoUiState.Error("Video stream unavailable")
         }
     }
 
-    fun openVideoPicker(title: String, artist: String, durationMs: Long?) {
+    fun openVideoPicker(title: String, artist: String, genre: String? = null, durationMs: Long? = null) {
         videoSearchJob?.cancel()
-        val request = VideoPickerRequest(title, artist, durationMs)
+        val request = VideoPickerRequest(title, artist, genre, durationMs)
         videoPickerRequest = request
+        val defaultQuery = videoRepository.fallbackVideoSearchQuery(title, artist, genre)
+        _currentSearchQuery.value = defaultQuery
         _videoPickerState.value = VideoPickerUiState.Loading
 
         videoSearchJob = viewModelScope.launch {
             val candidates = runCatching {
-                videoRepository.searchVideoCandidates(title, artist, durationMs)
+                videoRepository.searchVideoCandidates(title, artist, genre, durationMs)
             }.getOrElse { error ->
                 if (videoPickerRequest == request) {
                     _videoPickerState.value = VideoPickerUiState.Error(error.message ?: "Could not search videos")
@@ -261,6 +351,34 @@ class SyncedVideoViewModel @Inject constructor(
             _videoPickerState.value = VideoPickerUiState.Results(
                 candidates = candidates,
                 savedVideoId = videoRepository.savedVideoOverride(title, artist),
+            )
+        }
+    }
+
+    fun searchCustomQuery(query: String) {
+        videoSearchJob?.cancel()
+        val request = videoPickerRequest ?: return
+        _currentSearchQuery.value = query
+        _videoPickerState.value = VideoPickerUiState.Loading
+
+        videoSearchJob = viewModelScope.launch {
+            val candidates = runCatching {
+                videoRepository.searchByCustomQuery(
+                    query = query,
+                    expectedDurationMs = request.durationMs,
+                    wantedTitle = request.title,
+                    wantedArtist = request.artist,
+                )
+            }.getOrElse { error ->
+                if (videoPickerRequest == request) {
+                    _videoPickerState.value = VideoPickerUiState.Error(error.message ?: "Search failed")
+                }
+                return@launch
+            }
+            if (videoPickerRequest != request) return@launch
+            _videoPickerState.value = VideoPickerUiState.Results(
+                candidates = candidates,
+                savedVideoId = videoRepository.savedVideoOverride(request.title, request.artist),
             )
         }
     }
@@ -277,7 +395,7 @@ class SyncedVideoViewModel @Inject constructor(
         videoRepository.saveVideoOverride(request.title, request.artist, candidate.videoId)
         dismissVideoPicker()
         currentKey = null
-        loadVideo(request.title, request.artist, request.durationMs)
+        loadVideo(request.title, request.artist, request.genre, request.durationMs)
     }
 
     fun selectVideoUrl(input: String): Boolean {
@@ -286,7 +404,7 @@ class SyncedVideoViewModel @Inject constructor(
         videoRepository.saveVideoOverride(request.title, request.artist, videoId)
         dismissVideoPicker()
         currentKey = null
-        loadVideo(request.title, request.artist, request.durationMs)
+        loadVideo(request.title, request.artist, request.genre, request.durationMs)
         return true
     }
 
@@ -295,7 +413,7 @@ class SyncedVideoViewModel @Inject constructor(
         videoRepository.clearVideoOverride(request.title, request.artist)
         dismissVideoPicker()
         currentKey = null
-        loadVideo(request.title, request.artist, request.durationMs)
+        loadVideo(request.title, request.artist, request.genre, request.durationMs)
     }
 
     @OptIn(UnstableApi::class)

@@ -122,6 +122,7 @@ import androidx.compose.material.icons.filled.SmartDisplay
 import com.lostf1sh.pixelplayeross.presentation.video.SyncedVideoViewModel
 import com.lostf1sh.pixelplayeross.presentation.video.SyncedCoverVideoPlayer
 import com.lostf1sh.pixelplayeross.presentation.video.SyncedVideoDialog
+import com.lostf1sh.pixelplayeross.presentation.video.VideoCandidatePickerDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.derivedStateOf
@@ -269,7 +270,7 @@ fun FullPlayerContent(
 
     LaunchedEffect(song.id, isSyncedVideoActive, syncedVideoEnabled) {
         if (syncedVideoEnabled && isSyncedVideoActive) {
-            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.duration)
+            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.genre, song.duration)
         }
     }
 
@@ -277,7 +278,7 @@ fun FullPlayerContent(
         val nextActive = !isSyncedVideoActive
         syncedVideoViewModel.setVideoActive(nextActive)
         if (nextActive) {
-            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.duration)
+            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.genre, song.duration)
         }
     }
     
@@ -578,6 +579,7 @@ fun FullPlayerContent(
                 viewModel = syncedVideoViewModel,
                 trackTitle = song.title,
                 trackArtist = song.displayArtist,
+                genre = song.genre,
                 currentPositionProvider = currentPositionProvider,
                 audioDurationMs = song.duration,
                 isPlayingProvider = isPlayingProvider,
@@ -1097,11 +1099,18 @@ fun FullPlayerContent(
             viewModel = syncedVideoViewModel,
             trackTitle = song.title,
             trackArtist = song.displayArtist,
+            genre = song.genre,
             currentPositionProvider = currentPositionProvider,
             audioDurationMs = song.duration,
             isPlayingProvider = isPlayingProvider,
             onPlayPause = onPlayPause,
             onSeekTo = onSeek,
+        )
+
+        VideoCandidatePickerDialog(
+            viewModel = syncedVideoViewModel,
+            trackTitle = song.title,
+            trackArtist = song.displayArtist,
         )
     }
 }

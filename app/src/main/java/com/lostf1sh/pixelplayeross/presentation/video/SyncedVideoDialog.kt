@@ -2,6 +2,8 @@ package com.lostf1sh.pixelplayeross.presentation.video
 
 import android.app.Activity
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -12,9 +14,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,7 +33,9 @@ import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -71,6 +78,7 @@ fun SyncedVideoDialog(
     viewModel: SyncedVideoViewModel,
     trackTitle: String,
     trackArtist: String,
+    genre: String? = null,
     currentPositionProvider: () -> Long,
     audioDurationMs: Long,
     isPlayingProvider: () -> Boolean,
@@ -88,6 +96,28 @@ fun SyncedVideoDialog(
     var seekPositionMs by remember { mutableFloatStateOf(0f) }
     var currentPositionMs by remember { mutableLongStateOf(currentPositionProvider()) }
     var isPlaying by remember { mutableStateOf(isPlayingProvider()) }
+
+    var videoAspectRatio by remember(uiState) {
+        val stream = (uiState as? SyncedVideoUiState.Ready)?.activeStream
+        val w = stream?.width
+        val h = stream?.height
+        val ratio = if (w != null && h != null && h > 0) w.toFloat() / h.toFloat() else 16f / 9f
+        mutableFloatStateOf(ratio)
+    }
+
+    DisposableEffect(viewModel.player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    videoAspectRatio = videoSize.width.toFloat() / videoSize.height.toFloat()
+                }
+            }
+        }
+        viewModel.player.addListener(listener)
+        onDispose {
+            viewModel.player.removeListener(listener)
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (isActive) {
@@ -107,14 +137,21 @@ fun SyncedVideoDialog(
     }
 
     DisposableEffect(view) {
-        val window = (view.context as? Activity)?.window
+        val activity = (view.context as? Activity)
             ?: generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
-                .filterIsInstance<Activity>().firstOrNull()?.window
+                .filterIsInstance<Activity>().firstOrNull()
+        val prevOrientation = activity?.requestedOrientation
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+
+        val window = activity?.window
         val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
         val prevBehavior = insetsController?.systemBarsBehavior
         insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         insetsController?.hide(WindowInsetsCompat.Type.systemBars())
         onDispose {
+            if (prevOrientation != null) {
+                activity.requestedOrientation = prevOrientation
+            }
             if (prevBehavior != null) insetsController.systemBarsBehavior = prevBehavior
             insetsController?.show(WindowInsetsCompat.Type.systemBars())
         }
@@ -156,17 +193,33 @@ fun SyncedVideoDialog(
                 is SyncedVideoUiState.Ready -> {
                     val player = viewModel.player
 
-                    AndroidView(
-                        factory = { ctx ->
-                            SurfaceView(ctx).apply {
-                                player.setVideoSurfaceView(this)
-                            }
-                        },
-                        update = { surfaceView ->
-                            player.setVideoSurfaceView(surfaceView)
-                        },
+                    BoxWithConstraints(
                         modifier = Modifier.fillMaxSize(),
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val containerAspect = maxWidth / maxHeight
+                        val videoModifier = if (containerAspect > videoAspectRatio) {
+                            Modifier
+                                .fillMaxHeight()
+                                .aspectRatio(videoAspectRatio)
+                        } else {
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(videoAspectRatio)
+                        }
+
+                        AndroidView(
+                            factory = { ctx ->
+                                SurfaceView(ctx).apply {
+                                    player.setVideoSurfaceView(this)
+                                }
+                            },
+                            update = { surfaceView ->
+                                player.setVideoSurfaceView(surfaceView)
+                            },
+                            modifier = videoModifier,
+                        )
+                    }
 
                     DisposableEffect(Unit) {
                         onDispose {
@@ -245,10 +298,47 @@ fun SyncedVideoDialog(
                                     }
                                 }
 
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(6.dp))
 
+                                // Screen Rotation Button
                                 IconButton(
-                                    onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, audioDurationMs) }
+                                    onClick = {
+                                        val activity = (view.context as? Activity)
+                                            ?: generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
+                                                .filterIsInstance<Activity>().firstOrNull()
+                                        val currentOrientation = activity?.resources?.configuration?.orientation
+                                        activity?.requestedOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                        } else {
+                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ScreenRotation,
+                                        contentDescription = stringResource(R.string.video_rotate_screen),
+                                        tint = Color.White,
+                                    )
+                                }
+
+                                Spacer(Modifier.width(6.dp))
+
+                                // Refresh Link Button
+                                IconButton(
+                                    onClick = { viewModel.refreshCurrentVideoLink() }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = stringResource(R.string.video_refresh_link),
+                                        tint = Color.White,
+                                    )
+                                }
+
+                                Spacer(Modifier.width(6.dp))
+
+                                // Search / Choose Video Button
+                                IconButton(
+                                    onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) }
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Search,
@@ -257,7 +347,7 @@ fun SyncedVideoDialog(
                                     )
                                 }
 
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(6.dp))
 
                                 IconButton(onClick = { viewModel.setFullscreen(false) }) {
                                     Icon(

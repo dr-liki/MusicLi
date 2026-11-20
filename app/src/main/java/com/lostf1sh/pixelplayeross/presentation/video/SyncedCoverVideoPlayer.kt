@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
@@ -66,6 +67,7 @@ fun SyncedCoverVideoPlayer(
     viewModel: SyncedVideoViewModel,
     trackTitle: String,
     trackArtist: String,
+    genre: String? = null,
     currentPositionProvider: () -> Long,
     audioDurationMs: Long,
     isPlayingProvider: () -> Boolean,
@@ -127,13 +129,13 @@ fun SyncedCoverVideoPlayer(
                     Spacer(Modifier.padding(top = 10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(
-                            onClick = { viewModel.loadVideo(trackTitle, trackArtist, audioDurationMs) },
+                            onClick = { viewModel.loadVideo(trackTitle, trackArtist, genre, audioDurationMs) },
                             shape = RoundedCornerShape(12.dp),
                         ) {
                             Text("Retry")
                         }
                         FilledTonalButton(
-                            onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, audioDurationMs) },
+                            onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) },
                             shape = RoundedCornerShape(12.dp),
                         ) {
                             Text("Choose Video")
@@ -181,11 +183,14 @@ fun SyncedCoverVideoPlayer(
                         val now = SystemClock.elapsedRealtime()
 
                         if (isPlaying) {
-                            if (!player.isPlaying && player.playbackState == androidx.media3.common.Player.STATE_READY) {
+                            if (!player.playWhenReady) {
                                 player.play()
                             }
+                            if (player.playbackState == androidx.media3.common.Player.STATE_IDLE) {
+                                player.prepare()
+                            }
                         } else {
-                            if (player.isPlaying) {
+                            if (player.playWhenReady) {
                                 player.pause()
                             }
                         }
@@ -274,9 +279,23 @@ fun SyncedCoverVideoPlayer(
 
                             Spacer(Modifier.weight(1f))
 
+                            // "Refresh Link" Button
+                            IconButton(
+                                onClick = { viewModel.refreshCurrentVideoLink() },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.video_refresh_link),
+                                    tint = Color.White,
+                                )
+                            }
+
+                            Spacer(Modifier.width(4.dp))
+
                             // "Choose Video" Candidate Picker Icon Button (Option 3)
                             IconButton(
-                                onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, audioDurationMs) },
+                                onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) },
                                 modifier = Modifier.size(36.dp),
                             ) {
                                 Icon(

@@ -11,10 +11,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -30,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,7 +51,9 @@ fun VideoCandidatePickerDialog(
     trackArtist: String,
 ) {
     val state by viewModel.videoPickerState.collectAsStateWithLifecycle()
+    val defaultSearchQuery by viewModel.currentSearchQuery.collectAsStateWithLifecycle()
     var videoLink by remember(trackTitle, trackArtist) { mutableStateOf("") }
+    var searchQuery by remember(defaultSearchQuery) { mutableStateOf(defaultSearchQuery) }
 
     when (val picker = state) {
         VideoPickerUiState.Hidden -> Unit
@@ -53,17 +63,23 @@ fun VideoCandidatePickerDialog(
                 title = { Text(stringResource(R.string.video_choose_video)) },
                 text = {
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text(stringResource(R.string.video_searching, trackTitle))
-                        }
-                        Spacer(Modifier.height(12.dp))
                         VideoLinkInput(
                             videoLink = videoLink,
                             onVideoLinkChange = { videoLink = it },
                             onUseLink = { viewModel.selectVideoUrl(videoLink) },
                         )
+                        Spacer(Modifier.height(8.dp))
+                        VideoSearchInput(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            onSearch = { viewModel.searchCustomQuery(searchQuery) },
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(R.string.video_searching, trackTitle))
+                        }
                     }
                 },
                 confirmButton = {
@@ -77,7 +93,23 @@ fun VideoCandidatePickerDialog(
             AlertDialog(
                 onDismissRequest = viewModel::dismissVideoPicker,
                 title = { Text(stringResource(R.string.video_search_failed)) },
-                text = { Text(picker.message) },
+                text = {
+                    Column {
+                        VideoLinkInput(
+                            videoLink = videoLink,
+                            onVideoLinkChange = { videoLink = it },
+                            onUseLink = { viewModel.selectVideoUrl(videoLink) },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        VideoSearchInput(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            onSearch = { viewModel.searchCustomQuery(searchQuery) },
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(picker.message, color = MaterialTheme.colorScheme.error)
+                    }
+                },
                 confirmButton = {
                     TextButton(onClick = viewModel::dismissVideoPicker) {
                         Text(stringResource(android.R.string.ok))
@@ -96,11 +128,17 @@ fun VideoCandidatePickerDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(8.dp))
                         VideoLinkInput(
                             videoLink = videoLink,
                             onVideoLinkChange = { videoLink = it },
                             onUseLink = { viewModel.selectVideoUrl(videoLink) },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        VideoSearchInput(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            onSearch = { viewModel.searchCustomQuery(searchQuery) },
                         )
                         Spacer(Modifier.height(8.dp))
                         if (picker.candidates.isEmpty()) {
@@ -109,7 +147,7 @@ fun VideoCandidatePickerDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         } else {
-                            LazyColumn(modifier = Modifier.height(300.dp)) {
+                            LazyColumn(modifier = Modifier.height(280.dp)) {
                                 items(picker.candidates, key = { it.videoId }) { candidate ->
                                     val isSelected = candidate.videoId == picker.savedVideoId
                                     Surface(
@@ -134,7 +172,7 @@ fun VideoCandidatePickerDialog(
                                                     candidate.durationSeconds?.let {
                                                         append(" • ").append(formatSeconds(it))
                                                     }
-                                                    append(" • ").append("likely match")
+                                                    append(" • ").append(stringResource(R.string.video_candidate_likely_match))
                                                 },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -194,6 +232,59 @@ internal fun VideoLinkInput(
             ),
         ) {
             Text(stringResource(R.string.video_use_link))
+        }
+    }
+}
+
+@Composable
+internal fun VideoSearchInput(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            placeholder = { Text(stringResource(R.string.video_search_query_placeholder), maxLines = 1) },
+            singleLine = true,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Filled.Clear,
+                            contentDescription = "Clear",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(12.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        FilledTonalButton(
+            onClick = onSearch,
+            enabled = searchQuery.isNotBlank(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+        ) {
+            Text(stringResource(R.string.video_search_button))
         }
     }
 }
