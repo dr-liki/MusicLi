@@ -69,9 +69,10 @@ class VideoCandidateMatchTest {
     @Test
     fun fallbackQueryIncludesKeytermsGenreAnd4K8KTags() {
         val extractor = io.mockk.mockk<YouTubeStreamExtractor>(relaxed = true)
+        val dao = io.mockk.mockk<com.lostf1sh.pixelplayeross.data.database.SyncedVideoDao>(relaxed = true)
         val http = okhttp3.OkHttpClient()
         val context = io.mockk.mockk<android.content.Context>(relaxed = true)
-        val repo = SyncedVideoRepository(extractor, http, context)
+        val repo = SyncedVideoRepository(extractor, dao, http, context)
 
         val queryWithGenre = repo.fallbackVideoSearchQuery("Blinding Lights", "The Weeknd", "Synthwave")
         assertTrue(queryWithGenre.contains("Blinding Lights"))

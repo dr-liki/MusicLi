@@ -129,7 +129,7 @@ fun SyncedCoverVideoPlayer(
                     Spacer(Modifier.padding(top = 10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(
-                            onClick = { viewModel.loadVideo(trackTitle, trackArtist, genre, audioDurationMs) },
+                            onClick = { viewModel.loadVideo(trackTitle, trackArtist, genre, audioDurationMs, initialPositionMs = currentPositionProvider()) },
                             shape = RoundedCornerShape(12.dp),
                         ) {
                             Text("Retry")
@@ -195,12 +195,13 @@ fun SyncedCoverVideoPlayer(
                             }
                         }
 
-                        if (absDrift > 600L && now - lastSeekTimeMs > 1000L) {
+                        val isBuffering = player.playbackState == androidx.media3.common.Player.STATE_BUFFERING
+                        if (!isBuffering && absDrift > 600L && now - lastSeekTimeMs > 1000L) {
                             // Hard drift: seek directly to target position
                             lastSeekTimeMs = now
                             player.seekTo(targetVideoPos)
                             player.playbackParameters = PlaybackParameters(1.0f)
-                        } else if (absDrift <= 600L) {
+                        } else if (!isBuffering && absDrift <= 600L) {
                             when {
                                 driftMs > 200L -> player.playbackParameters = PlaybackParameters(0.85f)
                                 driftMs < -200L -> player.playbackParameters = PlaybackParameters(1.15f)

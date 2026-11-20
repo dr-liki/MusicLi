@@ -72,6 +72,7 @@ class ModuleSchemaValidator @Inject constructor(
                 validatePreferenceEntries(jsonElement, section.key, errors)
             }
             BackupSection.AUDIO_BOOKMARKS -> validateAudioBookmarks(jsonElement.asJsonArray, errors)
+            BackupSection.SYNCED_VIDEOS -> validateSyncedVideos(jsonElement.asJsonArray, errors)
         }
 
         return if (errors.any { it.severity == Severity.ERROR }) {
@@ -191,6 +192,24 @@ class ModuleSchemaValidator @Inject constructor(
             val content = obj.get("content")?.asString ?: ""
             if (content.length > MAX_STRING_LENGTH) {
                 errors.add(ValidationError("LYRICS_TOO_LONG", "Lyrics[$i]: content exceeds max length", module = "lyrics", severity = Severity.WARNING))
+            }
+        }
+    }
+
+    private fun validateSyncedVideos(array: com.google.gson.JsonArray, errors: MutableList<ValidationError>) {
+        array.forEachIndexed { i, element ->
+            if (!element.isJsonObject) return@forEachIndexed
+            val obj = element.asJsonObject
+            val videoId = readStringField(obj, "videoId", "video_id")
+            if (videoId.isNullOrBlank()) {
+                errors.add(
+                    ValidationError(
+                        "INVALID_VIDEO_ID",
+                        "SyncedVideos[$i]: missing or blank videoId",
+                        module = BackupSection.SYNCED_VIDEOS.key,
+                        severity = Severity.WARNING,
+                    )
+                )
             }
         }
     }

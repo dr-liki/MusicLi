@@ -2,10 +2,15 @@ package com.lostf1sh.pixelplayeross.data.video
 
 import android.content.Context
 import android.util.Log
+import com.lostf1sh.pixelplayeross.data.database.SyncedVideoDao
+import com.lostf1sh.pixelplayeross.data.database.SyncedVideoEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.concurrent.ConcurrentHashMap
@@ -20,12 +25,48 @@ private const val OVERRIDE_PREFS_NAME = "synced_video_overrides"
 @Singleton
 class SyncedVideoRepository @Inject constructor(
     private val streamExtractor: YouTubeStreamExtractor,
+    private val syncedVideoDao: SyncedVideoDao,
     private val http: OkHttpClient,
     @ApplicationContext private val appContext: Context,
 ) {
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cache = ConcurrentHashMap<String, CachedVideoBundle>()
+    private val memoryOverrides = ConcurrentHashMap<String, String>()
     private val savedOffsets by lazy { appContext.getSharedPreferences(OFFSET_PREFS_NAME, Context.MODE_PRIVATE) }
     private val savedOverrides by lazy { appContext.getSharedPreferences(OVERRIDE_PREFS_NAME, Context.MODE_PRIVATE) }
+
+    init {
+        repositoryScope.launch {
+            // Load all database entities into memory cache
+            val entities = runCatching { syncedVideoDao.getAll() }.getOrDefault(emptyList())
+            for (entity in entities) {
+                memoryOverrides[entity.songKey] = entity.videoId
+            }
+            // Migrate any legacy SharedPreferences overrides to Room database
+            runCatching {
+                val legacyAll = savedOverrides.all
+                for ((key, value) in legacyAll) {
+                    val videoId = value as? String ?: continue
+                    if (!memoryOverrides.containsKey(key)) {
+                        memoryOverrides[key] = videoId
+                        val parts = key.split("|")
+                        val title = parts.getOrNull(0) ?: key
+                        val artist = parts.getOrNull(1) ?: ""
+                        syncedVideoDao.upsert(
+                            SyncedVideoEntity(
+                                songKey = key,
+                                title = title,
+                                artist = artist,
+                                videoId = videoId,
+                                isManualOverride = true,
+                                updatedAtMs = System.currentTimeMillis(),
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     private data class CachedVideoBundle(
         val bundle: SyncedVideoStreamBundle,
@@ -40,20 +81,53 @@ class SyncedVideoRepository @Inject constructor(
 
     fun savedVideoOverride(title: String, artist: String): String? {
         val key = videoOverrideKey(title, artist)
-        return savedOverrides.getString(key, null)
+        return memoryOverrides[key] ?: savedOverrides.getString(key, null)
     }
 
-    fun saveVideoOverride(title: String, artist: String, videoId: String) {
+    suspend fun getSavedVideoEntity(title: String, artist: String): SyncedVideoEntity? = withContext(Dispatchers.IO) {
         val key = videoOverrideKey(title, artist)
+        syncedVideoDao.getByKey(key)
+    }
+
+    fun saveVideoOverride(
+        title: String,
+        artist: String,
+        videoId: String,
+        videoTitle: String? = null,
+        videoChannel: String? = null,
+        durationSeconds: Int? = null,
+    ) {
+        val key = videoOverrideKey(title, artist)
+        memoryOverrides[key] = videoId
         savedOverrides.edit().putString(key, videoId).apply()
         invalidate(videoId)
+
+        repositoryScope.launch {
+            syncedVideoDao.upsert(
+                SyncedVideoEntity(
+                    songKey = key,
+                    title = title,
+                    artist = artist,
+                    videoId = videoId,
+                    videoTitle = videoTitle,
+                    videoChannel = videoChannel,
+                    durationSeconds = durationSeconds,
+                    isManualOverride = true,
+                    updatedAtMs = System.currentTimeMillis(),
+                )
+            )
+        }
     }
 
     fun clearVideoOverride(title: String, artist: String) {
         val key = videoOverrideKey(title, artist)
-        val old = savedOverrides.getString(key, null)
+        val old = memoryOverrides.remove(key) ?: savedOverrides.getString(key, null)
         savedOverrides.edit().remove(key).apply()
         invalidate(old)
+
+        repositoryScope.launch {
+            syncedVideoDao.deleteByKey(key)
+        }
     }
 
     fun videoOverrideKey(title: String, artist: String): String =
@@ -68,20 +142,50 @@ class SyncedVideoRepository @Inject constructor(
         forceRefresh: Boolean = false,
     ): Result<SyncedVideoStreamBundle> = withContext(Dispatchers.IO) {
         runCatching {
-            val userOverride = selectedVideoId?.takeIf { it.isNotBlank() } ?: savedVideoOverride(trackTitle, trackArtist)
-            val targetVideoId = userOverride
-                ?: findOfficialVideoId(
+            val songKey = videoOverrideKey(trackTitle, trackArtist)
+            val dbEntity = if (selectedVideoId.isNullOrBlank() && !forceRefresh) {
+                syncedVideoDao.getByKey(songKey)
+            } else null
+
+            val userOverride = selectedVideoId?.takeIf { it.isNotBlank() }
+                ?: dbEntity?.videoId
+                ?: savedVideoOverride(trackTitle, trackArtist)
+
+            val (targetVideoId, isDirectOmv) = if (!userOverride.isNullOrBlank()) {
+                userOverride to (dbEntity?.isManualOverride != true)
+            } else {
+                val official = findOfficialVideoId(
                     trackTitle = trackTitle,
                     trackArtist = trackArtist,
                     expectedDurationMs = expectedDurationMs,
                 )
-                ?: findFallbackVideoId(
-                    trackTitle = trackTitle,
-                    trackArtist = trackArtist,
-                    genre = genre,
-                    expectedDurationMs = expectedDurationMs,
+                if (official != null) {
+                    official to true
+                } else {
+                    val fallback = findFallbackVideoId(
+                        trackTitle = trackTitle,
+                        trackArtist = trackArtist,
+                        genre = genre,
+                        expectedDurationMs = expectedDurationMs,
+                    ) ?: throw IllegalStateException("No video found for $trackTitle — $trackArtist")
+                    fallback to false
+                }
+            }
+
+            // Persist auto-discovered video match to Room if not yet recorded
+            if (dbEntity == null && targetVideoId.isNotBlank()) {
+                memoryOverrides[songKey] = targetVideoId
+                syncedVideoDao.upsert(
+                    SyncedVideoEntity(
+                        songKey = songKey,
+                        title = trackTitle,
+                        artist = trackArtist,
+                        videoId = targetVideoId,
+                        isManualOverride = false,
+                        updatedAtMs = System.currentTimeMillis(),
+                    )
                 )
-                ?: throw IllegalStateException("No video found for $trackTitle — $trackArtist")
+            }
 
             val now = System.currentTimeMillis()
             if (!forceRefresh) {
@@ -101,7 +205,7 @@ class SyncedVideoRepository @Inject constructor(
                 val rawBundle = streamExtractor.resolveVideoStreamBundle(targetVideoId)
                 rawBundle.copy(
                     introOffsetMs = introOffsetMs.await(),
-                    isDirectOmv = true,
+                    isDirectOmv = isDirectOmv,
                 )
             }
 

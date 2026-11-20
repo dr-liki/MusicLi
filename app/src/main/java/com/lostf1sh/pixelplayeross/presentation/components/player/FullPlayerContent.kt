@@ -270,7 +270,13 @@ fun FullPlayerContent(
 
     LaunchedEffect(song.id, isSyncedVideoActive, syncedVideoEnabled) {
         if (syncedVideoEnabled && isSyncedVideoActive) {
-            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.genre, song.duration)
+            syncedVideoViewModel.loadVideo(
+                song.title,
+                song.displayArtist,
+                song.genre,
+                song.duration,
+                initialPositionMs = currentPositionProvider(),
+            )
         }
     }
 
@@ -278,7 +284,13 @@ fun FullPlayerContent(
         val nextActive = !isSyncedVideoActive
         syncedVideoViewModel.setVideoActive(nextActive)
         if (nextActive) {
-            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.genre, song.duration)
+            syncedVideoViewModel.loadVideo(
+                song.title,
+                song.displayArtist,
+                song.genre,
+                song.duration,
+                initialPositionMs = currentPositionProvider(),
+            )
         }
     }
     

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -250,111 +252,125 @@ fun SyncedVideoDialog(
                                 .background(Color.Black.copy(alpha = 0.5f))
                                 .padding(24.dp),
                         ) {
-                            // Top Bar
-                            Row(
+                            // Top HUD: 3 distinct lines
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .align(Alignment.TopCenter),
-                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                // Line 1: Song title on left, Exit Fullscreen on right
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     Text(
                                         text = trackTitle,
                                         color = Color.White,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
                                     )
-                                    Text(
-                                        text = trackArtist,
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 13.sp,
-                                        maxLines = 1,
-                                    )
-                                }
-
-                                Surface(
-                                    onClick = { showQualityDialog = true },
-                                    shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.2f),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                    IconButton(
+                                        onClick = { viewModel.setFullscreen(false) },
+                                        modifier = Modifier.size(36.dp),
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Filled.HighQuality,
-                                            contentDescription = null,
+                                            imageVector = Icons.Filled.FullscreenExit,
+                                            contentDescription = "Exit Fullscreen",
                                             tint = Color.White,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            text = state.currentQualityLabel,
-                                            color = Color.White,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
                                         )
                                     }
                                 }
 
-                                Spacer(Modifier.width(6.dp))
+                                // Line 2: Artist name
+                                Text(
+                                    text = trackArtist,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
 
-                                // Screen Rotation Button
-                                IconButton(
-                                    onClick = {
-                                        val activity = (view.context as? Activity)
-                                            ?: generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
-                                                .filterIsInstance<Activity>().firstOrNull()
-                                        val currentOrientation = activity?.resources?.configuration?.orientation
-                                        activity?.requestedOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-                                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                        } else {
-                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                Spacer(Modifier.height(8.dp))
+
+                                // Line 3: Control buttons row below song name and artist name
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    // Quality Badge Pill
+                                    Surface(
+                                        onClick = { showQualityDialog = true },
+                                        shape = CircleShape,
+                                        color = Color.White.copy(alpha = 0.2f),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.HighQuality,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = state.currentQualityLabel,
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
                                         }
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ScreenRotation,
-                                        contentDescription = stringResource(R.string.video_rotate_screen),
-                                        tint = Color.White,
-                                    )
-                                }
 
-                                Spacer(Modifier.width(6.dp))
+                                    // Screen Rotation Button (forces sensor landscape or portrait)
+                                    IconButton(
+                                        onClick = {
+                                            val activity = (view.context as? Activity)
+                                                ?: generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
+                                                    .filterIsInstance<Activity>().firstOrNull()
+                                            val currentOrientation = activity?.resources?.configuration?.orientation
+                                            val targetOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                            } else {
+                                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                            }
+                                            activity?.requestedOrientation = targetOrientation
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.ScreenRotation,
+                                            contentDescription = stringResource(R.string.video_rotate_screen),
+                                            tint = Color.White,
+                                        )
+                                    }
 
-                                // Refresh Link Button
-                                IconButton(
-                                    onClick = { viewModel.refreshCurrentVideoLink() }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = stringResource(R.string.video_refresh_link),
-                                        tint = Color.White,
-                                    )
-                                }
+                                    // Refresh Link Button
+                                    IconButton(
+                                        onClick = { viewModel.refreshCurrentVideoLink() }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = stringResource(R.string.video_refresh_link),
+                                            tint = Color.White,
+                                        )
+                                    }
 
-                                Spacer(Modifier.width(6.dp))
-
-                                // Search / Choose Video Button
-                                IconButton(
-                                    onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Search,
-                                        contentDescription = stringResource(R.string.video_choose_video),
-                                        tint = Color.White,
-                                    )
-                                }
-
-                                Spacer(Modifier.width(6.dp))
-
-                                IconButton(onClick = { viewModel.setFullscreen(false) }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.FullscreenExit,
-                                        contentDescription = "Exit Fullscreen",
-                                        tint = Color.White,
-                                    )
+                                    // Search / Choose Video Button
+                                    IconButton(
+                                        onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Search,
+                                            contentDescription = stringResource(R.string.video_choose_video),
+                                            tint = Color.White,
+                                        )
+                                    }
                                 }
                             }
 

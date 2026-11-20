@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
@@ -17,20 +18,24 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
+import com.lostf1sh.pixelplayeross.data.video.ANDROID_VR_USER_AGENT
 import com.lostf1sh.pixelplayeross.data.video.ChunkedRangeDataSource
 import com.lostf1sh.pixelplayeross.data.video.SyncedVideoRepository
 import com.lostf1sh.pixelplayeross.data.video.SyncedVideoStreamBundle
 import com.lostf1sh.pixelplayeross.data.video.VideoSearchCandidate
+import com.lostf1sh.pixelplayeross.data.video.YOUTUBE_ORIGIN
 import com.lostf1sh.pixelplayeross.data.video.YouTubeVideoStream
 import com.lostf1sh.pixelplayeross.data.video.extractYoutubeVideoId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 import kotlin.math.abs
@@ -103,14 +108,27 @@ class SyncedVideoViewModel @Inject constructor(
     private var videoPickerRequest: VideoPickerRequest? = null
 
     private var _playerInitialized = false
+    private var pendingInitialPositionMs: Long? = null
 
     @OptIn(UnstableApi::class)
     val player: ExoPlayer by lazy {
         _playerInitialized = true
         val httpFactory = OkHttpDataSource.Factory(okHttpClient)
+            .setUserAgent(ANDROID_VR_USER_AGENT)
+            .setDefaultRequestProperties(
+                mapOf(
+                    "User-Agent" to ANDROID_VR_USER_AGENT,
+                    "Origin" to YOUTUBE_ORIGIN,
+                    "Referer" to "$YOUTUBE_ORIGIN/",
+                )
+            )
         val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, httpFactory)
         val chunkedFactory = DataSource.Factory {
-            ChunkedRangeDataSource(defaultDataSourceFactory.createDataSource(), chunkSize = 256 * 1024L)
+            ChunkedRangeDataSource(
+                upstream = defaultDataSourceFactory.createDataSource(),
+                chunkSize = 512 * 1024L,
+                refresher = { failedUri -> refreshStreamUrlSync(failedUri) },
+            )
         }
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(15_000, 50_000, 2_500, 5_000)
@@ -135,6 +153,36 @@ class SyncedVideoViewModel @Inject constructor(
             }
     }
 
+    private fun refreshStreamUrlSync(failedUri: Uri): ChunkedRangeDataSource.Replacement? {
+        val ready = _uiState.value as? SyncedVideoUiState.Ready ?: return null
+        val videoId = ready.bundle.videoId
+        val title = currentTitle ?: return null
+        val artist = currentArtist ?: return null
+        return runCatching {
+            runBlocking(Dispatchers.IO) {
+                val freshBundle = videoRepository.resolveVideo(
+                    trackTitle = title,
+                    trackArtist = artist,
+                    genre = currentGenre,
+                    expectedDurationMs = currentDurationMs,
+                    selectedVideoId = videoId,
+                    forceRefresh = true,
+                ).getOrNull() ?: return@runBlocking null
+
+                val targetStream = if (ready.selectedHeight != null && ready.selectedHeight > 0) {
+                    freshBundle.availableStreams.firstOrNull { it.height == ready.selectedHeight }
+                        ?: freshBundle.defaultStream
+                } else {
+                    freshBundle.defaultStream
+                }
+                ChunkedRangeDataSource.Replacement(
+                    uri = Uri.parse(targetStream.url),
+                    requestHeaders = targetStream.requestHeaders,
+                )
+            }
+        }.getOrNull()
+    }
+
     fun setVideoActive(active: Boolean) {
         _isVideoActive.value = active
         if (!active) {
@@ -153,11 +201,18 @@ class SyncedVideoViewModel @Inject constructor(
         setVideoActive(!_isVideoActive.value)
     }
 
-    fun loadVideo(title: String, artist: String, genre: String? = null, durationMs: Long? = null) {
+    fun loadVideo(
+        title: String,
+        artist: String,
+        genre: String? = null,
+        durationMs: Long? = null,
+        initialPositionMs: Long? = null,
+    ) {
         currentTitle = title
         currentArtist = artist
         currentGenre = genre
         currentDurationMs = durationMs
+        pendingInitialPositionMs = initialPositionMs
 
         val selectedVideoId = videoRepository.savedVideoOverride(title, artist)
         val key = "$title|$artist|$genre|$durationMs|$selectedVideoId"
@@ -206,7 +261,9 @@ class SyncedVideoViewModel @Inject constructor(
                         activeStream = activeStream,
                         selectedHeight = selectedHeight,
                     )
-                    prepareMediaItem(activeStream.url)
+                    val initialPos = pendingInitialPositionMs ?: 0L
+                    pendingInitialPositionMs = null
+                    prepareMediaItem(activeStream.url, initialPos)
                 }
                 .onFailure { error ->
                     _uiState.value = SyncedVideoUiState.Error(
@@ -217,10 +274,14 @@ class SyncedVideoViewModel @Inject constructor(
         }
     }
 
-    private fun prepareMediaItem(url: String) {
+    private fun prepareMediaItem(url: String, startPositionMs: Long = 0L) {
         if (_playerInitialized || _isVideoActive.value) {
             val mediaItem = MediaItem.Builder().setUri(url).build()
-            player.setMediaItem(mediaItem)
+            if (startPositionMs > 0L) {
+                player.setMediaItem(mediaItem, startPositionMs)
+            } else {
+                player.setMediaItem(mediaItem)
+            }
             player.prepare()
         }
     }
@@ -245,8 +306,7 @@ class SyncedVideoViewModel @Inject constructor(
             val currentPos = player.currentPosition
             val isPlaying = player.playWhenReady
             val mediaItem = MediaItem.Builder().setUri(targetStream.url).build()
-            player.setMediaItem(mediaItem)
-            player.seekTo(currentPos)
+            player.setMediaItem(mediaItem, currentPos)
             player.prepare()
             if (isPlaying) player.play()
         }
@@ -299,10 +359,7 @@ class SyncedVideoViewModel @Inject constructor(
 
                 if (_playerInitialized || _isVideoActive.value) {
                     val mediaItem = MediaItem.Builder().setUri(activeStream.url).build()
-                    player.setMediaItem(mediaItem)
-                    if (currentPos > 0L) {
-                        player.seekTo(currentPos)
-                    }
+                    player.setMediaItem(mediaItem, currentPos.coerceAtLeast(0L))
                     player.prepare()
                     if (wasPlaying) {
                         player.play()
@@ -392,7 +449,14 @@ class SyncedVideoViewModel @Inject constructor(
 
     fun selectVideo(candidate: VideoSearchCandidate) {
         val request = videoPickerRequest ?: return
-        videoRepository.saveVideoOverride(request.title, request.artist, candidate.videoId)
+        videoRepository.saveVideoOverride(
+            title = request.title,
+            artist = request.artist,
+            videoId = candidate.videoId,
+            videoTitle = candidate.title,
+            videoChannel = candidate.channel,
+            durationSeconds = candidate.durationSeconds,
+        )
         dismissVideoPicker()
         currentKey = null
         loadVideo(request.title, request.artist, request.genre, request.durationMs)

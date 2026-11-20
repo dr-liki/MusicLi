@@ -20,7 +20,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "YouTubeStreamExtractor"
-private const val YOUTUBE_ORIGIN = "https://www.youtube.com"
+const val YOUTUBE_ORIGIN = "https://www.youtube.com"
+const val ANDROID_VR_USER_AGENT =
+    "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12; en_US; Quest 3; Build/SQ3A.220605.009.A1) gzip"
+private const val VISIONOS_USER_AGENT =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 private const val YOUTUBE_WEB_USER_AGENT =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -97,10 +101,13 @@ class YouTubeStreamExtractor @Inject constructor(
         val now = System.currentTimeMillis()
         initialize()
 
-        // 1. Try fast InnerTube iOS player endpoint first (gives direct unthrottled streams without cipher)
-        resolveVideoStreamBundleWithIosClient(videoId, now)?.let { return@withContext it }
+        // 1. Try fast token-free InnerTube ANDROID_VR client (unbounded playback across all ranges)
+        resolveVideoStreamBundleWithAndroidVrClient(videoId, now)?.let { return@withContext it }
 
-        // 2. Fall back to NewPipeExtractor
+        // 2. Try VISIONOS client fallback
+        resolveVideoStreamBundleWithVisionOsClient(videoId, now)?.let { return@withContext it }
+
+        // 3. Fall back to NewPipeExtractor
         val info = try {
             StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId")
         } catch (error: kotlinx.coroutines.CancellationException) {
@@ -152,8 +159,9 @@ class YouTubeStreamExtractor @Inject constructor(
             throw IOException("No video stream resolutions available for $videoId")
         }
 
-        val defaultStream = availableStreams.firstOrNull { it.height == 1080 }
-            ?: availableStreams.firstOrNull { it.height == 720 }
+        // Default to 720p, if unavailable fall back to Auto / available best
+        val defaultStream = availableStreams.firstOrNull { it.height == 720 }
+            ?: availableStreams.firstOrNull { it.height == 1080 }
             ?: availableStreams.first()
 
         val pairedAudioUrl = info.audioStreams.maxByOrNull { it.bitrate }?.content
@@ -170,7 +178,7 @@ class YouTubeStreamExtractor @Inject constructor(
         )
     }
 
-    private suspend fun resolveVideoStreamBundleWithIosClient(
+    private suspend fun resolveVideoStreamBundleWithAndroidVrClient(
         videoId: String,
         now: Long,
     ): SyncedVideoStreamBundle? = withContext(Dispatchers.IO) {
@@ -179,14 +187,13 @@ class YouTubeStreamExtractor @Inject constructor(
                 {
                     "context": {
                         "client": {
-                            "clientName": "IOS",
-                            "clientVersion": "21.10.3",
-                            "clientScreen": "WATCH",
-                            "deviceMake": "Apple",
-                            "deviceModel": "iPhone16,2",
-                            "osName": "iPhone",
-                            "osVersion": "18.1.0.22B83",
-                            "platform": "MOBILE",
+                            "clientName": "ANDROID_VR",
+                            "clientVersion": "1.60.19",
+                            "deviceMake": "Oculus",
+                            "deviceModel": "Quest 3",
+                            "osName": "Android",
+                            "osVersion": "12",
+                            "androidSdkVersion": "32",
                             "hl": "en",
                             "gl": "US"
                         }
@@ -198,12 +205,13 @@ class YouTubeStreamExtractor @Inject constructor(
             """.trimIndent()
 
             val request = okhttp3.Request.Builder()
-                .url("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
+                .url("https://www.youtube.com/youtubei/v1/player?key=AIzaSyD-p045F_WzU-vA_YgX20SCx4KAo&prettyPrint=false")
                 .post(jsonBody.toRequestBody("application/json".toMediaType()))
-                .header("User-Agent", "com.google.ios.youtube/21.10.3 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)")
-                .header("X-Goog-Api-Format-Version", "2")
-                .header("X-YouTube-Client-Name", "5")
-                .header("X-YouTube-Client-Version", "21.10.3")
+                .header("User-Agent", ANDROID_VR_USER_AGENT)
+                .header("X-YouTube-Client-Name", "28")
+                .header("X-YouTube-Client-Version", "1.60.19")
+                .header("Origin", YOUTUBE_ORIGIN)
+                .header("Referer", "$YOUTUBE_ORIGIN/")
                 .build()
 
             val root = http.newCall(request).execute().use { response ->
@@ -253,8 +261,9 @@ class YouTubeStreamExtractor @Inject constructor(
                     durationMs = durationSec.takeIf { it > 0 }?.times(1_000L),
                     expiresAtEpochMs = now + 5 * 60 * 60 * 1000L,
                     requestHeaders = mapOf(
-                        "User-Agent" to "com.google.ios.youtube/21.10.3 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
-                        "Range" to "bytes=0-",
+                        "User-Agent" to ANDROID_VR_USER_AGENT,
+                        "Origin" to YOUTUBE_ORIGIN,
+                        "Referer" to "$YOUTUBE_ORIGIN/",
                     ),
                 )
             }
@@ -274,8 +283,8 @@ class YouTubeStreamExtractor @Inject constructor(
             val availableStreams = streamsByHeight.keys.sortedDescending().map { streamsByHeight[it]!! }
             if (availableStreams.isEmpty()) return@runCatching null
 
-            val defaultStream = availableStreams.firstOrNull { it.height == 1080 }
-                ?: availableStreams.firstOrNull { it.height == 720 }
+            val defaultStream = availableStreams.firstOrNull { it.height == 720 }
+                ?: availableStreams.firstOrNull { it.height == 1080 }
                 ?: availableStreams.first()
 
             SyncedVideoStreamBundle(
@@ -284,10 +293,134 @@ class YouTubeStreamExtractor @Inject constructor(
                 availableStreams = availableStreams,
                 pairedAudioStreamUrl = pairedAudioUrl,
                 pairedAudioHeaders = mapOf(
-                    "User-Agent" to "com.google.ios.youtube/21.10.3 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
-                    "Range" to "bytes=0-",
+                    "User-Agent" to ANDROID_VR_USER_AGENT,
+                    "Origin" to YOUTUBE_ORIGIN,
+                    "Referer" to "$YOUTUBE_ORIGIN/",
                 ),
-                clientName = "IOS",
+                clientName = "ANDROID_VR",
+            )
+        }.getOrNull()
+    }
+
+    private suspend fun resolveVideoStreamBundleWithVisionOsClient(
+        videoId: String,
+        now: Long,
+    ): SyncedVideoStreamBundle? = withContext(Dispatchers.IO) {
+        runCatching {
+            val jsonBody = """
+                {
+                    "context": {
+                        "client": {
+                            "clientName": "VISIONOS",
+                            "clientVersion": "0.1",
+                            "deviceMake": "Apple",
+                            "deviceModel": "RealityDevice14,1",
+                            "osName": "visionOS",
+                            "osVersion": "1.3.21O771",
+                            "hl": "en",
+                            "gl": "US"
+                        }
+                    },
+                    "videoId": "$videoId",
+                    "contentCheckOk": true,
+                    "racyCheckOk": true
+                }
+            """.trimIndent()
+
+            val request = okhttp3.Request.Builder()
+                .url("https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc&prettyPrint=false")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .header("User-Agent", VISIONOS_USER_AGENT)
+                .header("X-YouTube-Client-Name", "101")
+                .header("X-YouTube-Client-Version", "0.1")
+                .header("Origin", YOUTUBE_ORIGIN)
+                .header("Referer", "$YOUTUBE_ORIGIN/")
+                .build()
+
+            val root = http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@runCatching null
+                val bodyStr = response.body?.string() ?: return@runCatching null
+                JSONObject(bodyStr)
+            }
+
+            val status = root.optJSONObject("playabilityStatus")?.optString("status").orEmpty()
+            if (!status.equals("OK", ignoreCase = true)) return@runCatching null
+
+            val streamingData = root.optJSONObject("streamingData") ?: return@runCatching null
+            val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: return@runCatching null
+            val durationSec = root.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toLongOrNull() ?: 0L
+
+            var pairedAudioUrl: String? = null
+            var bestAudioBitrate = 0
+            val extractedStreams = mutableListOf<YouTubeVideoStream>()
+            for (i in 0 until adaptive.length()) {
+                val f = adaptive.optJSONObject(i) ?: continue
+                val mime = f.optString("mimeType")
+                if (mime.contains("audio", ignoreCase = true)) {
+                    val aUrl = f.optString("url").takeIf { it.isNotBlank() } ?: continue
+                    val aBitrate = f.optInt("bitrate", 0)
+                    if (aBitrate > bestAudioBitrate || (mime.contains("opus", ignoreCase = true) && pairedAudioUrl == null)) {
+                        bestAudioBitrate = aBitrate
+                        pairedAudioUrl = aUrl
+                    }
+                    continue
+                }
+                if (!mime.contains("video", ignoreCase = true)) continue
+                val streamUrl = f.optString("url").takeIf { it.isNotBlank() } ?: continue
+                val height = f.optInt("height", 0).takeIf { it > 0 }
+                    ?: parseResolutionHeight(f.optString("qualityLabel"), 0)
+                val width = f.optInt("width", 0).takeIf { it > 0 }
+                val bitrate = f.optInt("bitrate", 0)
+
+                extractedStreams += YouTubeVideoStream(
+                    videoId = videoId,
+                    url = streamUrl,
+                    itag = f.optInt("itag", 0).takeIf { it > 0 },
+                    resolution = f.optString("qualityLabel").ifBlank { "${height}p" },
+                    height = height,
+                    width = width,
+                    bitrate = bitrate,
+                    mimeType = mime.substringBefore(";"),
+                    durationMs = durationSec.takeIf { it > 0 }?.times(1_000L),
+                    expiresAtEpochMs = now + 5 * 60 * 60 * 1000L,
+                    requestHeaders = mapOf(
+                        "User-Agent" to VISIONOS_USER_AGENT,
+                        "Origin" to YOUTUBE_ORIGIN,
+                        "Referer" to "$YOUTUBE_ORIGIN/",
+                    ),
+                )
+            }
+            if (extractedStreams.isEmpty()) return@runCatching null
+
+            val streamsByHeight = extractedStreams
+                .filter { (it.height ?: 0) > 0 }
+                .groupBy { it.height!! }
+                .mapValues { (_, streams) ->
+                    streams.maxWithOrNull(
+                        compareBy<YouTubeVideoStream> {
+                            if (it.mimeType?.contains("mp4", ignoreCase = true) == true) 1 else 0
+                        }.thenBy { it.bitrate ?: 0 }
+                    )!!
+                }
+
+            val availableStreams = streamsByHeight.keys.sortedDescending().map { streamsByHeight[it]!! }
+            if (availableStreams.isEmpty()) return@runCatching null
+
+            val defaultStream = availableStreams.firstOrNull { it.height == 720 }
+                ?: availableStreams.firstOrNull { it.height == 1080 }
+                ?: availableStreams.first()
+
+            SyncedVideoStreamBundle(
+                videoId = videoId,
+                defaultStream = defaultStream,
+                availableStreams = availableStreams,
+                pairedAudioStreamUrl = pairedAudioUrl,
+                pairedAudioHeaders = mapOf(
+                    "User-Agent" to VISIONOS_USER_AGENT,
+                    "Origin" to YOUTUBE_ORIGIN,
+                    "Referer" to "$YOUTUBE_ORIGIN/",
+                ),
+                clientName = "VISIONOS",
             )
         }.getOrNull()
     }

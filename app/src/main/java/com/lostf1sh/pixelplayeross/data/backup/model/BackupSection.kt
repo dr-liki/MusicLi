@@ -84,6 +84,13 @@ enum class BackupSection(
         description = "Saved timestamps inside songs and audiobooks.",
         iconRes = R.drawable.round_bookmark_24,
         sinceVersion = 4
+    ),
+    SYNCED_VIDEOS(
+        key = "synced_videos",
+        label = "Synced Music Videos",
+        description = "Saved and matched video links for songs.",
+        iconRes = R.drawable.alt_video,
+        sinceVersion = 5
     );
 
     companion object {

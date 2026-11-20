@@ -975,13 +975,18 @@ constructor(
     }
 
     val preferredVideoQualityFlow: Flow<Int?> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.PREFERRED_VIDEO_QUALITY]?.takeIf { it > 0 }
+        val stored = preferences[PreferencesKeys.PREFERRED_VIDEO_QUALITY]
+        when {
+            stored == null -> 720 // Default quality is 720p
+            stored <= 0 -> null // User explicitly selected Auto
+            else -> stored
+        }
     }
 
     suspend fun setPreferredVideoQuality(height: Int?) {
         dataStore.edit { preferences ->
             if (height == null || height <= 0) {
-                preferences.remove(PreferencesKeys.PREFERRED_VIDEO_QUALITY)
+                preferences[PreferencesKeys.PREFERRED_VIDEO_QUALITY] = -1 // Explicit Auto
             } else {
                 preferences[PreferencesKeys.PREFERRED_VIDEO_QUALITY] = height
             }

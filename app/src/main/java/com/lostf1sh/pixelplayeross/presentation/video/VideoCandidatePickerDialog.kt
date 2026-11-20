@@ -1,5 +1,6 @@
 package com.lostf1sh.pixelplayeross.presentation.video
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -242,9 +243,8 @@ internal fun VideoSearchInput(
     onSearchQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
             value = searchQuery,
@@ -271,20 +271,25 @@ internal fun VideoSearchInput(
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
         )
-        Spacer(Modifier.width(8.dp))
-        FilledTonalButton(
-            onClick = onSearch,
-            enabled = searchQuery.isNotBlank(),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
         ) {
-            Text(stringResource(R.string.video_search_button))
+            FilledTonalButton(
+                onClick = onSearch,
+                enabled = searchQuery.isNotBlank(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Text(stringResource(R.string.video_search_button))
+            }
         }
     }
 }

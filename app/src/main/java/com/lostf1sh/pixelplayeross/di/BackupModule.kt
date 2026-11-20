@@ -16,6 +16,7 @@ import com.lostf1sh.pixelplayeross.data.backup.module.PlaybackHistoryModuleHandl
 import com.lostf1sh.pixelplayeross.data.backup.module.PlaylistsModuleHandler
 import com.lostf1sh.pixelplayeross.data.backup.module.QuickFillModuleHandler
 import com.lostf1sh.pixelplayeross.data.backup.module.SearchHistoryModuleHandler
+import com.lostf1sh.pixelplayeross.data.backup.module.SyncedVideosModuleHandler
 import com.lostf1sh.pixelplayeross.data.backup.module.TransitionsModuleHandler
 import dagger.Module
 import dagger.Provides
@@ -57,7 +58,8 @@ object BackupModule {
         quickFillHandler: QuickFillModuleHandler,
         artistImagesHandler: ArtistImagesModuleHandler,
         equalizerHandler: EqualizerModuleHandler,
-        audioBookmarksHandler: AudioBookmarksModuleHandler
+        audioBookmarksHandler: AudioBookmarksModuleHandler,
+        syncedVideosHandler: SyncedVideosModuleHandler
     ): Map<BackupSection, BackupModuleHandler> {
         return mapOf(
             BackupSection.PLAYLISTS to playlistsHandler,
@@ -71,7 +73,8 @@ object BackupModule {
             BackupSection.QUICK_FILL to quickFillHandler,
             BackupSection.ARTIST_IMAGES to artistImagesHandler,
             BackupSection.EQUALIZER to equalizerHandler,
-            BackupSection.AUDIO_BOOKMARKS to audioBookmarksHandler
+            BackupSection.AUDIO_BOOKMARKS to audioBookmarksHandler,
+            BackupSection.SYNCED_VIDEOS to syncedVideosHandler
         )
     }
 }

@@ -199,3 +199,32 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         )
     }
 }
+
+/**
+ * v6 -> v7: synced music videos — maps song keys to official or user-chosen video IDs,
+ * video metadata, and manual override status.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+                CREATE TABLE IF NOT EXISTS `synced_videos` (
+                    `song_key` TEXT NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `artist` TEXT NOT NULL,
+                    `video_id` TEXT NOT NULL,
+                    `video_title` TEXT,
+                    `video_channel` TEXT,
+                    `duration_seconds` INTEGER,
+                    `is_manual_override` INTEGER NOT NULL,
+                    `updated_at_ms` INTEGER NOT NULL,
+                    PRIMARY KEY(`song_key`)
+                )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_synced_videos_video_id` ON `synced_videos` (`video_id`)"
+        )
+    }
+}
+
