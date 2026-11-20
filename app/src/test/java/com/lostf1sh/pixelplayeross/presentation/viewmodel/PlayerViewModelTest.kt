@@ -150,6 +150,8 @@ class PlayerViewModelTest {
         coEvery { mockUserPreferencesRepository.folderSongsSortOptionFlow } returns flowOf(SortOption.FolderSongTitleAZ.storageKey)
         coEvery { mockUserPreferencesRepository.persistentShuffleEnabledFlow } returns flowOf(false)
         coEvery { mockUserPreferencesRepository.isShuffleOnFlow } returns flowOf(false)
+        coEvery { mockUserPreferencesRepository.discoverItemCountFlow } returns flowOf(10)
+        coEvery { mockUserPreferencesRepository.discoverRefreshIntervalMinutesFlow } returns flowOf(5)
         every { mockUserPreferencesRepository.repeatModeFlow } returns _repeatModeFlow
         coEvery { mockThemePreferencesRepository.playerThemePreferenceFlow } returns flowOf("Global")
         every { mockSyncManager.isSyncing } returns isSyncingFlow
@@ -190,6 +192,8 @@ class PlayerViewModelTest {
         every { mockMusicRepository.getPaginatedSongs(any(), any()) } returns flowOf(androidx.paging.PagingData.empty())
         every { mockMusicRepository.getPaginatedFavoriteSongs(any(), any()) } returns flowOf(androidx.paging.PagingData.empty())
         every { mockMusicRepository.getAudioFiles() } returns flowOf(emptyList())
+        every { mockMusicRepository.getAlbums(any(), any()) } returns flowOf(emptyList())
+        coEvery { mockMusicRepository.getSongsForAlbum(any()) } returns flowOf(emptyList())
         every { mockMusicRepository.getDistinctAlbumArtSongs() } returns flowOf(emptyList())
         every { mockMusicRepository.getHomeMixPreviewSongs(any()) } returns flowOf(emptyList())
         every { mockMusicRepository.getSongCountFlow() } returns flowOf(0)

@@ -49,14 +49,14 @@ class AppReleaseSource @Inject constructor(
     }
 
     companion object {
-        private const val PROJECT_URL = "https://github.com/PixelPlayerHQ/PixelPlayerOSS"
+        private const val PROJECT_URL = "https://github.com/dr-liki/PixelPlayerOSS"
 
         /** Release applicationId; debug builds add a suffix but should still see real releases. */
         internal const val PUBLISHED_PACKAGE = "com.lostf1sh.pixelplayeross"
         private const val FDROID_API = "https://f-droid.org/api/v1/packages"
         private const val FDROID_REPO = "https://f-droid.org/repo"
         private const val GITHUB_RELEASES_API =
-            "https://api.github.com/repos/PixelPlayerHQ/PixelPlayerOSS/releases?per_page=30"
+            "https://api.github.com/repos/dr-liki/PixelPlayerOSS/releases?per_page=30"
 
         fun fdroidPageUrl(packageName: String) = "https://f-droid.org/packages/$packageName/"
 
