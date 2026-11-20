@@ -791,6 +791,18 @@ object SettingsRegistry {
                 getValue = { it.showQueueHistory },
                 onToggle = { viewModel, checked -> viewModel.setShowQueueHistory(checked) }
             ),
+            SettingSpec(
+                id = "playback_synced_video",
+                itemKey = "item_playback_synced_video",
+                titleRes = R.string.setcat_synced_video_title,
+                subtitleRes = R.string.setcat_synced_video_subtitle,
+                category = SettingsCategory.PLAYBACK,
+                subscreenRoute = Screen.SettingsCategory.createRoute("playback"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("video", "music video", "youtube", "synced video", "watch video", "mv"),
+                getValue = { it.syncedVideoEnabled },
+                onToggle = { viewModel, checked -> viewModel.setSyncedVideoEnabled(checked) }
+            ),
 
             // --- BEHAVIOR CATEGORY ---
             SettingSpec(

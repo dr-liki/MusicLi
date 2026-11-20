@@ -284,6 +284,7 @@ constructor(
 
         val REPLAYGAIN_ENABLED = booleanPreferencesKey("replaygain_enabled")
         val REPLAYGAIN_USE_ALBUM_GAIN = booleanPreferencesKey("replaygain_use_album_gain")
+        val SYNCED_VIDEO_ENABLED = booleanPreferencesKey("enable_synced_video")
 
         val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val UPDATE_AUTO_CHECK = booleanPreferencesKey("update_auto_check")
@@ -959,6 +960,16 @@ constructor(
     suspend fun setReplayGainUseAlbumGain(useAlbumGain: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.REPLAYGAIN_USE_ALBUM_GAIN] = useAlbumGain
+        }
+    }
+
+    val syncedVideoEnabledFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.SYNCED_VIDEO_ENABLED] ?: true
+    }
+
+    suspend fun setSyncedVideoEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SYNCED_VIDEO_ENABLED] = enabled
         }
     }
 

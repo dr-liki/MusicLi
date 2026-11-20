@@ -489,6 +489,13 @@ class PlayerViewModel @Inject constructor(
             initialValue = true
         )
 
+    val syncedVideoEnabled: StateFlow<Boolean> = userPreferencesRepository.syncedVideoEnabledFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
     /**
      * Whether tapping the background of the player sheet toggles its state.
      * When disabled, users must use gestures or buttons to expand/collapse.

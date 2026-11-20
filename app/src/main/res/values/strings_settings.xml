@@ -215,6 +215,17 @@
     <string name="setcat_mini_player_swipe_to_skip_title">Swipe to change song</string>
     <string name="setcat_mini_player_swipe_to_skip_subtitle">Swipe the mini player left for the next song and right for the previous one. Dismiss it by swiping down instead.</string>
     <string name="setcat_playback_behavior">Playback</string>
+    <string name="setcat_synced_video_title">Synced Music Video</string>
+    <string name="setcat_synced_video_subtitle">Watch official music videos synchronized to the active audio stream.</string>
+    <string name="video_choose_video">Choose a video</string>
+    <string name="video_change_video">Change video</string>
+    <string name="video_use_link">Use</string>
+    <string name="video_link_placeholder">YouTube link or Video ID</string>
+    <string name="video_searching">Searching YouTube for %1$s…</string>
+    <string name="video_search_failed">Video search failed</string>
+    <string name="video_no_matches">No likely matches found. Paste the exact YouTube link above.</string>
+    <string name="video_candidate_likely_match">likely match</string>
+    <string name="video_stream_unavailable">Video stream unavailable</string>
     <string name="setcat_autoplay_on_skip_title">Auto-play on skip</string>
     <string name="setcat_autoplay_on_skip_subtitle">Start playing automatically when you skip to another song while paused.</string>
     <string name="setcat_haptics">Haptics</string>

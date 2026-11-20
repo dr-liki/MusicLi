@@ -8,6 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
+import androidx.compose.material.icons.filled.SmartDisplay
 
 import android.app.Activity
 import android.content.Context
@@ -1136,6 +1137,14 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setShowQueueHistory(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary) },
                                     modifier = Modifier.settingHighlight("item_playback_show_queue_history", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_synced_video_title),
+                                    subtitle = stringResource(R.string.setcat_synced_video_subtitle),
+                                    checked = uiState.syncedVideoEnabled,
+                                    onCheckedChange = { settingsViewModel.setSyncedVideoEnabled(it) },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.SmartDisplay, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_playback_synced_video", highlightKey)
                                 )
                             }
 

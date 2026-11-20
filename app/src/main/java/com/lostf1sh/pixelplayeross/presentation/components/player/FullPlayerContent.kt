@@ -118,6 +118,10 @@ import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.AudioBookmarksViewModel
+import androidx.compose.material.icons.filled.SmartDisplay
+import com.lostf1sh.pixelplayeross.presentation.video.SyncedVideoViewModel
+import com.lostf1sh.pixelplayeross.presentation.video.SyncedCoverVideoPlayer
+import com.lostf1sh.pixelplayeross.presentation.video.SyncedVideoDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.derivedStateOf
@@ -258,6 +262,24 @@ fun FullPlayerContent(
     var showSaveBookmarkDialog by rememberSaveable { mutableStateOf(false) }
     var showAudioOutputSheet by rememberSaveable { mutableStateOf(false) }
     val bookmarksViewModel: AudioBookmarksViewModel = hiltViewModel()
+    val syncedVideoViewModel: SyncedVideoViewModel = hiltViewModel()
+    val isSyncedVideoActive by syncedVideoViewModel.isVideoActive.collectAsStateWithLifecycle()
+    val syncedVideoEnabled by playerViewModel.syncedVideoEnabled.collectAsStateWithLifecycle()
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(song.id, isSyncedVideoActive, syncedVideoEnabled) {
+        if (syncedVideoEnabled && isSyncedVideoActive) {
+            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.duration)
+        }
+    }
+
+    val onVideoClick = {
+        val nextActive = !isSyncedVideoActive
+        syncedVideoViewModel.setVideoActive(nextActive)
+        if (nextActive) {
+            syncedVideoViewModel.loadVideo(song.title, song.displayArtist, song.duration)
+        }
+    }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
 
@@ -551,27 +573,40 @@ fun FullPlayerContent(
     }
 
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
-        FullPlayerAlbumCoverSection(
-            song = song,
-            currentPlaybackQueue = currentPlaybackQueue,
-            currentMediaItemIndex = currentQueueIndex ?: currentMediaItemIndex,
-            carouselStyle = carouselStyle,
-            loadingTweaks = loadingTweaks,
-            isSheetDragGestureActive = isSheetDragGestureActive,
-            expansionFractionProvider = expansionFractionProvider,
-            currentSheetState = currentSheetState,
-            isPlayingProvider = isPlayingProvider,
-            playWhenReadyProvider = playWhenReadyProvider,
-            placeholderColor = placeholderColor,
-            placeholderOnColor = placeholderOnColor,
-            albumArtQuality = albumArtQuality,
-            requestedScrollIndex = pendingCarouselIndex,
-            onSongSelected = onAlbumSongSelected,
-            onAlbumClick = { albumSong ->
-                playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
-            },
-            modifier = modifier
-        )
+        if (syncedVideoEnabled && isSyncedVideoActive) {
+            SyncedCoverVideoPlayer(
+                viewModel = syncedVideoViewModel,
+                trackTitle = song.title,
+                trackArtist = song.displayArtist,
+                currentPositionProvider = currentPositionProvider,
+                audioDurationMs = song.duration,
+                isPlayingProvider = isPlayingProvider,
+                onSeekTo = onSeek,
+                modifier = modifier,
+            )
+        } else {
+            FullPlayerAlbumCoverSection(
+                song = song,
+                currentPlaybackQueue = currentPlaybackQueue,
+                currentMediaItemIndex = currentQueueIndex ?: currentMediaItemIndex,
+                carouselStyle = carouselStyle,
+                loadingTweaks = loadingTweaks,
+                isSheetDragGestureActive = isSheetDragGestureActive,
+                expansionFractionProvider = expansionFractionProvider,
+                currentSheetState = currentSheetState,
+                isPlayingProvider = isPlayingProvider,
+                playWhenReadyProvider = playWhenReadyProvider,
+                placeholderColor = placeholderColor,
+                placeholderOnColor = placeholderOnColor,
+                albumArtQuality = albumArtQuality,
+                requestedScrollIndex = pendingCarouselIndex,
+                onSongSelected = onAlbumSongSelected,
+                onAlbumClick = { albumSong ->
+                    playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
+                },
+                modifier = modifier
+            )
+        }
     }
 
     val playerProgressSection: @Composable () -> Unit = {
@@ -640,7 +675,10 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            isLyricsActive = isFoldableTwoPane && foldableRightPane == FoldableRightPane.LYRICS
+            isLyricsActive = isFoldableTwoPane && foldableRightPane == FoldableRightPane.LYRICS,
+            showSyncedVideoButton = syncedVideoEnabled,
+            isVideoActive = isSyncedVideoActive,
+            onClickVideo = onVideoClick
         )
     }
 
@@ -663,7 +701,10 @@ fun FullPlayerContent(
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
-            isPlayingProvider = isPlayingProvider
+            isPlayingProvider = isPlayingProvider,
+            showSyncedVideoButton = syncedVideoEnabled,
+            isVideoActive = isSyncedVideoActive,
+            onClickVideo = onVideoClick
         )
     }
 
@@ -1050,6 +1091,19 @@ fun FullPlayerContent(
             onDismiss = { showAudioOutputSheet = false }
         )
     }
+
+    if (syncedVideoEnabled) {
+        SyncedVideoDialog(
+            viewModel = syncedVideoViewModel,
+            trackTitle = song.title,
+            trackArtist = song.displayArtist,
+            currentPositionProvider = currentPositionProvider,
+            audioDurationMs = song.duration,
+            isPlayingProvider = isPlayingProvider,
+            onPlayPause = onPlayPause,
+            onSeekTo = onSeek,
+        )
+    }
 }
 
 
@@ -1378,7 +1432,10 @@ private fun FullPlayerSongMetadataSection(
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
     isPlayingProvider: () -> Boolean = { true },
-    isLyricsActive: Boolean = false
+    isLyricsActive: Boolean = false,
+    showSyncedVideoButton: Boolean = false,
+    isVideoActive: Boolean = false,
+    onClickVideo: () -> Unit = {}
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
 
@@ -1424,7 +1481,10 @@ private fun FullPlayerSongMetadataSection(
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
             isPlayingProvider = isPlayingProvider,
-            isLyricsActive = isLyricsActive
+            isLyricsActive = isLyricsActive,
+            showSyncedVideoButton = showSyncedVideoButton,
+            isVideoActive = isVideoActive,
+            onClickVideo = onClickVideo
         )
     }
 }
@@ -1659,7 +1719,10 @@ private fun SongMetadataDisplaySection(
     onClickArtist: () -> Unit,
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true },
-    isLyricsActive: Boolean = false
+    isLyricsActive: Boolean = false,
+    showSyncedVideoButton: Boolean = false,
+    isVideoActive: Boolean = false,
+    onClickVideo: () -> Unit = {}
 ) {
     Row(
         modifier
@@ -1735,7 +1798,82 @@ private fun SongMetadataDisplaySection(
             }
         }
 
-        if (showQueueButton) {
+        if (showSyncedVideoButton) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(height = 42.dp, width = 50.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = 50.dp,
+                                topEnd = 6.dp,
+                                bottomStart = 50.dp,
+                                bottomEnd = 6.dp
+                            )
+                        )
+                        .background(if (isVideoActive) chipContentColor else chipColor)
+                        .clickable { onClickVideo() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SmartDisplay,
+                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_video),
+                        tint = if (isVideoActive) chipColor else chipContentColor
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(height = 42.dp, width = 50.dp)
+                        .clip(
+                            if (showQueueButton) {
+                                RoundedCornerShape(6.dp)
+                            } else {
+                                RoundedCornerShape(
+                                    topStart = 6.dp,
+                                    topEnd = 50.dp,
+                                    bottomStart = 6.dp,
+                                    bottomEnd = 50.dp
+                                )
+                            }
+                        )
+                        .background(if (isLyricsActive) chipContentColor else chipColor)
+                        .clickable { onClickLyrics() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                        contentDescription = stringResource(R.string.presentation_batch_g_player_cd_lyrics),
+                        tint = if (isLyricsActive) chipColor else chipContentColor
+                    )
+                }
+                if (showQueueButton) {
+                    Box(
+                        modifier = Modifier
+                            .size(height = 42.dp, width = 50.dp)
+                            .clip(
+                                RoundedCornerShape(
+                                    topStart = 6.dp,
+                                    topEnd = 50.dp,
+                                    bottomStart = 6.dp,
+                                    bottomEnd = 50.dp
+                                )
+                            )
+                            .background(chipColor)
+                            .clickable { onClickQueue() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_queue_music_24),
+                            contentDescription = stringResource(R.string.presentation_batch_g_player_cd_queue),
+                            tint = chipContentColor
+                        )
+                    }
+                }
+            }
+        } else if (showQueueButton) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically

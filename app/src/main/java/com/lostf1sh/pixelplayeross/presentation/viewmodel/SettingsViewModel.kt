@@ -140,7 +140,8 @@ data class SettingsUiState(
     val minSongDuration: Int = 10000,
     val minTracksPerAlbum: Int = 1,
     val replayGainEnabled: Boolean = false,
-    val replayGainUseAlbumGain: Boolean = false
+    val replayGainUseAlbumGain: Boolean = false,
+    val syncedVideoEnabled: Boolean = true
 )
 
 data class FailedSongInfo(
@@ -609,6 +610,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.showScrollbarFlow.collect { enabled ->
                 _uiState.update { it.copy(showScrollbar = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.syncedVideoEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(syncedVideoEnabled = enabled) }
             }
         }
     }
@@ -1103,6 +1110,12 @@ class SettingsViewModel @Inject constructor(
     fun setReplayGainUseAlbumGain(useAlbumGain: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setReplayGainUseAlbumGain(useAlbumGain)
+        }
+    }
+
+    fun setSyncedVideoEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSyncedVideoEnabled(enabled)
         }
     }
 

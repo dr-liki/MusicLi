@@ -365,6 +365,7 @@ Backslash (\) can be used to escape character delimiters.</string>
     <string name="presentation_batch_g_player_cd_collapse">Collapse player</string>
     <string name="presentation_batch_g_player_cd_queue">Queue</string>
     <string name="presentation_batch_g_player_cd_lyrics">Lyrics</string>
+    <string name="presentation_batch_g_player_cd_video">Video</string>
 
     <string name="presentation_batch_g_changelog_sec_initial_release">Initial release</string>
     <string name="presentation_batch_g_changelog_sec_removed_for_foss">Removed for FOSS</string>
