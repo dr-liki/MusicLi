@@ -73,3 +73,18 @@
     public static int d(...);
     public static int i(...);
 }
+
+# NewPipe's YouTube extractor loads service implementations and its
+# JavaScript deobfuscation engine dynamically.
+-keep class org.schabi.newpipe.extractor.** { *; }
+-dontwarn org.schabi.newpipe.extractor.**
+-keep class org.jsoup.** { *; }
+-dontwarn org.jsoup.**
+-dontwarn java.beans.**
+# NewPipe's JS engine (Rhino) resolves classes by name at runtime
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter { *; }
+-dontwarn org.mozilla.javascript.**
+-dontwarn org.mozilla.classfile.**
+-dontwarn javax.script.**
+
