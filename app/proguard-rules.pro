@@ -25,6 +25,8 @@
 -dontwarn com.softsynth.**
 
 -keepclassmembers class com.lostf1sh.pixelplayeross.data.model.** { *; }
+-keep class com.lostf1sh.pixelplayeross.data.explore.** { *; }
+-keepclassmembers class com.lostf1sh.pixelplayeross.data.explore.** { *; }
 
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken

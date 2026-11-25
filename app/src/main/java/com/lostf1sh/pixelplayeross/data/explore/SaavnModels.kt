@@ -1,5 +1,6 @@
 package com.lostf1sh.pixelplayeross.data.explore
 
+import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
 import androidx.core.text.HtmlCompat
 import com.google.gson.annotations.SerializedName
@@ -22,266 +23,318 @@ fun decodeSaavnHtml(raw: String?): String {
         .trim()
 }
 
+@Keep
 data class SaavnImageDto(
-    val quality: String? = null,
-    val url: String? = null,
+    @SerializedName("quality") val quality: String? = null,
+    @SerializedName("url") val url: String? = null,
 )
 
+@Keep
 data class SaavnDownloadUrlDto(
-    val quality: String? = null,
-    val url: String? = null,
+    @SerializedName("quality") val quality: String? = null,
+    @SerializedName("url") val url: String? = null,
 )
 
+@Keep
 data class SaavnAlbumRefDto(
-    val id: String? = null,
-    val name: String? = null,
-    val url: String? = null,
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("url") val url: String? = null,
 )
 
+@Keep
 data class SaavnArtistRefDto(
-    val id: String? = null,
-    val name: String? = null,
-    val role: String? = null,
-    val type: String? = null,
-    val image: List<SaavnImageDto>? = null,
-    val url: String? = null,
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("role") val role: String? = null,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("image") val image: List<SaavnImageDto>? = null,
+    @SerializedName("url") val url: String? = null,
 )
 
+@Keep
 data class SaavnArtistsGroupDto(
-    val primary: List<SaavnArtistRefDto>? = null,
-    val featured: List<SaavnArtistRefDto>? = null,
-    val all: List<SaavnArtistRefDto>? = null,
+    @SerializedName("primary") val primary: List<SaavnArtistRefDto>? = null,
+    @SerializedName("featured") val featured: List<SaavnArtistRefDto>? = null,
+    @SerializedName("all") val all: List<SaavnArtistRefDto>? = null,
 )
 
+@Keep
 data class SaavnLyricsDto(
-    val lyrics: String? = null,
-    val copyright: String? = null,
-    val snippet: String? = null,
+    @SerializedName("lyrics") val lyrics: String? = null,
+    @SerializedName("copyright") val copyright: String? = null,
+    @SerializedName("snippet") val snippet: String? = null,
 )
 
+@Keep
 data class SaavnSongDto(
-    val id: String? = null,
-    val name: String? = null,
-    val type: String? = null,
-    val year: String? = null,
-    val releaseDate: String? = null,
-    val duration: Double? = null,
-    val label: String? = null,
-    val explicitContent: Boolean = false,
-    val playCount: Long? = null,
-    val language: String? = null,
-    val hasLyrics: Boolean = false,
-    val lyricsId: String? = null,
-    val lyrics: SaavnLyricsDto? = null,
-    val url: String? = null,
-    val copyright: String? = null,
-    val album: SaavnAlbumRefDto? = null,
-    val artists: SaavnArtistsGroupDto? = null,
-    val image: List<SaavnImageDto>? = null,
-    val downloadUrl: List<SaavnDownloadUrlDto>? = null,
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("year") val year: String? = null,
+    @SerializedName("releaseDate") val releaseDate: String? = null,
+    @SerializedName("duration") val duration: Double? = null,
+    @SerializedName("label") val label: String? = null,
+    @SerializedName("explicitContent") val explicitContent: Boolean? = null,
+    @SerializedName("playCount") val playCount: Long? = null,
+    @SerializedName("language") val language: String? = null,
+    @SerializedName("hasLyrics") val hasLyrics: Boolean? = null,
+    @SerializedName("lyricsId") val lyricsId: String? = null,
+    @SerializedName("lyrics") val lyrics: SaavnLyricsDto? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("copyright") val copyright: String? = null,
+    @SerializedName("album") val album: SaavnAlbumRefDto? = null,
+    @SerializedName("artists") val artists: SaavnArtistsGroupDto? = null,
+    @SerializedName("image") val image: List<SaavnImageDto>? = null,
+    @SerializedName("downloadUrl") val downloadUrl: List<SaavnDownloadUrlDto>? = null,
 )
 
+@Keep
 data class SaavnSongResponse(
-    val success: Boolean = false,
-    val data: List<SaavnSongDto>? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: List<SaavnSongDto>? = null,
 )
 
+@Keep
 data class SaavnLyricsResponse(
-    val success: Boolean = false,
-    val data: SaavnLyricsDto? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: SaavnLyricsDto? = null,
 )
 
+@Keep
 data class SaavnSongSearchResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val total: Int = 0,
-        val start: Int = 0,
-        val results: List<SaavnSongDto>? = null,
+        @SerializedName("total") val total: Int? = null,
+        @SerializedName("start") val start: Int? = null,
+        @SerializedName("results") val results: List<SaavnSongDto>? = null,
     )
 }
 
+@Keep
 data class SaavnGlobalSearchResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val topQuery: TopQuery? = null,
-        val songs: Songs? = null,
-        val albums: Albums? = null,
-        val artists: Artists? = null,
-        val playlists: Playlists? = null,
+        @SerializedName("topQuery") val topQuery: TopQuery? = null,
+        @SerializedName("songs") val songs: Songs? = null,
+        @SerializedName("albums") val albums: Albums? = null,
+        @SerializedName("artists") val artists: Artists? = null,
+        @SerializedName("playlists") val playlists: Playlists? = null,
     ) {
-        data class TopQuery(val results: List<TopResultDto>? = null)
+        @Keep
+        data class TopQuery(
+            @SerializedName("results") val results: List<TopResultDto>? = null,
+        )
+
+        @Keep
         data class TopResultDto(
-            val id: String? = null,
-            val title: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val url: String? = null,
-            val type: String? = null,
-            val description: String? = null,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("title") val title: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("url") val url: String? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("description") val description: String? = null,
         )
 
-        data class Songs(val results: List<SongItemDto>? = null)
+        @Keep
+        data class Songs(
+            @SerializedName("results") val results: List<SongItemDto>? = null,
+        )
+
+        @Keep
         data class SongItemDto(
-            val id: String? = null,
-            val title: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val album: String? = null,
-            val url: String? = null,
-            val type: String? = null,
-            val description: String? = null,
-            val primaryArtists: String? = null,
-            val singers: String? = null,
-            val language: String? = null,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("title") val title: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("album") val album: String? = null,
+            @SerializedName("url") val url: String? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("description") val description: String? = null,
+            @SerializedName("primaryArtists") val primaryArtists: String? = null,
+            @SerializedName("singers") val singers: String? = null,
+            @SerializedName("language") val language: String? = null,
         )
 
-        data class Albums(val results: List<AlbumItemDto>? = null)
+        @Keep
+        data class Albums(
+            @SerializedName("results") val results: List<AlbumItemDto>? = null,
+        )
+
+        @Keep
         data class AlbumItemDto(
-            val id: String? = null,
-            val title: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val artist: String? = null,
-            val url: String? = null,
-            val type: String? = null,
-            val description: String? = null,
-            val year: String? = null,
-            val language: String? = null,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("title") val title: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("artist") val artist: String? = null,
+            @SerializedName("url") val url: String? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("description") val description: String? = null,
+            @SerializedName("year") val year: String? = null,
+            @SerializedName("language") val language: String? = null,
         )
 
-        data class Artists(val results: List<ArtistItemDto>? = null)
+        @Keep
+        data class Artists(
+            @SerializedName("results") val results: List<ArtistItemDto>? = null,
+        )
+
+        @Keep
         data class ArtistItemDto(
-            val id: String? = null,
-            val title: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val type: String? = null,
-            val description: String? = null,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("title") val title: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("description") val description: String? = null,
         )
 
-        data class Playlists(val results: List<PlaylistItemDto>? = null)
+        @Keep
+        data class Playlists(
+            @SerializedName("results") val results: List<PlaylistItemDto>? = null,
+        )
+
+        @Keep
         data class PlaylistItemDto(
-            val id: String? = null,
-            val title: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val url: String? = null,
-            val type: String? = null,
-            val language: String? = null,
-            val description: String? = null,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("title") val title: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("url") val url: String? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("language") val language: String? = null,
+            @SerializedName("description") val description: String? = null,
         )
     }
 }
 
+@Keep
 data class SaavnAlbumSearchItemDto(
-    val id: String? = null,
-    val name: String? = null,
-    val description: String? = null,
-    val url: String? = null,
-    val year: Int = 0,
-    val playCount: Long = 0,
-    val language: String? = null,
-    val explicitContent: Boolean = false,
-    val artists: SaavnArtistsGroupDto? = null,
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("year") val year: Int? = null,
+    @SerializedName("playCount") val playCount: Long? = null,
+    @SerializedName("language") val language: String? = null,
+    @SerializedName("explicitContent") val explicitContent: Boolean? = null,
+    @SerializedName("artists") val artists: SaavnArtistsGroupDto? = null,
     @SerializedName("artist") val legacyArtist: SaavnArtistsGroupDto? = null,
-    val image: List<SaavnImageDto>? = null,
+    @SerializedName("image") val image: List<SaavnImageDto>? = null,
 )
 
+@Keep
 data class SaavnAlbumsSearchResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val total: Int = 0,
-        val start: Int = 0,
-        val results: List<SaavnAlbumSearchItemDto>? = null,
+        @SerializedName("total") val total: Int? = null,
+        @SerializedName("start") val start: Int? = null,
+        @SerializedName("results") val results: List<SaavnAlbumSearchItemDto>? = null,
     )
 }
 
+@Keep
 data class SaavnAlbumDetailResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val id: String? = null,
-        val name: String? = null,
-        val url: String? = null,
-        val description: String? = null,
-        val year: Int = 0,
-        val language: String? = null,
-        val artists: SaavnArtistsGroupDto? = null,
+        @SerializedName("id") val id: String? = null,
+        @SerializedName("name") val name: String? = null,
+        @SerializedName("url") val url: String? = null,
+        @SerializedName("description") val description: String? = null,
+        @SerializedName("year") val year: Int? = null,
+        @SerializedName("language") val language: String? = null,
+        @SerializedName("artists") val artists: SaavnArtistsGroupDto? = null,
         @SerializedName("artist") val legacyArtist: SaavnArtistsGroupDto? = null,
-        val image: List<SaavnImageDto>? = null,
-        val songs: List<SaavnSongDto>? = null,
+        @SerializedName("image") val image: List<SaavnImageDto>? = null,
+        @SerializedName("songs") val songs: List<SaavnSongDto>? = null,
     )
 }
 
+@Keep
 data class SaavnPlaylistsSearchResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val total: Int = 0,
-        val start: Int = 0,
-        val results: List<ItemDto>? = null,
+        @SerializedName("total") val total: Int? = null,
+        @SerializedName("start") val start: Int? = null,
+        @SerializedName("results") val results: List<ItemDto>? = null,
     ) {
+        @Keep
         data class ItemDto(
-            val id: String? = null,
-            val name: String? = null,
-            val type: String? = null,
-            val url: String? = null,
-            val image: List<SaavnImageDto>? = null,
-            val songCount: Int = 0,
-            val language: String? = null,
-            val explicitContent: Boolean = false,
+            @SerializedName("id") val id: String? = null,
+            @SerializedName("name") val name: String? = null,
+            @SerializedName("type") val type: String? = null,
+            @SerializedName("url") val url: String? = null,
+            @SerializedName("image") val image: List<SaavnImageDto>? = null,
+            @SerializedName("songCount") val songCount: Int? = null,
+            @SerializedName("language") val language: String? = null,
+            @SerializedName("explicitContent") val explicitContent: Boolean? = null,
         )
     }
 }
 
+@Keep
 data class SaavnPlaylistDetailResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val id: String? = null,
-        val name: String? = null,
-        val url: String? = null,
-        val description: String? = null,
-        val year: Int = 0,
-        val songCount: Int = 0,
-        val language: String? = null,
-        val artists: List<SaavnArtistRefDto>? = null,
-        val image: List<SaavnImageDto>? = null,
-        val songs: List<SaavnSongDto>? = null,
+        @SerializedName("id") val id: String? = null,
+        @SerializedName("name") val name: String? = null,
+        @SerializedName("url") val url: String? = null,
+        @SerializedName("description") val description: String? = null,
+        @SerializedName("year") val year: Int? = null,
+        @SerializedName("songCount") val songCount: Int? = null,
+        @SerializedName("language") val language: String? = null,
+        @SerializedName("artists") val artists: List<SaavnArtistRefDto>? = null,
+        @SerializedName("image") val image: List<SaavnImageDto>? = null,
+        @SerializedName("songs") val songs: List<SaavnSongDto>? = null,
     )
 }
 
+@Keep
 data class SaavnArtistsSearchResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val total: Int = 0,
-        val start: Int = 0,
-        val results: List<SaavnArtistRefDto>? = null,
+        @SerializedName("total") val total: Int? = null,
+        @SerializedName("start") val start: Int? = null,
+        @SerializedName("results") val results: List<SaavnArtistRefDto>? = null,
     )
 }
 
+@Keep
 data class SaavnArtistDetailResponse(
-    val success: Boolean = false,
-    val data: Data? = null,
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: Data? = null,
 ) {
+    @Keep
     data class Data(
-        val id: String? = null,
-        val name: String? = null,
-        val url: String? = null,
-        val followerCount: Int = 0,
-        val fanCount: Int = 0,
-        val dominantLanguage: String? = null,
-        val dominantType: String? = null,
-        val image: List<SaavnImageDto>? = null,
-        val topSongs: List<SaavnSongDto>? = null,
-        val topAlbums: List<SaavnAlbumSearchItemDto>? = null,
-        val singles: List<SaavnAlbumSearchItemDto>? = null,
+        @SerializedName("id") val id: String? = null,
+        @SerializedName("name") val name: String? = null,
+        @SerializedName("url") val url: String? = null,
+        @SerializedName("followerCount") val followerCount: Int? = null,
+        @SerializedName("fanCount") val fanCount: Int? = null,
+        @SerializedName("dominantLanguage") val dominantLanguage: String? = null,
+        @SerializedName("dominantType") val dominantType: String? = null,
+        @SerializedName("image") val image: List<SaavnImageDto>? = null,
+        @SerializedName("topSongs") val topSongs: List<SaavnSongDto>? = null,
+        @SerializedName("topAlbums") val topAlbums: List<SaavnAlbumSearchItemDto>? = null,
+        @SerializedName("singles") val singles: List<SaavnAlbumSearchItemDto>? = null,
     )
 }
 

@@ -381,6 +381,19 @@ fun ExploreScreen(
                             }
                         }
                     }
+
+                    if (feed.trendingSongs.isEmpty() &&
+                        feed.topAlbums.isEmpty() &&
+                        feed.featuredPlaylists.isEmpty() &&
+                        feed.topArtists.isEmpty()
+                    ) {
+                        item {
+                            ExploreErrorCard(
+                                message = "No tracks returned from Explore catalog.",
+                                onRetry = { exploreViewModel.loadFeed(forceRefresh = true) },
+                            )
+                        }
+                    }
                 }
             } else {
                 // Search Filter Tabs
@@ -495,7 +508,11 @@ fun ExploreScreen(
                         }
                     }
 
-                    if (res.songs.isEmpty() && res.albums.isEmpty() && res.playlists.isEmpty() && res.artists.isEmpty()) {
+                    val hasVisibleSearchItems = (showSongs && res.songs.isNotEmpty()) ||
+                        (showAlbums && res.albums.isNotEmpty()) ||
+                        (showPlaylists && res.playlists.isNotEmpty()) ||
+                        (showArtists && res.artists.isNotEmpty())
+                    if (!hasVisibleSearchItems) {
                         item {
                             Box(
                                 modifier = Modifier

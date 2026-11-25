@@ -42,24 +42,45 @@ class ExploreRepository @Inject constructor(
             }
 
             val feed = coroutineScope {
-                val songsDeferred = async { runCatching { api.searchSongs(url, langQuery, 0, 20) }.getOrNull() }
-                val albumsDeferred = async { runCatching { api.searchAlbums(url, albumQuery, 0, 15) }.getOrNull() }
-                val playlistsDeferred = async { runCatching { api.searchPlaylists(url, playlistQuery, 0, 15) }.getOrNull() }
-                val artistsDeferred = async { runCatching { api.searchArtists(url, artistQuery, 0, 12) }.getOrNull() }
+                val songsDeferred = async { runCatching { api.searchSongs(url, langQuery, 0, 20) } }
+                val albumsDeferred = async { runCatching { api.searchAlbums(url, albumQuery, 0, 15) } }
+                val playlistsDeferred = async { runCatching { api.searchPlaylists(url, playlistQuery, 0, 15) } }
+                val artistsDeferred = async { runCatching { api.searchArtists(url, artistQuery, 0, 12) } }
 
-                val songs = songsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreSong() }
-                val albums = albumsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreAlbum() }
-                val playlists = playlistsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExplorePlaylist() }
-                val artists = artistsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreArtist() }
+                val songsResult = songsDeferred.await()
+                val albumsResult = albumsDeferred.await()
+                val playlistsResult = playlistsDeferred.await()
+                val artistsResult = artistsDeferred.await()
 
-                ExploreHomeFeed(
+                val songs = songsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreSong() }
+                val albums = albumsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreAlbum() }
+                val playlists = playlistsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExplorePlaylist() }
+                val artists = artistsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreArtist() }
+
+                val resultFeed = ExploreHomeFeed(
                     trendingSongs = songs,
                     topAlbums = albums,
                     featuredPlaylists = playlists,
                     topArtists = artists,
                 )
+                if (songs.isEmpty() && albums.isEmpty() && playlists.isEmpty() && artists.isEmpty()) {
+                    val failure = listOfNotNull(
+                        songsResult.exceptionOrNull(),
+                        albumsResult.exceptionOrNull(),
+                        playlistsResult.exceptionOrNull(),
+                        artistsResult.exceptionOrNull(),
+                    ).firstOrNull()
+                    if (failure != null) throw failure
+                }
+                resultFeed
             }
-            feedCache[langKey] = feed
+            if (feed.trendingSongs.isNotEmpty() ||
+                feed.topAlbums.isNotEmpty() ||
+                feed.featuredPlaylists.isNotEmpty() ||
+                feed.topArtists.isNotEmpty()
+            ) {
+                feedCache[langKey] = feed
+            }
             feed
         }
 
@@ -69,16 +90,36 @@ class ExploreRepository @Inject constructor(
         if (trimmed.isBlank()) return@runCatching ExploreSearchResults()
 
         coroutineScope {
-            val songsDeferred = async { runCatching { api.searchSongs(url, trimmed, 0, 30) }.getOrNull() }
-            val albumsDeferred = async { runCatching { api.searchAlbums(url, trimmed, 0, 15) }.getOrNull() }
-            val artistsDeferred = async { runCatching { api.searchArtists(url, trimmed, 0, 12) }.getOrNull() }
-            val playlistsDeferred = async { runCatching { api.searchPlaylists(url, trimmed, 0, 15) }.getOrNull() }
+            val songsDeferred = async { runCatching { api.searchSongs(url, trimmed, 0, 30) } }
+            val albumsDeferred = async { runCatching { api.searchAlbums(url, trimmed, 0, 15) } }
+            val artistsDeferred = async { runCatching { api.searchArtists(url, trimmed, 0, 12) } }
+            val playlistsDeferred = async { runCatching { api.searchPlaylists(url, trimmed, 0, 15) } }
+
+            val songsResult = songsDeferred.await()
+            val albumsResult = albumsDeferred.await()
+            val artistsResult = artistsDeferred.await()
+            val playlistsResult = playlistsDeferred.await()
+
+            val songs = songsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreSong() }
+            val albums = albumsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreAlbum() }
+            val artists = artistsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExploreArtist() }
+            val playlists = playlistsResult.getOrNull()?.data?.results.orEmpty().mapNotNull { it.toExplorePlaylist() }
+
+            if (songs.isEmpty() && albums.isEmpty() && artists.isEmpty() && playlists.isEmpty()) {
+                val failure = listOfNotNull(
+                    songsResult.exceptionOrNull(),
+                    albumsResult.exceptionOrNull(),
+                    artistsResult.exceptionOrNull(),
+                    playlistsResult.exceptionOrNull(),
+                ).firstOrNull()
+                if (failure != null) throw failure
+            }
 
             ExploreSearchResults(
-                songs = songsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreSong() },
-                albums = albumsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreAlbum() },
-                artists = artistsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExploreArtist() },
-                playlists = playlistsDeferred.await()?.data?.results.orEmpty().mapNotNull { it.toExplorePlaylist() },
+                songs = songs,
+                albums = albums,
+                artists = artists,
+                playlists = playlists,
             )
         }
     }
@@ -103,7 +144,7 @@ class ExploreRepository @Inject constructor(
             id = data.id ?: albumId,
             title = decodeSaavnHtml(data.name).ifBlank { "Album" },
             artist = artistName,
-            year = data.year,
+            year = data.year ?: 0,
             language = data.language,
             songCount = songs.size,
             artworkUrl = pickBestImageUrl(data.image),
@@ -123,7 +164,7 @@ class ExploreRepository @Inject constructor(
             title = decodeSaavnHtml(data.name).ifBlank { "Playlist" },
             subtitle = decodeSaavnHtml(data.description).ifBlank { "${songs.size} tracks" },
             language = data.language,
-            songCount = maxOf(data.songCount, songs.size),
+            songCount = maxOf(data.songCount ?: 0, songs.size),
             artworkUrl = pickBestImageUrl(data.image),
             songs = songs,
         )
@@ -138,7 +179,7 @@ class ExploreRepository @Inject constructor(
             name = decodeSaavnHtml(data.name).ifBlank { "Artist" },
             role = decodeSaavnHtml(data.dominantType).ifBlank { "Artist" },
             artworkUrl = pickBestImageUrl(data.image),
-            followerCount = data.followerCount,
+            followerCount = data.followerCount ?: 0,
             topSongs = data.topSongs.orEmpty().mapNotNull { it.toExploreSong() },
             topAlbums = data.topAlbums.orEmpty().mapNotNull { it.toExploreAlbum() },
         )
@@ -171,13 +212,13 @@ class ExploreRepository @Inject constructor(
             language = language?.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() },
             label = decodeSaavnHtml(label).takeIf { it.isNotBlank() },
             copyright = decodeSaavnHtml(copyright).takeIf { it.isNotBlank() },
-            hasLyrics = hasLyrics,
+            hasLyrics = hasLyrics == true,
             lyricsText = lyrics?.lyrics?.let(::decodeSaavnHtml)?.takeIf { it.isNotBlank() },
             artworkUrl = pickBestImageUrl(image),
             thumbnailUrl = pickThumbnailUrl(image),
             streamUrlsByQuality = streamMap,
             saavnUrl = url,
-            explicitContent = explicitContent,
+            explicitContent = explicitContent == true,
             trackNumber = trackNumber,
         )
     }
@@ -189,7 +230,7 @@ class ExploreRepository @Inject constructor(
             id = albumId,
             title = title,
             artist = formatArtists(artists ?: legacyArtist),
-            year = year,
+            year = year ?: 0,
             language = language,
             songCount = 0,
             artworkUrl = pickBestImageUrl(image),
@@ -199,12 +240,13 @@ class ExploreRepository @Inject constructor(
     private fun SaavnPlaylistsSearchResponse.Data.ItemDto.toExplorePlaylist(): ExplorePlaylist? {
         val plId = id?.takeIf { it.isNotBlank() } ?: return null
         val title = decodeSaavnHtml(name).ifBlank { return null }
+        val count = songCount ?: 0
         return ExplorePlaylist(
             id = plId,
             title = title,
-            subtitle = if (songCount > 0) "$songCount songs" else (language.orEmpty()),
+            subtitle = if (count > 0) "$count songs" else (language.orEmpty()),
             language = language,
-            songCount = songCount,
+            songCount = count,
             artworkUrl = pickBestImageUrl(image),
         )
     }
