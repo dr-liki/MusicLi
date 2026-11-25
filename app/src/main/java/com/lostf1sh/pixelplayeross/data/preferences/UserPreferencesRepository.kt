@@ -271,6 +271,13 @@ constructor(
         val USE_ANIMATED_LYRICS = booleanPreferencesKey("use_animated_lyrics")
         val ANIMATED_LYRICS_BLUR_ENABLED = booleanPreferencesKey("animated_lyrics_blur_enabled")
         val ANIMATED_LYRICS_BLUR_STRENGTH = androidx.datastore.preferences.core.floatPreferencesKey("animated_lyrics_blur_strength")
+        val PLAYER_BACKGROUND_BLUR_ENABLED = booleanPreferencesKey("player_background_blur_enabled")
+        val PLAYER_BACKGROUND_BLUR_RADIUS = androidx.datastore.preferences.core.floatPreferencesKey("player_background_blur_radius")
+        val LYRICS_SHEET_BACKDROP_BLUR_ENABLED = booleanPreferencesKey("lyrics_sheet_backdrop_blur_enabled")
+        val APP_OVERLAY_BLUR_ENABLED = booleanPreferencesKey("app_overlay_blur_enabled")
+        val HIGH_REFRESH_RATE_ENABLED = booleanPreferencesKey("high_refresh_rate_enabled")
+        val EXPLORE_STREAM_CACHE_LIMIT_MB = intPreferencesKey("explore_stream_cache_limit_mb")
+        val EXPLORE_STREAM_CACHE_AUTO_CLEAN_DAYS = intPreferencesKey("explore_stream_cache_auto_clean_days")
 
         val IS_GENRE_GRID_VIEW = booleanPreferencesKey("is_genre_grid_view")
 
@@ -1992,6 +1999,83 @@ constructor(
     suspend fun setAnimatedLyricsBlurStrength(strength: Float) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.ANIMATED_LYRICS_BLUR_STRENGTH] = strength
+        }
+    }
+
+    val playerBackgroundBlurEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.PLAYER_BACKGROUND_BLUR_ENABLED] ?: false
+        }
+
+    suspend fun setPlayerBackgroundBlurEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PLAYER_BACKGROUND_BLUR_ENABLED] = enabled
+        }
+    }
+
+    val playerBackgroundBlurRadiusFlow: Flow<Float> = dataStore.data
+        .map { preferences ->
+            (preferences[PreferencesKeys.PLAYER_BACKGROUND_BLUR_RADIUS] ?: 28f).coerceIn(8f, 48f)
+        }
+
+    suspend fun setPlayerBackgroundBlurRadius(radiusDp: Float) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PLAYER_BACKGROUND_BLUR_RADIUS] = radiusDp.coerceIn(8f, 48f)
+        }
+    }
+
+    val lyricsSheetBackdropBlurEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.LYRICS_SHEET_BACKDROP_BLUR_ENABLED] ?: true
+        }
+
+    suspend fun setLyricsSheetBackdropBlurEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_SHEET_BACKDROP_BLUR_ENABLED] = enabled
+        }
+    }
+
+    val appOverlayBlurEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.APP_OVERLAY_BLUR_ENABLED] ?: false
+        }
+
+    suspend fun setAppOverlayBlurEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.APP_OVERLAY_BLUR_ENABLED] = enabled
+        }
+    }
+
+    val highRefreshRateEnabledFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.HIGH_REFRESH_RATE_ENABLED] ?: false
+        }
+
+    suspend fun setHighRefreshRateEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.HIGH_REFRESH_RATE_ENABLED] = enabled
+        }
+    }
+
+    val exploreStreamCacheLimitMbFlow: Flow<Int> = dataStore.data
+        .map { preferences ->
+            (preferences[PreferencesKeys.EXPLORE_STREAM_CACHE_LIMIT_MB] ?: 250).coerceAtLeast(0)
+        }
+
+    suspend fun setExploreStreamCacheLimitMb(limitMb: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_STREAM_CACHE_LIMIT_MB] = limitMb.coerceAtLeast(0)
+        }
+    }
+
+    val exploreStreamCacheAutoCleanDaysFlow: Flow<Int> = dataStore.data
+        .map { preferences ->
+            (preferences[PreferencesKeys.EXPLORE_STREAM_CACHE_AUTO_CLEAN_DAYS] ?: 14).coerceAtLeast(0)
+        }
+
+    suspend fun setExploreStreamCacheAutoCleanDays(days: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_STREAM_CACHE_AUTO_CLEAN_DAYS] = days.coerceAtLeast(0)
         }
     }
 

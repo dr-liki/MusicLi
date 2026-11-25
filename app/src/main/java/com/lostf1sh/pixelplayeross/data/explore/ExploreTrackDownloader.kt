@@ -11,8 +11,10 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.annotation.Keep
 import androidx.core.app.NotificationCompat
 import androidx.work.WorkManager
+import com.google.gson.Gson
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.database.LyricsDao
 import com.lostf1sh.pixelplayeross.data.database.LyricsEntity
@@ -76,9 +78,12 @@ class ExploreTrackDownloader @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val lyricsDao: LyricsDao,
     private val okHttpClient: OkHttpClient,
+    private val gson: Gson,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val activeJobs = ConcurrentHashMap<String, Job>()
+    private val persistLock = Any()
+    private val persistenceFile = File(context.filesDir, "explore_downloads.json")
 
     private val _downloads = MutableStateFlow<List<ExploreDownloadItem>>(emptyList())
     val downloads: StateFlow<List<ExploreDownloadItem>> = _downloads.asStateFlow()
@@ -88,8 +93,95 @@ class ExploreTrackDownloader @Inject constructor(
 
     init {
         scope.launch {
+            loadPersistedDownloads()
             scanExistingDownloadedTitles()
         }
+    }
+
+    private suspend fun loadPersistedDownloads() {
+        val loaded = runCatching {
+            val json = synchronized(persistLock) {
+                if (!persistenceFile.exists()) return@runCatching emptyList<ExploreDownloadItem>()
+                persistenceFile.readText(Charsets.UTF_8)
+            }
+            if (json.isBlank()) return@runCatching emptyList<ExploreDownloadItem>()
+            gson.fromJson(json, Array<PersistedExploreDownloadRecord>::class.java)
+                ?.mapNotNull { record -> record.toExploreDownloadItem() }
+                .orEmpty()
+        }.getOrElse { err ->
+            Timber.tag(TAG).w(err, "Failed loading persisted explore downloads")
+            emptyList()
+        }
+
+        if (loaded.isEmpty()) return
+
+        var mutated = false
+        val reconciled = mutableListOf<ExploreDownloadItem>()
+        val validIds = mutableSetOf<String>()
+
+        for (item in loaded) {
+            when (item.status) {
+                ExploreDownloadStatus.QUEUED, ExploreDownloadStatus.DOWNLOADING -> {
+                    mutated = true
+                    reconciled += item.copy(
+                        status = ExploreDownloadStatus.FAILED,
+                        progress = 0f,
+                        errorMessage = "Interrupted when app closed",
+                        statusMessage = "Interrupted when app closed",
+                    )
+                }
+                ExploreDownloadStatus.COMPLETED -> {
+                    if (doesOutputExist(item)) {
+                        reconciled += item
+                        validIds += item.song.id
+                    } else {
+                        mutated = true
+                    }
+                }
+                ExploreDownloadStatus.FAILED -> {
+                    reconciled += item
+                }
+            }
+        }
+
+        _downloads.value = reconciled
+        if (validIds.isNotEmpty()) {
+            _downloadedSongIds.update { it + validIds }
+        }
+        if (mutated) {
+            persistDownloadsSnapshot()
+        }
+    }
+
+    private fun doesOutputExist(item: ExploreDownloadItem): Boolean {
+        val uriStr = item.outputUriString
+        if (uriStr.isNullOrBlank()) {
+            return isTitleFilePresent(item.song.title)
+        }
+        return when {
+            uriStr.startsWith("content://") -> runCatching {
+                val uri = Uri.parse(uriStr)
+                context.contentResolver.query(uri, null, null, null, null)?.use { it.moveToFirst() } == true
+            }.getOrElse {
+                runCatching {
+                    context.contentResolver.openAssetFileDescriptor(Uri.parse(uriStr), "r")?.use { } != null
+                }.getOrDefault(false)
+            }
+            uriStr.startsWith("file://") -> runCatching {
+                Uri.parse(uriStr).path?.let { File(it).exists() } ?: false
+            }.getOrDefault(false)
+            else -> runCatching { File(uriStr).exists() }.getOrDefault(false)
+        }
+    }
+
+    private fun isTitleFilePresent(title: String?): Boolean {
+        if (title.isNullOrBlank()) return false
+        val safe = sanitizeFilename(title)
+        val musicDir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+            "PixelPlayerOSS"
+        )
+        return File(musicDir, "$safe.m4a").exists()
     }
 
     private fun scanExistingDownloadedTitles() {
@@ -98,9 +190,12 @@ class ExploreTrackDownloader @Inject constructor(
             "PixelPlayerOSS"
         )
         if (!defaultDir.exists()) return
-        // Pre-populate known TrackUIDs from already downloaded files if readable
+        // Pre-populate known TrackUIDs and recover any pre-persistence downloaded files
         runCatching {
             val foundIds = mutableSetOf<String>()
+            val existingIds = _downloads.value.map { it.song.id }.toMutableSet()
+            val recoveredItems = mutableListOf<ExploreDownloadItem>()
+
             defaultDir.walkTopDown().maxDepth(3).forEach { file ->
                 if (file.isFile && file.extension.equals("m4a", ignoreCase = true) && file.canRead()) {
                     runCatching {
@@ -110,12 +205,58 @@ class ExploreTrackDownloader @Inject constructor(
                         val uid = uidField?.toString()?.trim()
                         if (!uid.isNullOrBlank()) {
                             foundIds.add(uid)
+                            if (existingIds.add(uid)) {
+                                val title = tag?.getFirst(FieldKey.TITLE).orEmpty().ifBlank { file.nameWithoutExtension }
+                                val artist = tag?.getFirst(FieldKey.ARTIST).orEmpty().ifBlank { "Unknown Artist" }
+                                val album = tag?.getFirst(FieldKey.ALBUM).orEmpty()
+                                val year = tag?.getFirst(FieldKey.YEAR)?.toIntOrNull() ?: 0
+                                val track = tag?.getFirst(FieldKey.TRACK)?.toIntOrNull() ?: 0
+                                val durationSec = runCatching { audioFile.audioHeader.trackLength }.getOrDefault(0)
+                                val lrcSibling = File(file.parentFile, "${file.nameWithoutExtension}.lrc")
+                                recoveredItems += ExploreDownloadItem(
+                                    downloadId = "${uid}_recovered",
+                                    song = ExploreSong(
+                                        id = uid,
+                                        title = title,
+                                        artist = artist,
+                                        albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST).orEmpty().ifBlank { artist },
+                                        albumId = "",
+                                        albumName = album,
+                                        year = year,
+                                        releaseDate = null,
+                                        durationSeconds = durationSec,
+                                        language = null,
+                                        label = null,
+                                        copyright = null,
+                                        hasLyrics = false,
+                                        lyricsText = null,
+                                        artworkUrl = null,
+                                        thumbnailUrl = null,
+                                        streamUrlsByQuality = emptyMap(),
+                                        saavnUrl = null,
+                                        trackNumber = track,
+                                    ),
+                                    status = ExploreDownloadStatus.COMPLETED,
+                                    progress = 1f,
+                                    statusMessage = "Saved in Music/PixelPlayerOSS",
+                                    outputUriString = Uri.fromFile(file).toString(),
+                                    bytesWritten = file.length(),
+                                    lrcSaved = lrcSibling.exists(),
+                                )
+                            }
                         }
                     }
                 }
             }
             if (foundIds.isNotEmpty()) {
                 _downloadedSongIds.update { it + foundIds }
+            }
+            if (recoveredItems.isNotEmpty()) {
+                _downloads.update { current ->
+                    val currentIds = current.map { it.song.id }.toSet()
+                    current + recoveredItems.filterNot { it.song.id in currentIds }
+                }
+                persistDownloadsSnapshot()
             }
         }
     }
@@ -152,6 +293,7 @@ class ExploreTrackDownloader @Inject constructor(
             statusMessage = "Queued",
         )
         _downloads.update { list -> listOf(item) + list.filterNot { it.song.id == song.id } }
+        persistDownloadsSnapshot()
 
         val job = scope.launch {
             executeDownload(downloadId, song, subfolder)
@@ -185,6 +327,7 @@ class ExploreTrackDownloader @Inject constructor(
                 } else it
             }
         }
+        persistDownloadsSnapshot()
     }
 
     fun retryDownload(downloadId: String) {
@@ -194,11 +337,17 @@ class ExploreTrackDownloader @Inject constructor(
 
     fun removeDownloadEntry(downloadId: String) {
         activeJobs.remove(downloadId)?.cancel()
+        val removed = _downloads.value.firstOrNull { it.downloadId == downloadId }
         _downloads.update { list -> list.filterNot { it.downloadId == downloadId } }
+        if (removed != null) {
+            _downloadedSongIds.update { it - removed.song.id }
+        }
+        persistDownloadsSnapshot()
     }
 
     fun clearCompleted() {
         _downloads.update { list -> list.filterNot { it.status == ExploreDownloadStatus.COMPLETED } }
+        persistDownloadsSnapshot()
     }
 
     private suspend fun executeDownload(downloadId: String, initialSong: ExploreSong, subfolder: String?) {
@@ -630,8 +779,36 @@ class ExploreTrackDownloader @Inject constructor(
     }
 
     private fun updateItem(downloadId: String, transform: (ExploreDownloadItem) -> ExploreDownloadItem) {
+        var updatedStatus: ExploreDownloadStatus? = null
         _downloads.update { list ->
-            list.map { if (it.downloadId == downloadId) transform(it) else it }
+            list.map { item ->
+                if (item.downloadId == downloadId) {
+                    transform(item).also { updatedStatus = it.status }
+                } else {
+                    item
+                }
+            }
+        }
+        if (updatedStatus == ExploreDownloadStatus.COMPLETED || updatedStatus == ExploreDownloadStatus.FAILED) {
+            persistDownloadsSnapshot()
+        }
+    }
+
+    private fun persistDownloadsSnapshot() {
+        val snapshot = _downloads.value.map { PersistedExploreDownloadRecord.fromItem(it) }
+        runCatching {
+            val payload = gson.toJson(snapshot)
+            synchronized(persistLock) {
+                persistenceFile.parentFile?.mkdirs()
+                val tmp = File(persistenceFile.parentFile, "explore_downloads.json.tmp")
+                tmp.writeText(payload, Charsets.UTF_8)
+                if (!tmp.renameTo(persistenceFile)) {
+                    persistenceFile.writeText(payload, Charsets.UTF_8)
+                    tmp.delete()
+                }
+            }
+        }.onFailure { err ->
+            Timber.tag(TAG).w(err, "Failed persisting explore downloads snapshot")
         }
     }
 
@@ -698,5 +875,130 @@ class ExploreTrackDownloader @Inject constructor(
                 .trim { it == '.' || it.isWhitespace() }
             return if (cleaned.isBlank()) "Track" else cleaned
         }
+    }
+}
+
+@Keep
+private data class PersistedExploreDownloadRecord(
+    val downloadId: String = "",
+    val song: PersistedExploreSong? = null,
+    val subfolder: String? = null,
+    val status: String = ExploreDownloadStatus.FAILED.name,
+    val progress: Float = 0f,
+    val statusMessage: String = "",
+    val errorMessage: String? = null,
+    val outputUriString: String? = null,
+    val bytesWritten: Long = 0L,
+    val lrcSaved: Boolean = false,
+) {
+    fun toExploreDownloadItem(): ExploreDownloadItem? {
+        val mappedSong = song?.toExploreSong() ?: return null
+        if (downloadId.isBlank()) return null
+        val mappedStatus = runCatching { ExploreDownloadStatus.valueOf(status) }
+            .getOrDefault(ExploreDownloadStatus.FAILED)
+        return ExploreDownloadItem(
+            downloadId = downloadId,
+            song = mappedSong,
+            subfolder = subfolder,
+            status = mappedStatus,
+            progress = progress,
+            statusMessage = statusMessage,
+            errorMessage = errorMessage,
+            outputUriString = outputUriString,
+            bytesWritten = bytesWritten,
+            lrcSaved = lrcSaved,
+        )
+    }
+
+    companion object {
+        fun fromItem(item: ExploreDownloadItem): PersistedExploreDownloadRecord =
+            PersistedExploreDownloadRecord(
+                downloadId = item.downloadId,
+                song = PersistedExploreSong.fromSong(item.song),
+                subfolder = item.subfolder,
+                status = item.status.name,
+                progress = item.progress,
+                statusMessage = item.statusMessage,
+                errorMessage = item.errorMessage,
+                outputUriString = item.outputUriString,
+                bytesWritten = item.bytesWritten,
+                lrcSaved = item.lrcSaved,
+            )
+    }
+}
+
+@Keep
+private data class PersistedExploreSong(
+    val id: String = "",
+    val title: String = "",
+    val artist: String = "",
+    val albumArtist: String = "",
+    val albumId: String = "",
+    val albumName: String = "",
+    val year: Int = 0,
+    val releaseDate: String? = null,
+    val durationSeconds: Int = 0,
+    val language: String? = null,
+    val label: String? = null,
+    val copyright: String? = null,
+    val hasLyrics: Boolean = false,
+    val lyricsText: String? = null,
+    val artworkUrl: String? = null,
+    val thumbnailUrl: String? = null,
+    val streamUrlsByQuality: Map<Int, String> = emptyMap(),
+    val saavnUrl: String? = null,
+    val explicitContent: Boolean = false,
+    val trackNumber: Int = 0,
+) {
+    fun toExploreSong(): ExploreSong? {
+        if (id.isBlank()) return null
+        return ExploreSong(
+            id = id,
+            title = title,
+            artist = artist,
+            albumArtist = albumArtist,
+            albumId = albumId,
+            albumName = albumName,
+            year = year,
+            releaseDate = releaseDate,
+            durationSeconds = durationSeconds,
+            language = language,
+            label = label,
+            copyright = copyright,
+            hasLyrics = hasLyrics,
+            lyricsText = lyricsText,
+            artworkUrl = artworkUrl,
+            thumbnailUrl = thumbnailUrl,
+            streamUrlsByQuality = streamUrlsByQuality,
+            saavnUrl = saavnUrl,
+            explicitContent = explicitContent,
+            trackNumber = trackNumber,
+        )
+    }
+
+    companion object {
+        fun fromSong(song: ExploreSong): PersistedExploreSong =
+            PersistedExploreSong(
+                id = song.id,
+                title = song.title,
+                artist = song.artist,
+                albumArtist = song.albumArtist,
+                albumId = song.albumId,
+                albumName = song.albumName,
+                year = song.year,
+                releaseDate = song.releaseDate,
+                durationSeconds = song.durationSeconds,
+                language = song.language,
+                label = song.label,
+                copyright = song.copyright,
+                hasLyrics = song.hasLyrics,
+                lyricsText = song.lyricsText,
+                artworkUrl = song.artworkUrl,
+                thumbnailUrl = song.thumbnailUrl,
+                streamUrlsByQuality = song.streamUrlsByQuality,
+                saavnUrl = song.saavnUrl,
+                explicitContent = song.explicitContent,
+                trackNumber = song.trackNumber,
+            )
     }
 }

@@ -260,7 +260,8 @@ class DualPlayerEngine @Inject constructor(
     private val navidromeStreamProxy: NavidromeStreamProxy,
     private val jellyfinStreamProxy: com.lostf1sh.pixelplayeross.data.jellyfin.JellyfinStreamProxy,
     private val cloudOfflineRepository: CloudOfflineRepository,
-    private val equalizerManager: EqualizerManager
+    private val equalizerManager: EqualizerManager,
+    private val exploreStreamCacheManager: com.lostf1sh.pixelplayeross.data.explore.ExploreStreamCacheManager,
 ) {
     private companion object {
         // A local file reaches READY in ~100ms with a working output path, so 1.5s of
@@ -729,6 +730,10 @@ class DualPlayerEngine @Inject constructor(
 
     private var isReleased = false
     private val resolvedUriCache = LruCache<String, Uri>(100)
+
+    fun clearResolvedUriCache() {
+        resolvedUriCache.evictAll()
+    }
 
     fun initialize() {
         if (!isReleased && ::playerA.isInitialized && playerA.applicationLooper.thread.isAlive) return
@@ -1237,8 +1242,9 @@ class DualPlayerEngine @Inject constructor(
             }
         }
         
-        val dataSourceFactory = DefaultDataSource.Factory(context)
-        val resolvingFactory = ResolvingDataSource.Factory(dataSourceFactory, resolver)
+        val baseDataSourceFactory = DefaultDataSource.Factory(context)
+        val cachedDataSourceFactory = exploreStreamCacheManager.createDataSourceFactory(baseDataSourceFactory)
+        val resolvingFactory = ResolvingDataSource.Factory(cachedDataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)

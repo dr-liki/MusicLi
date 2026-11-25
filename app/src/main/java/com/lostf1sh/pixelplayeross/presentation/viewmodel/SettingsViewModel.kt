@@ -166,7 +166,12 @@ data class SettingsUiState(
         com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.DEFAULT_ORDER,
     val lyricsRomanizationStyle: com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle =
         com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle.SING_ALONG,
-    val lyricsRomanizedFirst: Boolean = false
+    val lyricsRomanizedFirst: Boolean = false,
+    val playerBackgroundBlurEnabled: Boolean = false,
+    val playerBackgroundBlurRadius: Float = 28f,
+    val lyricsSheetBackdropBlurEnabled: Boolean = true,
+    val appOverlayBlurEnabled: Boolean = false,
+    val highRefreshRateEnabled: Boolean = false
 )
 
 data class FailedSongInfo(
@@ -516,6 +521,28 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.keepScreenAwakeWhilePlayingFlow.collect { enabled ->
                 _uiState.update { it.copy(keepScreenAwakeWhilePlaying = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                userPreferencesRepository.playerBackgroundBlurEnabledFlow,
+                userPreferencesRepository.playerBackgroundBlurRadiusFlow,
+                userPreferencesRepository.lyricsSheetBackdropBlurEnabledFlow,
+                userPreferencesRepository.appOverlayBlurEnabledFlow,
+                userPreferencesRepository.highRefreshRateEnabledFlow
+            ) { playerBlur, blurRadius, lyricsBackdropBlur, overlayBlur, highRefreshRate ->
+                arrayOf<Any>(playerBlur, blurRadius, lyricsBackdropBlur, overlayBlur, highRefreshRate)
+            }.collect { vals ->
+                _uiState.update {
+                    it.copy(
+                        playerBackgroundBlurEnabled = vals[0] as Boolean,
+                        playerBackgroundBlurRadius = vals[1] as Float,
+                        lyricsSheetBackdropBlurEnabled = vals[2] as Boolean,
+                        appOverlayBlurEnabled = vals[3] as Boolean,
+                        highRefreshRateEnabled = vals[4] as Boolean
+                    )
+                }
             }
         }
 
@@ -1404,6 +1431,26 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.setImmersiveLyricsTimeout(timeout)
         }
+    }
+
+    fun setPlayerBackgroundBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setPlayerBackgroundBlurEnabled(enabled) }
+    }
+
+    fun setPlayerBackgroundBlurRadius(radiusDp: Float) {
+        viewModelScope.launch { userPreferencesRepository.setPlayerBackgroundBlurRadius(radiusDp) }
+    }
+
+    fun setLyricsSheetBackdropBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setLyricsSheetBackdropBlurEnabled(enabled) }
+    }
+
+    fun setAppOverlayBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setAppOverlayBlurEnabled(enabled) }
+    }
+
+    fun setHighRefreshRateEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setHighRefreshRateEnabled(enabled) }
     }
 
     /**

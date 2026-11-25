@@ -505,6 +505,64 @@ object SettingsRegistry {
                 keywordsStatic = listOf("carousel", "peek", "album covers", "swipe")
             ),
             SettingSpec(
+                id = "appearance_high_refresh_rate",
+                itemKey = "item_appearance_high_refresh_rate",
+                titleRes = R.string.setcat_high_refresh_rate_title,
+                subtitleRes = R.string.setcat_high_refresh_rate_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("refresh rate", "120hz", "90hz", "smooth", "fps", "display"),
+                getValue = { it.highRefreshRateEnabled },
+                onToggle = { viewModel, checked -> viewModel.setHighRefreshRateEnabled(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_player_blur",
+                itemKey = "item_appearance_player_blur",
+                titleRes = R.string.setcat_player_blur_title,
+                subtitleRes = R.string.setcat_player_blur_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("blur", "glass", "player background", "frosted"),
+                getValue = { it.playerBackgroundBlurEnabled },
+                onToggle = { viewModel, checked -> viewModel.setPlayerBackgroundBlurEnabled(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_lyrics_backdrop_blur",
+                itemKey = "item_appearance_lyrics_backdrop_blur",
+                titleRes = R.string.setcat_lyrics_backdrop_blur_title,
+                subtitleRes = R.string.setcat_lyrics_backdrop_blur_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("blur", "lyrics backdrop", "glass", "frosted"),
+                getValue = { it.lyricsSheetBackdropBlurEnabled },
+                onToggle = { viewModel, checked -> viewModel.setLyricsSheetBackdropBlurEnabled(checked) }
+            ),
+            SettingSpec(
+                id = "appearance_overlay_blur",
+                itemKey = "item_appearance_overlay_blur",
+                titleRes = R.string.setcat_overlay_blur_title,
+                subtitleRes = R.string.setcat_overlay_blur_subtitle,
+                category = SettingsCategory.APPEARANCE,
+                subscreenRoute = Screen.SettingsCategory.createRoute("appearance"),
+                type = SettingType.SWITCH,
+                keywordsStatic = listOf("blur", "overlay", "backdrop", "glass"),
+                getValue = { it.appOverlayBlurEnabled },
+                onToggle = { viewModel, checked -> viewModel.setAppOverlayBlurEnabled(checked) }
+            ),
+            SettingSpec(
+                id = "storage_sense",
+                itemKey = "item_storage_sense",
+                titleRes = R.string.storage_sense_title,
+                subtitleRes = R.string.storage_sense_settings_subtitle,
+                category = SettingsCategory.LIBRARY,
+                subscreenRoute = Screen.StorageSense.route,
+                type = SettingType.NAVIGABLE_CARD,
+                keywordsStatic = listOf("storage sense", "stream cache", "clear cache", "explore cache", "image cache")
+            ),
+            SettingSpec(
                 id = "appearance_discover_item_count",
                 itemKey = "item_appearance_discover_item_count",
                 titleRes = R.string.setcat_discover_item_count_label,

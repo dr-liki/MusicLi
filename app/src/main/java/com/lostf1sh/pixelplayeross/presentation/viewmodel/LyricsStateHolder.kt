@@ -3,6 +3,7 @@ package com.lostf1sh.pixelplayeross.presentation.viewmodel
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.media.AudioMetadataReader
 import com.lostf1sh.pixelplayeross.data.media.CoverArtUpdate
+import com.lostf1sh.pixelplayeross.data.media.MetadataEditError
 import com.lostf1sh.pixelplayeross.data.media.SongMetadataEditor
 import com.lostf1sh.pixelplayeross.data.model.Lyrics
 import com.lostf1sh.pixelplayeross.data.model.LyricsSourcePreference
@@ -31,6 +32,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.collections.immutable.toImmutableList
+
+data class PendingLyricsMetadataWrite(
+    val song: Song,
+    val rawLyrics: String
+)
 
 /**
  * Callback interface for lyrics loading results.
@@ -77,6 +83,12 @@ class LyricsStateHolder @Inject constructor(
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
     )
     val messageEvents = _messageEvents.asSharedFlow()
+
+    private val _pendingMetadataWriteRequests = kotlinx.coroutines.flow.MutableSharedFlow<PendingLyricsMetadataWrite>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+    val pendingMetadataWriteRequests = _pendingMetadataWriteRequests.asSharedFlow()
 
     /**
      * Initialize with coroutine scope and callback from ViewModel.
@@ -194,37 +206,37 @@ class LyricsStateHolder @Inject constructor(
                     _messageEvents.emit(contextHelper(R.string.lyrics_already_available))
                     return@launch
                 }
-            }
 
-            val localSourceChecks: List<suspend () -> Pair<String, Int>?> = when (sourcePreference) {
-                LyricsSourcePreference.API_FIRST -> emptyList()
-                LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
-                    { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } },
-                    { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } }
-                )
-                LyricsSourcePreference.LOCAL_FIRST -> listOf(
-                    { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } },
-                    { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } }
-                )
-            }
+                val localSourceChecks: List<suspend () -> Pair<String, Int>?> = when (sourcePreference) {
+                    LyricsSourcePreference.API_FIRST -> emptyList()
+                    LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
+                        { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } },
+                        { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } }
+                    )
+                    LyricsSourcePreference.LOCAL_FIRST -> listOf(
+                        { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } },
+                        { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } }
+                    )
+                }
 
-            for (sourceCheck in localSourceChecks) {
-                val result = withContext(Dispatchers.IO) { sourceCheck() }
-                if (result != null) {
-                    val (rawLyrics, messageResId) = result
-                    val parsed = LyricsUtils.parseLyrics(rawLyrics)
-                    if (hasValidLyrics(parsed)) {
-                        val lyrics = parsed.copy(areFromRemote = false)
-                        _searchUiState.value = LyricsSearchUiState.Success(lyrics)
+                for (sourceCheck in localSourceChecks) {
+                    val result = withContext(Dispatchers.IO) { sourceCheck() }
+                    if (result != null) {
+                        val (rawLyrics, messageResId) = result
+                        val parsed = LyricsUtils.parseLyrics(rawLyrics)
+                        if (hasValidLyrics(parsed)) {
+                            val lyrics = parsed.copy(areFromRemote = false)
+                            _searchUiState.value = LyricsSearchUiState.Success(lyrics)
 
-                        val songId = song.id.toLongOrNull()
-                        if (songId != null) {
-                            musicRepository.updateLyrics(songId, rawLyrics)
+                            val songId = song.id.toLongOrNull()
+                            if (songId != null) {
+                                musicRepository.updateLyrics(songId, rawLyrics)
+                            }
+
+                            _songUpdates.emit(song.copy(lyrics = rawLyrics) to lyrics)
+                            _messageEvents.emit(contextHelper(messageResId))
+                            return@launch
                         }
-
-                        _songUpdates.emit(song.copy(lyrics = rawLyrics) to lyrics)
-                        _messageEvents.emit(contextHelper(messageResId))
-                        return@launch
                     }
                 }
             }
@@ -289,6 +301,7 @@ class LyricsStateHolder @Inject constructor(
                 musicRepository.updateLyrics(songId, result.rawLyrics)
             }
 
+            updateAdjacentLrcIfWritable(currentSong, result.rawLyrics)
             val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, result.rawLyrics)
             val updatedSong = currentSong.withPersistedLyrics(result.rawLyrics, refreshedAlbumArtUri)
 
@@ -307,6 +320,7 @@ class LyricsStateHolder @Inject constructor(
             musicRepository.updateLyrics(songId, sanitizedContent)
 
             if (currentSong != null && currentSong.id.toLongOrNull() == songId) {
+                updateAdjacentLrcIfWritable(currentSong, sanitizedContent)
                 val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, sanitizedContent)
                 val updatedSong = currentSong.withPersistedLyrics(sanitizedContent, refreshedAlbumArtUri)
                 _songUpdates.emit(updatedSong to parsedLyrics.takeIf(::hasValidLyrics))
@@ -375,8 +389,41 @@ class LyricsStateHolder @Inject constructor(
         }.getOrNull()
     }
 
-    private suspend fun persistLyricsToFileMetadataIfPossible(song: Song, rawLyrics: String): String? {
+    private suspend fun updateAdjacentLrcIfWritable(song: Song, rawLyrics: String) {
+        if (song.path.isBlank()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val songFile = File(song.path)
+                val parent = songFile.parentFile ?: return@runCatching
+                val lrcFile = File(parent, "${songFile.nameWithoutExtension}.lrc")
+                if (lrcFile.exists() && lrcFile.canWrite()) {
+                    lrcFile.writeText(rawLyrics.trim(), Charsets.UTF_8)
+                }
+            }
+        }
+    }
+
+    fun retryPersistLyricsMetadata(song: Song, rawLyrics: String) {
+        scope?.launch {
+            val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(
+                song = song,
+                rawLyrics = rawLyrics,
+                allowPermissionPrompt = false
+            )
+            val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).takeIf(::hasValidLyrics)
+            if (parsedLyrics != null) {
+                _songUpdates.emit(song.withPersistedLyrics(rawLyrics, refreshedAlbumArtUri) to parsedLyrics)
+            }
+        }
+    }
+
+    private suspend fun persistLyricsToFileMetadataIfPossible(
+        song: Song,
+        rawLyrics: String,
+        allowPermissionPrompt: Boolean = true
+    ): String? {
         val songId = song.id.toLongOrNull() ?: return null
+        if (song.path.isBlank() || songId <= 0L) return null
         val normalizedLyrics = rawLyrics.trim()
         if (normalizedLyrics.isBlank()) return null
 
@@ -392,7 +439,7 @@ class LyricsStateHolder @Inject constructor(
                 )
             }
 
-            runCatching {
+            val result = runCatching {
                 songMetadataEditor.editSongMetadata(
                     songId = songId,
                     newTitle = song.title,
@@ -404,7 +451,23 @@ class LyricsStateHolder @Inject constructor(
                     newDiscNumber = song.discNumber,
                     coverArtUpdate = coverArtUpdate
                 )
-            }.getOrNull()?.updatedAlbumArtUri
+            }.getOrNull() ?: return@withContext null
+
+            if (!result.success) {
+                if (allowPermissionPrompt && result.error == MetadataEditError.NO_WRITE_PERMISSION) {
+                    _pendingMetadataWriteRequests.emit(PendingLyricsMetadataWrite(song, normalizedLyrics))
+                } else {
+                    timber.log.Timber.tag("LyricsStateHolder").w(
+                        "Failed writing lyrics to file metadata for songId=%d error=%s msg=%s",
+                        songId,
+                        result.error,
+                        result.errorMessage
+                    )
+                }
+                return@withContext null
+            }
+
+            result.updatedAlbumArtUri
         }
     }
 

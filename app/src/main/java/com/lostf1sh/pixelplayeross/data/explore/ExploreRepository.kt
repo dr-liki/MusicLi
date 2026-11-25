@@ -15,6 +15,10 @@ class ExploreRepository @Inject constructor(
 ) {
     private val feedCache = ConcurrentHashMap<String, ExploreHomeFeed>()
 
+    fun clearFeedCache() {
+        feedCache.clear()
+    }
+
     private suspend fun baseUrl(): String = userPreferencesRepository.exploreApiBaseUrlFlow.first()
 
     suspend fun getHomeFeed(language: String = "All", forceRefresh: Boolean = false): Result<ExploreHomeFeed> =

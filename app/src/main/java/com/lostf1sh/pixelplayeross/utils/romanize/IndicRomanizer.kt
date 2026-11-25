@@ -56,6 +56,9 @@ object IndicRomanizer {
         style: RomanizationStyle,
         lineHasMarathiChars: Boolean
     ): String {
+        if (script == IndicScript.URDU) {
+            return UrduRomanizer.romanizeWord(token, style)
+        }
         val table = tables[script] ?: return token
         val isMarathiHint = script == IndicScript.DEVANAGARI && lineHasMarathiChars
 
@@ -449,7 +452,7 @@ object IndicRomanizer {
         if (isWordFinal) {
             return when (script) {
                 IndicScript.KANNADA, IndicScript.TELUGU, IndicScript.MALAYALAM, IndicScript.TAMIL -> "m"
-                IndicScript.DEVANAGARI, IndicScript.GURMUKHI -> "n"
+                IndicScript.DEVANAGARI, IndicScript.GURMUKHI, IndicScript.URDU -> "n"
             }
         }
         return when {

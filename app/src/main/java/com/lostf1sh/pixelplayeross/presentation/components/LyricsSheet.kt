@@ -12,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import com.lostf1sh.pixelplayeross.presentation.components.scoped.LyricsPredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.layout.ContentScale
 import com.lostf1sh.pixelplayeross.presentation.components.SmartImage
@@ -384,6 +385,11 @@ fun LyricsSheet(
         context.dataStore.data.map { it[androidx.datastore.preferences.core.floatPreferencesKey("animated_lyrics_blur_strength")] ?: 2.5f }
     }
     val animatedLyricsBlurStrength by animatedLyricsBlurStrengthFlow.collectAsStateWithLifecycle(initialValue = 2.5f)
+
+    val lyricsSheetBackdropBlurEnabledFlow = remember(context) {
+        context.dataStore.data.map { it[booleanPreferencesKey("lyrics_sheet_backdrop_blur_enabled")] ?: true }
+    }
+    val lyricsSheetBackdropBlurEnabled by lyricsSheetBackdropBlurEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
 
     val lyricsWordHighlightStyleFlow = remember(context) {
         context.dataStore.data.map { LyricsWordHighlightStyle.fromStorage(it[LYRICS_WORD_HIGHLIGHT_STYLE_KEY]) }
@@ -773,6 +779,25 @@ fun LyricsSheet(
         contentColor = contentColor,
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
+            if (lyricsSheetBackdropBlurEnabled &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+                !currentSong?.albumArtUriString.isNullOrBlank()
+            ) {
+                coil.compose.AsyncImage(
+                    model = currentSong?.albumArtUriString,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(32.dp)
+                        .graphicsLayer { alpha = 0.30f }
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(containerColor.copy(alpha = 0.72f))
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1235,6 +1260,7 @@ fun LyricsSheet(
                     lyrics = lyrics,
                     showSyncedLyrics = showSyncedLyrics == true,
                     isSyncControlsVisible = showSyncControls,
+                    onSearchLyrics = { onSearchLyrics(true) },
                     onSaveLyricsAsLrc = { showSaveLyricsDialog = true },
                     canCopyLyrics = canCopyLyrics,
                     onCopyLyrics = {

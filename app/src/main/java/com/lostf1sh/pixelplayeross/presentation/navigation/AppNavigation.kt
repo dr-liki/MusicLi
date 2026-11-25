@@ -196,6 +196,25 @@ fun AppNavigation(
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
                     ExploreDownloadsScreen(
                         onBack = { navController.popBackStack() },
+                        onOpenStorageSense = {
+                            navController.navigateSafely(Screen.StorageSense.route)
+                        },
+                    )
+                }
+            }
+            composable(
+                Screen.StorageSense.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    com.lostf1sh.pixelplayeross.presentation.screens.StorageSenseScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenExploreDownloads = {
+                            navController.navigateSafely(Screen.ExploreDownloads.route)
+                        },
                     )
                 }
             }

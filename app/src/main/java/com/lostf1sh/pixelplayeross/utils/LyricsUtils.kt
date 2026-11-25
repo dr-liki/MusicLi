@@ -1,5 +1,6 @@
 package com.lostf1sh.pixelplayeross.utils
 
+import com.lostf1sh.pixelplayeross.utils.romanize.IndicScript
 import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -117,6 +118,7 @@ object MultiLangRomanizer {
     fun isTelugu(text: String) = text.any { it in '\u0C00'..'\u0C7F' }
     fun isKannada(text: String) = text.any { it in '\u0C80'..'\u0CFF' }
     fun isMalayalam(text: String) = text.any { it in '\u0D00'..'\u0D7F' }
+    fun isUrdu(text: String) = text.any { IndicScript.URDU.matches(it.code) }
     fun isIndic(text: String) = IndicRomanizer.containsIndicScript(text)
     fun isCyrillic(text: String) = text.any { it in '\u0400'..'\u04FF' }
     fun isChinese(text: String) = text.any { it in '\u4E00'..'\u9FFF' }
@@ -134,6 +136,7 @@ object MultiLangRomanizer {
             code in 0x0C00..0x0C7F ||
             code in 0x0C80..0x0CFF ||
             code in 0x0D00..0x0D7F ||
+            IndicScript.URDU.matches(code) ||
             code in 0x0400..0x04FF
         }
     }

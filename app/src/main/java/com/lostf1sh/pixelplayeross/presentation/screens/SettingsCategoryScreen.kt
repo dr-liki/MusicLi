@@ -9,6 +9,8 @@ import java.util.Date
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.filled.SmartDisplay
+import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.Speed
 
 import android.app.Activity
 import android.content.Context
@@ -248,19 +250,6 @@ fun SettingsCategoryScreen(
     var importFileUri by remember { mutableStateOf<Uri?>(null) }
     var showExportEncryptionDialog by remember { mutableStateOf(false) }
     var exportPassphrase by remember { mutableStateOf<String?>(null) }
-    var showExploreApiUrlDialog by remember { mutableStateOf(false) }
-    val exploreFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            runCatching {
-                val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(uri, flags)
-            }
-            settingsViewModel.setExploreDownloadSafUri(uri.toString())
-        }
-    }
     var minSongDurationDraft by remember(uiState.minSongDuration) {
         mutableStateOf(uiState.minSongDuration.toFloat())
     }
@@ -1006,8 +995,7 @@ fun SettingsCategoryScreen(
                             }
 
                             SettingsSubsection(
-                                title = stringResource(R.string.setcat_app_navigation_section),
-                                addBottomSpace = false
+                                title = stringResource(R.string.setcat_app_navigation_section)
                             ) {
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.setcat_default_tab_label),
@@ -1034,6 +1022,121 @@ fun SettingsCategoryScreen(
                                     onSelectionChanged = { settingsViewModel.setLibraryNavigationMode(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.secondary) },
                                     modifier = Modifier.settingHighlight("item_appearance_library_navigation", highlightKey)
+                                )
+                            }
+
+                            val blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            var blurRadiusDraft by remember(uiState.playerBackgroundBlurRadius) {
+                                mutableStateOf(uiState.playerBackgroundBlurRadius)
+                            }
+                            val maxDisplayRefreshHz = remember(context) {
+                                runCatching {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        context.display?.supportedModes?.maxOfOrNull { it.refreshRate }?.roundToInt() ?: 60
+                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                        @Suppress("DEPRECATION")
+                                        (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)
+                                            ?.defaultDisplay?.supportedModes?.maxOfOrNull { it.refreshRate }?.roundToInt() ?: 60
+                                    } else {
+                                        60
+                                    }
+                                }.getOrDefault(60)
+                            }
+                            val supportsHighRefresh = maxDisplayRefreshHz > 61
+
+                            SettingsSubsection(
+                                title = "Blur & Display",
+                                addBottomSpace = false
+                            ) {
+                                SwitchSettingItem(
+                                    title = "High refresh rate",
+                                    subtitle = if (supportsHighRefresh) {
+                                        "Prefer up to $maxDisplayRefreshHz Hz refresh rate for smoother scrolling and transitions"
+                                    } else {
+                                        "Current display max is $maxDisplayRefreshHz Hz"
+                                    },
+                                    checked = uiState.highRefreshRateEnabled && supportsHighRefresh,
+                                    enabled = supportsHighRefresh,
+                                    onCheckedChange = settingsViewModel::setHighRefreshRateEnabled,
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.Speed,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    },
+                                    modifier = Modifier.settingHighlight("item_appearance_high_refresh_rate", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = "Player background blur",
+                                    subtitle = if (blurSupported) {
+                                        "Softly blur album artwork behind the full player"
+                                    } else {
+                                        "Requires Android 12 or newer"
+                                    },
+                                    checked = uiState.playerBackgroundBlurEnabled && blurSupported,
+                                    enabled = blurSupported,
+                                    onCheckedChange = settingsViewModel::setPlayerBackgroundBlurEnabled,
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.BlurOn,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    },
+                                    modifier = Modifier.settingHighlight("item_appearance_player_blur", highlightKey)
+                                )
+                                if (blurSupported && uiState.playerBackgroundBlurEnabled) {
+                                    SliderSettingsItem(
+                                        label = "Player blur intensity",
+                                        value = blurRadiusDraft,
+                                        valueRange = 8f..48f,
+                                        steps = 7,
+                                        onValueChange = { blurRadiusDraft = it },
+                                        onValueChangeFinished = {
+                                            settingsViewModel.setPlayerBackgroundBlurRadius(blurRadiusDraft)
+                                        },
+                                        valueText = { "${it.roundToInt()} dp" },
+                                        modifier = Modifier.settingHighlight("item_appearance_blur_strength", highlightKey)
+                                    )
+                                }
+                                SwitchSettingItem(
+                                    title = "Lyrics backdrop blur",
+                                    subtitle = if (blurSupported) {
+                                        "Render a frosted album-art blur behind full-screen lyrics"
+                                    } else {
+                                        "Requires Android 12 or newer"
+                                    },
+                                    checked = uiState.lyricsSheetBackdropBlurEnabled && blurSupported,
+                                    enabled = blurSupported,
+                                    onCheckedChange = settingsViewModel::setLyricsSheetBackdropBlurEnabled,
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.BlurOn,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    },
+                                    modifier = Modifier.settingHighlight("item_appearance_lyrics_backdrop_blur", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = "Player overlay blur",
+                                    subtitle = if (blurSupported) {
+                                        "Blur the screen behind the expanded player sheet"
+                                    } else {
+                                        "Requires Android 12 or newer"
+                                    },
+                                    checked = uiState.appOverlayBlurEnabled && blurSupported,
+                                    enabled = blurSupported,
+                                    onCheckedChange = settingsViewModel::setAppOverlayBlurEnabled,
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.BlurOn,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    },
+                                    modifier = Modifier.settingHighlight("item_appearance_overlay_blur", highlightKey)
                                 )
                             }
                         }
@@ -1257,126 +1360,6 @@ fun SettingsCategoryScreen(
                                     },
                                     leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.HighQuality, null, tint = MaterialTheme.colorScheme.secondary) },
                                     modifier = Modifier.settingHighlight("item_playback_default_video_quality", highlightKey)
-                                )
-                            }
-
-                            SettingsSubsection(
-                                title = stringResource(R.string.setcat_explore_downloads_section)
-                            ) {
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.setcat_explore_stream_quality_label),
-                                    description = stringResource(R.string.setcat_explore_stream_quality_desc),
-                                    options = linkedMapOf(
-                                        "320" to stringResource(R.string.explore_quality_320),
-                                        "160" to stringResource(R.string.explore_quality_160),
-                                        "96" to stringResource(R.string.explore_quality_96),
-                                    ),
-                                    selectedKey = uiState.exploreStreamQuality.toString(),
-                                    onSelectionChanged = { key ->
-                                        settingsViewModel.setExploreStreamQuality(key.toIntOrNull() ?: 320)
-                                    },
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.HighQuality, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_explore_stream_quality", highlightKey)
-                                )
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.setcat_explore_quality_label),
-                                    description = stringResource(R.string.setcat_explore_quality_desc),
-                                    options = linkedMapOf(
-                                        "320" to stringResource(R.string.explore_quality_320),
-                                        "160" to stringResource(R.string.explore_quality_160),
-                                        "96" to stringResource(R.string.explore_quality_96),
-                                    ),
-                                    selectedKey = uiState.exploreDownloadQuality.toString(),
-                                    onSelectionChanged = { key ->
-                                        settingsViewModel.setExploreDownloadQuality(key.toIntOrNull() ?: 320)
-                                    },
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_explore_download_quality", highlightKey)
-                                )
-                                SettingsItem(
-                                    title = stringResource(R.string.setcat_explore_folder_title),
-                                    subtitle = uiState.exploreDownloadSafUri?.let { uriStr ->
-                                        android.net.Uri.parse(uriStr).lastPathSegment ?: uriStr
-                                    } ?: stringResource(R.string.setcat_explore_folder_default),
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.FolderOpen, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    trailingIcon = {
-                                        if (uiState.exploreDownloadSafUri != null) {
-                                            TextButton(onClick = { settingsViewModel.setExploreDownloadSafUri(null) }) {
-                                                Text(stringResource(R.string.setcat_explore_folder_reset))
-                                            }
-                                        }
-                                    },
-                                    onClick = { exploreFolderLauncher.launch(null) },
-                                    modifier = Modifier.settingHighlight("item_explore_download_folder", highlightKey)
-                                )
-                                SwitchSettingItem(
-                                    title = stringResource(R.string.setcat_explore_subfolders_title),
-                                    subtitle = stringResource(R.string.setcat_explore_subfolders_subtitle),
-                                    checked = uiState.exploreDownloadSubfolders,
-                                    onCheckedChange = { settingsViewModel.setExploreDownloadSubfolders(it) },
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.CreateNewFolder, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_explore_subfolders", highlightKey)
-                                )
-                                SwitchSettingItem(
-                                    title = stringResource(R.string.setcat_explore_lyrics_title),
-                                    subtitle = stringResource(R.string.setcat_explore_lyrics_subtitle),
-                                    checked = uiState.exploreDownloadLyrics,
-                                    onCheckedChange = { settingsViewModel.setExploreDownloadLyrics(it) },
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    modifier = Modifier.settingHighlight("item_explore_lyrics", highlightKey)
-                                )
-                                SettingsItem(
-                                    title = stringResource(R.string.setcat_explore_api_url_title),
-                                    subtitle = uiState.exploreApiBaseUrl,
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Public, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    onClick = { showExploreApiUrlDialog = true },
-                                    modifier = Modifier.settingHighlight("item_explore_api_url", highlightKey)
-                                )
-                                SettingsItem(
-                                    title = stringResource(R.string.setcat_explore_manage_downloads_title),
-                                    subtitle = stringResource(R.string.setcat_explore_manage_downloads_subtitle),
-                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.DownloadDone, null, tint = MaterialTheme.colorScheme.secondary) },
-                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                    onClick = { navController.navigateSafely(Screen.ExploreDownloads.route) },
-                                    modifier = Modifier.settingHighlight("item_explore_manage_downloads", highlightKey)
-                                )
-                            }
-
-                            if (showExploreApiUrlDialog) {
-                                var draftUrl by remember(uiState.exploreApiBaseUrl) {
-                                    mutableStateOf(uiState.exploreApiBaseUrl)
-                                }
-                                AlertDialog(
-                                    onDismissRequest = { showExploreApiUrlDialog = false },
-                                    title = { Text(stringResource(R.string.setcat_explore_api_url_dialog_title)) },
-                                    text = {
-                                        OutlinedTextField(
-                                            value = draftUrl,
-                                            onValueChange = { draftUrl = it },
-                                            singleLine = true,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    },
-                                    confirmButton = {
-                                        TextButton(
-                                            onClick = {
-                                                settingsViewModel.setExploreApiBaseUrl(draftUrl)
-                                                showExploreApiUrlDialog = false
-                                            }
-                                        ) {
-                                            Text(stringResource(android.R.string.ok))
-                                        }
-                                    },
-                                    dismissButton = {
-                                        TextButton(
-                                            onClick = {
-                                                settingsViewModel.setExploreApiBaseUrl(null)
-                                                showExploreApiUrlDialog = false
-                                            }
-                                        ) {
-                                            Text("Reset")
-                                        }
-                                    }
                                 )
                             }
 

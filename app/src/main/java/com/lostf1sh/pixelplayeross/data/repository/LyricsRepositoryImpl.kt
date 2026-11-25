@@ -1475,6 +1475,13 @@ class LyricsRepositoryImpl @Inject constructor(
 
         val cacheKey = generateCacheKey(songId.toString())
         lyricsCache.put(cacheKey, parsedLyrics)
+        try {
+            val jsonFile = File(context.filesDir, "lyrics/${songId}.json")
+            if (jsonFile.exists()) jsonFile.delete()
+            saveLocalLyricsJson(Song.emptySong().copy(id = songId.toString()), parsedLyrics)
+        } catch (e: Exception) {
+            Timber.tag(TAG).w(e, "Failed syncing JSON cache for updated lyrics songId=$songId")
+        }
         LogUtils.d(this@LyricsRepositoryImpl, "Updated and cached lyrics for songId: $songId")
     }
 

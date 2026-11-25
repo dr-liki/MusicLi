@@ -1,5 +1,7 @@
 package com.lostf1sh.pixelplayeross.presentation.components
 
+import com.lostf1sh.pixelplayeross.data.preferences.dataStore
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -34,6 +36,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
@@ -208,6 +211,19 @@ fun UnifiedPlayerSheetV2(
     val playerThemePreference = playerConfig.playerThemePreference
     // Horizontal swipes skip tracks and dismissal moves to a downward swipe.
     val miniPlayerSwipeToSkip = playerConfig.miniPlayerSwipeToSkip
+
+    val blurContext = LocalContext.current
+    val playerBlurEnabled by remember(blurContext) {
+        blurContext.dataStore.data.map {
+            it[androidx.datastore.preferences.core.booleanPreferencesKey("player_background_blur_enabled")] ?: false
+        }
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val playerBlurRadiusDp by remember(blurContext) {
+        blurContext.dataStore.data.map {
+            (it[androidx.datastore.preferences.core.floatPreferencesKey("player_background_blur_radius")] ?: 28f)
+                .coerceIn(8f, 48f)
+        }
+    }.collectAsStateWithLifecycle(initialValue = 28f)
 
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -755,6 +771,29 @@ fun UnifiedPlayerSheetV2(
                                 testTag = playerSheetTestTag(currentSheetContentState)
                             }
                     ) {
+                        val artModel = infrequentPlayerState.currentSong?.albumArtUriString
+                        if (playerBlurEnabled &&
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                            !artModel.isNullOrBlank() &&
+                            playerContentExpansionFraction.value > 0.02f
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = artModel,
+                                contentDescription = null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(playerBlurRadiusDp.dp)
+                                    .graphicsLayer {
+                                        alpha = (playerContentExpansionFraction.value * 0.42f).coerceIn(0f, 0.42f)
+                                    }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(playerAreaBackground.copy(alpha = 0.62f))
+                            )
+                        }
                         // Measures the player content at the full container height and, while
                         // the player is expanding or expanded, at the sheet's full width, so the
                         // full player keeps a stable layout across the transition and the card

@@ -336,6 +336,7 @@ fun LyricsSettingsScreen(
                             "ml" to "Malayalam",
                             "mr" to "Marathi",
                             "pa" to "Punjabi",
+                            "ur" to "Urdu",
                             "es" to "Spanish",
                             "fr" to "French",
                             "de" to "German",

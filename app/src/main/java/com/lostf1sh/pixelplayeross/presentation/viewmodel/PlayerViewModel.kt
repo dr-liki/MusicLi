@@ -609,6 +609,7 @@ class PlayerViewModel @Inject constructor(
     private var pendingMetadataEdit: PendingMetadataEdit? = null
     private var pendingBatchMetadataEdit: PendingBatchMetadataEdit? = null
     private var pendingLyricsSave: PendingLyricsSave? = null
+    private var pendingLyricsMetadataWrite: com.lostf1sh.pixelplayeross.presentation.viewmodel.PendingLyricsMetadataWrite? = null
     /** A write request for songs left cut off by an interrupted save is waiting for its result. */
     private var pendingInterruptedSaveRestore = false
     /** Cut-off songs already asked about, so a denied request is not repeated while this ViewModel lives. */
@@ -989,6 +990,20 @@ class PlayerViewModel @Inject constructor(
 
         lyricsStateHolder.messageEvents
             .onEach { msg: String -> _toastEvents.emit(msg) }
+            .launchIn(viewModelScope)
+
+        lyricsStateHolder.pendingMetadataWriteRequests
+            .onEach { request ->
+                val songId = request.song.id.toLongOrNull() ?: return@onEach
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R && songId > 0L) {
+                    val intentSender = com.lostf1sh.pixelplayeross.utils.MediaStorePermissionHelper
+                        .createWriteRequestForSong(context, songId)
+                    if (intentSender != null) {
+                        pendingLyricsMetadataWrite = request
+                        _writePermissionRequest.emit(intentSender)
+                    }
+                }
+            }
             .launchIn(viewModelScope)
 
         viewModelScope.launch {
@@ -4897,6 +4912,19 @@ class PlayerViewModel @Inject constructor(
             return
         }
 
+        val pendingLyricsMetadata = pendingLyricsMetadataWrite
+        if (pendingLyricsMetadata != null) {
+            pendingLyricsMetadataWrite = null
+            if (!granted) {
+                viewModelScope.launch {
+                    _toastEvents.emit(context.getString(R.string.player_permission_denied_edit_this_file))
+                }
+                return
+            }
+            lyricsStateHolder.retryPersistLyricsMetadata(pendingLyricsMetadata.song, pendingLyricsMetadata.rawLyrics)
+            return
+        }
+
         val pending = pendingMetadataEdit
         if (pending == null) {
             if (pendingInterruptedSaveRestore) onInterruptedSaveRestorePermissionResult(granted)
@@ -4948,7 +4976,8 @@ class PlayerViewModel @Inject constructor(
 
     private fun otherWriteRequestPending(): Boolean =
         pendingMetadataEdit != null || pendingBatchMetadataEdit != null ||
-            pendingBatchGenreEdit != null || pendingLyricsSave != null
+            pendingBatchGenreEdit != null || pendingLyricsSave != null ||
+            pendingLyricsMetadataWrite != null
 
     private fun onInterruptedSaveRestorePermissionResult(granted: Boolean) {
         pendingInterruptedSaveRestore = false
@@ -5178,6 +5207,7 @@ class PlayerViewModel @Inject constructor(
 
     fun acceptLyricsSearchResultForCurrentSong(result: LyricsSearchResult) {
         val currentSong = stablePlayerState.value.currentSong ?: return
+        lyricsTranslator.clearCacheForSong(currentSong.id)
         lyricsStateHolder.acceptLyricsSearchResult(result, currentSong)
     }
 
@@ -5236,6 +5266,7 @@ class PlayerViewModel @Inject constructor(
      */
     fun importLyricsFromFile(songId: Long, validatedImport: ValidatedLyricsImport) {
         val currentSong = stablePlayerState.value.currentSong
+        lyricsTranslator.clearCacheForSong(songId.toString())
         lyricsStateHolder.importLyricsFromFile(songId, validatedImport, currentSong)
     }
 

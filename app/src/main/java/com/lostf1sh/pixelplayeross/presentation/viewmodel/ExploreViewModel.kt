@@ -66,6 +66,15 @@ data class ExploreDownloadsUiState(
     val totalCount: Int get() = active.size + failed.size + completed.size
 }
 
+data class ExploreOptionsState(
+    val streamQualityKbps: Int = 320,
+    val downloadQualityKbps: Int = 320,
+    val downloadSafUri: String? = null,
+    val downloadSubfolders: Boolean = true,
+    val downloadLyrics: Boolean = true,
+    val apiBaseUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+)
+
 @HiltViewModel
 class ExploreViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
@@ -83,6 +92,52 @@ class ExploreViewModel @Inject constructor(
     val downloadedSongIds: StateFlow<Set<String>> = downloader.downloadedSongIds
     val preferredQualityKbps: StateFlow<Int> = userPreferencesRepository.exploreDownloadQualityFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 320)
+
+    val optionsState: StateFlow<ExploreOptionsState> = combine(
+        combine(
+            userPreferencesRepository.exploreStreamQualityFlow,
+            userPreferencesRepository.exploreDownloadQualityFlow,
+            userPreferencesRepository.exploreDownloadSafUriFlow,
+        ) { streamQ, dlQ, safUri -> Triple(streamQ, dlQ, safUri) },
+        combine(
+            userPreferencesRepository.exploreDownloadSubfoldersFlow,
+            userPreferencesRepository.exploreDownloadLyricsFlow,
+            userPreferencesRepository.exploreApiBaseUrlFlow,
+        ) { subfolders, lyrics, apiUrl -> Triple(subfolders, lyrics, apiUrl) },
+    ) { first, second ->
+        ExploreOptionsState(
+            streamQualityKbps = first.first,
+            downloadQualityKbps = first.second,
+            downloadSafUri = first.third,
+            downloadSubfolders = second.first,
+            downloadLyrics = second.second,
+            apiBaseUrl = second.third,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ExploreOptionsState())
+
+    fun setStreamQualityKbps(kbps: Int) {
+        viewModelScope.launch { userPreferencesRepository.setExploreStreamQuality(kbps) }
+    }
+
+    fun setDownloadQualityKbps(kbps: Int) {
+        viewModelScope.launch { userPreferencesRepository.setExploreDownloadQuality(kbps) }
+    }
+
+    fun setDownloadSafUri(uriString: String?) {
+        viewModelScope.launch { userPreferencesRepository.setExploreDownloadSafUri(uriString) }
+    }
+
+    fun setDownloadSubfolders(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setExploreDownloadSubfolders(enabled) }
+    }
+
+    fun setDownloadLyrics(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setExploreDownloadLyrics(enabled) }
+    }
+
+    fun setApiBaseUrl(url: String?) {
+        viewModelScope.launch { userPreferencesRepository.setExploreApiBaseUrl(url) }
+    }
 
     val downloadsUiState: StateFlow<ExploreDownloadsUiState> = combine(downloader.downloads) { array ->
         val list = array[0]

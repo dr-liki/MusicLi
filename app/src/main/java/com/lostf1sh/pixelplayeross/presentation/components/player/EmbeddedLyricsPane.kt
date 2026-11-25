@@ -792,6 +792,7 @@ fun EmbeddedLyricsPane(
                 lyrics = lyrics,
                 showSyncedLyrics = showSyncedLyrics,
                 isSyncControlsVisible = showSyncControls,
+                onSearchLyrics = { onSearchLyrics?.invoke() },
                 onSaveLyricsAsLrc = { showSaveLyricsDialog = true },
                 canCopyLyrics = hasAnyLyrics,
                 onCopyLyrics = {

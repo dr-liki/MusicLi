@@ -1,7 +1,12 @@
 package com.lostf1sh.pixelplayeross.presentation.screens
 
+import android.content.Intent
+import android.net.Uri
 import android.text.format.Formatter
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -25,26 +32,40 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,10 +89,27 @@ import com.lostf1sh.pixelplayeross.presentation.viewmodel.ExploreViewModel
 @Composable
 fun ExploreDownloadsScreen(
     onBack: () -> Unit,
+    onOpenStorageSense: () -> Unit = {},
     viewModel: ExploreViewModel = hiltViewModel(),
 ) {
     val state by viewModel.downloadsUiState.collectAsStateWithLifecycle()
+    val optionsState by viewModel.optionsState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showOptionsSheet by remember { mutableStateOf(false) }
+    var showApiUrlDialog by remember { mutableStateOf(false) }
+
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            }
+            viewModel.setDownloadSafUri(uri.toString())
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -100,6 +138,18 @@ fun ExploreDownloadsScreen(
                         TextButton(onClick = viewModel::clearCompletedDownloads) {
                             Text("Clear completed")
                         }
+                    }
+                    IconButton(onClick = onOpenStorageSense) {
+                        Icon(
+                            imageVector = Icons.Rounded.Storage,
+                            contentDescription = "Storage Sense",
+                        )
+                    }
+                    IconButton(onClick = { showOptionsSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = "Explore options",
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -243,6 +293,176 @@ fun ExploreDownloadsScreen(
                 }
             }
         }
+    }
+
+    if (showOptionsSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showOptionsSheet = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.setcat_explore_downloads_section),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Text(
+                    text = stringResource(R.string.setcat_explore_stream_quality_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(320, 160, 96).forEach { kbps ->
+                        FilterChip(
+                            selected = optionsState.streamQualityKbps == kbps,
+                            onClick = { viewModel.setStreamQualityKbps(kbps) },
+                            label = { Text("$kbps kbps") },
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.setcat_explore_quality_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(320, 160, 96).forEach { kbps ->
+                        FilterChip(
+                            selected = optionsState.downloadQualityKbps == kbps,
+                            onClick = { viewModel.setDownloadQualityKbps(kbps) },
+                            label = { Text("$kbps kbps") },
+                        )
+                    }
+                }
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.setcat_explore_folder_title)) },
+                    supportingContent = {
+                        Text(
+                            optionsState.downloadSafUri?.let { Uri.parse(it).lastPathSegment ?: it }
+                                ?: stringResource(R.string.setcat_explore_folder_default),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Rounded.FolderOpen, null) },
+                    trailingContent = {
+                        if (optionsState.downloadSafUri != null) {
+                            TextButton(onClick = { viewModel.setDownloadSafUri(null) }) {
+                                Text(stringResource(R.string.setcat_explore_folder_reset))
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { folderLauncher.launch(null) },
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.setcat_explore_subfolders_title)) },
+                    supportingContent = { Text(stringResource(R.string.setcat_explore_subfolders_subtitle)) },
+                    leadingContent = { Icon(Icons.Rounded.HighQuality, null) },
+                    trailingContent = {
+                        Switch(
+                            checked = optionsState.downloadSubfolders,
+                            onCheckedChange = viewModel::setDownloadSubfolders,
+                        )
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { viewModel.setDownloadSubfolders(!optionsState.downloadSubfolders) },
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.setcat_explore_lyrics_title)) },
+                    supportingContent = { Text(stringResource(R.string.setcat_explore_lyrics_subtitle)) },
+                    leadingContent = { Icon(Icons.Rounded.Lyrics, null) },
+                    trailingContent = {
+                        Switch(
+                            checked = optionsState.downloadLyrics,
+                            onCheckedChange = viewModel::setDownloadLyrics,
+                        )
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { viewModel.setDownloadLyrics(!optionsState.downloadLyrics) },
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.setcat_explore_api_url_title)) },
+                    supportingContent = {
+                        Text(
+                            optionsState.apiBaseUrl,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Rounded.Public, null) },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { showApiUrlDialog = true },
+                )
+
+                ListItem(
+                    headlineContent = { Text("Storage Sense") },
+                    supportingContent = { Text("Manage Explore stream cache & app storage") },
+                    leadingContent = { Icon(Icons.Rounded.Storage, null) },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            showOptionsSheet = false
+                            onOpenStorageSense()
+                        },
+                )
+            }
+        }
+    }
+
+    if (showApiUrlDialog) {
+        var draftUrl by remember(optionsState.apiBaseUrl) {
+            mutableStateOf(optionsState.apiBaseUrl)
+        }
+        AlertDialog(
+            onDismissRequest = { showApiUrlDialog = false },
+            title = { Text(stringResource(R.string.setcat_explore_api_url_dialog_title)) },
+            text = {
+                OutlinedTextField(
+                    value = draftUrl,
+                    onValueChange = { draftUrl = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setApiBaseUrl(draftUrl)
+                        showApiUrlDialog = false
+                    }
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setApiBaseUrl(null)
+                        showApiUrlDialog = false
+                    }
+                ) {
+                    Text("Reset")
+                }
+            },
+        )
     }
 }
 

@@ -272,6 +272,7 @@ fun FullPlayerContent(
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     var showSaveBookmarkDialog by rememberSaveable { mutableStateOf(false) }
     var showAudioOutputSheet by rememberSaveable { mutableStateOf(false) }
+    var showAudioDetailsDialog by rememberSaveable { mutableStateOf(false) }
     val bookmarksViewModel: AudioBookmarksViewModel = hiltViewModel()
     val syncedVideoViewModel: SyncedVideoViewModel = hiltViewModel()
     val exploreViewModel: ExploreViewModel = hiltViewModel()
@@ -658,6 +659,7 @@ fun FullPlayerContent(
             currentPositionProvider = currentPositionProvider,
             totalDurationValue = totalDurationValue,
             showPlayerFileInfo = showPlayerFileInfo,
+            onAudioMetaClick = { showAudioDetailsDialog = true },
             onSeek = onSeek,
             expansionFractionProvider = expansionFractionProvider,
             isPlayingProvider = isPlayingProvider,
@@ -1141,6 +1143,19 @@ fun FullPlayerContent(
         )
     }
 
+    if (showAudioDetailsDialog) {
+        SongAudioDetailsDialog(
+            song = song,
+            playbackMimeType = playbackAudioMetadata.mimeType.takeIf { playbackAudioMetadata.mediaId == song.id },
+            playbackBitrate = playbackAudioMetadata.bitrate.takeIf { playbackAudioMetadata.mediaId == song.id },
+            playbackSampleRate = playbackAudioMetadata.sampleRate.takeIf { playbackAudioMetadata.mediaId == song.id },
+            hasSyncedLyrics = stablePlayerState.lyrics?.synced?.isNotEmpty() == true,
+            hasPlainLyrics = stablePlayerState.lyrics?.plain?.isNotEmpty() == true,
+            onDismiss = { showAudioDetailsDialog = false },
+            onOpenFullSongInfo = { onSongInfoClick(song) },
+        )
+    }
+
     if (syncedVideoEnabled) {
         SyncedVideoDialog(
             viewModel = syncedVideoViewModel,
@@ -1385,6 +1400,7 @@ private fun FullPlayerProgressSection(
     currentPositionProvider: () -> Long,
     totalDurationValue: Long,
     showPlayerFileInfo: Boolean,
+    onAudioMetaClick: () -> Unit,
     onSeek: (Long) -> Unit,
     expansionFractionProvider: () -> Float,
     isPlayingProvider: () -> Boolean,
@@ -1421,6 +1437,7 @@ private fun FullPlayerProgressSection(
         audioBitrate = audioBitrate,
         audioSampleRate = audioSampleRate,
         showAudioFileInfo = showPlayerFileInfo,
+        onAudioMetaClick = onAudioMetaClick,
         onSeek = onSeek,
         expansionFractionProvider = expansionFractionProvider,
         isPlayingProvider = isPlayingProvider,
@@ -2040,6 +2057,7 @@ private fun PlayerProgressBarSection(
     audioBitrate: Int?,
     audioSampleRate: Int?,
     showAudioFileInfo: Boolean,
+    onAudioMetaClick: () -> Unit,
     onSeek: (Long) -> Unit,
     expansionFractionProvider: () -> Float,
     isPlayingProvider: () -> Boolean,
@@ -2219,6 +2237,7 @@ private fun PlayerProgressBarSection(
                 isVisible = isVisible,
                 textColor = timeTextColor,
                 audioMetaLabel = displayAudioMetaLabel,
+                onAudioMetaClick = onAudioMetaClick,
                 horizontalTrackInset = progressSectionHorizontalInset
             )
         }
@@ -2278,6 +2297,7 @@ private fun EfficientTimeLabels(
     isVisible: Boolean,
     textColor: Color,
     audioMetaLabel: String?,
+    onAudioMetaClick: () -> Unit,
     horizontalTrackInset: Dp
 ) {
     val coarsePositionMs by remember(isVisible, positionState) {
@@ -2326,7 +2346,9 @@ private fun EfficientTimeLabels(
             Surface(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(horizontal = 58.dp),
+                    .padding(horizontal = 58.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable(onClick = onAudioMetaClick),
                 shape = RoundedCornerShape(999.dp),
                 color = textColor.copy(alpha = 0.14f),
                 contentColor = textColor.copy(alpha = 0.96f)
@@ -3029,7 +3051,9 @@ private fun BottomToggleRow(
                     } else {
                         Icon(
                             imageVector = if (isExploreDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
-                            contentDescription = if (isExploreDownloaded) "Downloaded" else "Download",
+                            contentDescription = stringResource(
+                                if (isExploreDownloaded) R.string.explore_downloaded else R.string.cloud_download_action
+                            ),
                             tint = contentColor,
                             modifier = Modifier.size(24.dp),
                         )

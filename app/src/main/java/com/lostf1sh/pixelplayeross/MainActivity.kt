@@ -13,6 +13,7 @@ import com.lostf1sh.pixelplayeross.utils.traceSection
 import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.ui.draw.blur
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -243,6 +244,16 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
         super.onCreate(savedInstanceState)
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                userPreferencesRepository.highRefreshRateEnabledFlow
+                    .distinctUntilChanged()
+                    .collect { enabled ->
+                        applyPreferredRefreshRate(enabled)
+                    }
+            }
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -736,6 +747,7 @@ class MainActivity : ComponentActivity() {
                 Screen.ExcludedDirectories.route,
                 Screen.AudioBookmarks.route,
                 Screen.AudioBookmarkFolder.route,
+                Screen.StorageSense.route,
                 Screen.Updates.route
             )
         }
@@ -930,9 +942,30 @@ class MainActivity : ComponentActivity() {
                     bottomSpacerPx = spacerPx
                 )
 
+                val appOverlayBlurEnabled by remember {
+                    userPreferencesRepository.appOverlayBlurEnabledFlow
+                }.collectAsStateWithLifecycle(initialValue = false)
+                val overlayBlurRadiusDp by remember {
+                    derivedStateOf {
+                        val fraction = playerViewModel.playerContentExpansionFraction.value
+                        if (appOverlayBlurEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && fraction > 0.05f) {
+                            (fraction * 14f).toInt().dp
+                        } else {
+                            0.dp
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
+                        .then(
+                            if (overlayBlurRadiusDp > 0.dp && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                Modifier.blur(overlayBlurRadiusDp)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .background(MaterialTheme.colorScheme.surfaceContainer)
                 ) {
                     if (useNavigationRail) {
@@ -1308,6 +1341,40 @@ class MainActivity : ComponentActivity() {
         PhoneOrientationPolicy.apply(this)
     }
 
+    private fun applyPreferredRefreshRate(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        runCatching {
+            val activeDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
+            } ?: return@runCatching
+
+            val params = window.attributes
+            if (!enabled) {
+                if (params.preferredDisplayModeId != 0) {
+                    params.preferredDisplayModeId = 0
+                    window.attributes = params
+                }
+                return@runCatching
+            }
+
+            val currentMode = activeDisplay.mode
+            val bestMode = activeDisplay.supportedModes
+                .filter {
+                    it.physicalWidth == currentMode.physicalWidth &&
+                        it.physicalHeight == currentMode.physicalHeight
+                }
+                .maxByOrNull { it.refreshRate }
+                ?: currentMode
+
+            if (bestMode.refreshRate > 61f && params.preferredDisplayModeId != bestMode.modeId) {
+                params.preferredDisplayModeId = bestMode.modeId
+                window.attributes = params
+            }
+        }
+    }
 
 }
 

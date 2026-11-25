@@ -69,6 +69,16 @@ class IndicRomanizerTest {
         assertTrue(MultiLangRomanizer.isScriptThatNeedsRomanization("മലയാളം"))
         assertTrue(MultiLangRomanizer.isScriptThatNeedsRomanization("हिन्दी"))
         assertTrue(MultiLangRomanizer.isScriptThatNeedsRomanization("ਪੰਜਾਬੀ"))
+        assertTrue(MultiLangRomanizer.isScriptThatNeedsRomanization("اردو"))
         assertFalse(MultiLangRomanizer.isScriptThatNeedsRomanization("English Lyrics"))
+    }
+
+    @Test
+    fun `urdu nastaliq handles common lyrics, aspiration, noon ghunna, and compact style`() {
+        assertEquals("dil main mohabbat hai", IndicRomanizer.romanize("دل میں محبت ہے"))
+        assertEquals("teri aankhon main", IndicRomanizer.romanize("تیری آنکھوں میں"))
+        assertEquals("phool aur chaand", IndicRomanizer.romanize("پھول اور چاند"))
+        assertEquals("phul aur chand", IndicRomanizer.romanize("پھول اور چاند", RomanizationStyle.COMPACT))
+        assertEquals("Baby mere saath", IndicRomanizer.romanize("Baby میرے ساتھ"))
     }
 }

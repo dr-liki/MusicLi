@@ -58,6 +58,7 @@
     <string name="fetch_lyrics_show_options_title">Show lyric options</string>
     <string name="fetch_lyrics_show_options_subtitle">Always open the picker instead of auto-applying the first match</string>
     <string name="save_lyrics_dialog_title">Save Lyrics</string>
+    <string name="search_lyrics">Search lyrics</string>
     <string name="save_lyrics_dialog_message">Choose which version to save:</string>
     <string name="save_synced_lyrics">Synced (with timestamps)</string>
     <string name="save_plain_lyrics">Plain (text only)</string>
@@ -264,6 +265,16 @@
     <string name="cloud_playlist_download">Download playlist</string>
     <string name="cloud_album_remove_downloads">Remove downloads</string>
     <string name="cloud_downloads_title">Downloads</string>
+    <string name="storage_sense_title">Storage Sense</string>
+    <string name="storage_sense_settings_subtitle">Inspect and clear Explore stream cache and app caches</string>
+    <string name="setcat_high_refresh_rate_title">High refresh rate</string>
+    <string name="setcat_high_refresh_rate_subtitle">Prefer maximum display refresh rate (90Hz/120Hz)</string>
+    <string name="setcat_player_blur_title">Player background blur</string>
+    <string name="setcat_player_blur_subtitle">Softly blur album artwork behind the full player</string>
+    <string name="setcat_lyrics_backdrop_blur_title">Lyrics backdrop blur</string>
+    <string name="setcat_lyrics_backdrop_blur_subtitle">Render a frosted blur behind full-screen lyrics</string>
+    <string name="setcat_overlay_blur_title">Player overlay blur</string>
+    <string name="setcat_overlay_blur_subtitle">Blur underlying content when player opens</string>
     <string name="cloud_downloads_settings_subtitle">Manage offline cloud tracks and storage</string>
     <string name="cloud_downloads_storage_used">Offline storage used</string>
     <string name="cloud_downloads_storage_summary">%1$d completed · %2$d total</string>

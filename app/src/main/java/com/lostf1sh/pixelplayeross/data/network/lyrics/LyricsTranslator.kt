@@ -18,6 +18,11 @@ class LyricsTranslator @Inject constructor(
 ) {
     private val cache = ConcurrentHashMap<String, Lyrics>()
 
+    fun clearCacheForSong(songId: String) {
+        val prefix = "$songId|"
+        cache.keys.filter { it.startsWith(prefix) }.forEach { cache.remove(it) }
+    }
+
     fun resolvedLanguageTag(targetSetting: String): String {
         val clean = targetSetting.trim()
         if (clean.isNotBlank() && !clean.equals("auto", ignoreCase = true)) {
