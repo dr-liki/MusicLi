@@ -437,6 +437,7 @@ fun FullPlayerContent(
             FetchLyricsDialog(
                 uiState = lyricsSearchUiState,
                 currentSong = song,
+                defaultForcePickResults = lyricsProvider() != null || !song.lyrics.isNullOrBlank(),
                 onConfirm = { forcePick ->
                     playerViewModel.fetchLyricsForCurrentSong(forcePick)
                 },
@@ -1032,7 +1033,10 @@ fun FullPlayerContent(
                                         onSeekTo = { playerViewModel.seekTo(it) },
                                         onExpand = { showLyricsSheet = true },
                                         onClose = { foldableRightPane = null },
-                                        onSearchLyrics = { showFetchLyricsDialog = true },
+                                        onSearchLyrics = {
+                                            playerViewModel.resetLyricsSearchState()
+                                            showFetchLyricsDialog = true
+                                        },
                                         onImportLyrics = { filePickerLauncher.launch(com.lostf1sh.pixelplayeross.utils.LyricsImportSecurity.pickerMimeTypes()) },
                                         onResetLyrics = { playerViewModel.resetLyricsForCurrentSong() },
                                         onSaveLyricsToFile = playerViewModel::saveLyricsToFile,

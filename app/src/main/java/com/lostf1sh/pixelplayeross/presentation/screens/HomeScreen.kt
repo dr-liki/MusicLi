@@ -87,7 +87,6 @@ import androidx.lifecycle.compose.currentStateAsState
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.presentation.components.BetaInfoBottomSheet
-import com.lostf1sh.pixelplayeross.presentation.components.ChangelogBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.components.DailyMixSection
 import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselPlaceholder
 import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselSection
@@ -248,7 +247,6 @@ fun HomeScreen(
     val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode, useNavigationRail)
 
     var showOptionsBottomSheet by remember { mutableStateOf(false) }
-    var showChangelogBottomSheet by remember { mutableStateOf(false) }
     var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
     var songForOptions by remember { mutableStateOf<HomeSongOptions?>(null) }
@@ -337,9 +335,6 @@ fun HomeScreen(
                 HomeGradientTopBar(
                     onNavigationIconClick = {
                         navController.navigateSafely(Screen.Settings.route)
-                    },
-                    onMoreOptionsClick = {
-                        showChangelogBottomSheet = true
                     },
                     onBetaClick = {
                         showBetaInfoBottomSheet = true
@@ -715,14 +710,6 @@ fun HomeScreen(
                     }
                 }
             )
-        }
-    }
-    if (showChangelogBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showChangelogBottomSheet = false },
-            sheetState = sheetState
-        ) {
-            ChangelogBottomSheet()
         }
     }
     if (showBetaInfoBottomSheet) {

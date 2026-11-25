@@ -1106,6 +1106,15 @@ class LyricsRepositoryImpl @Inject constructor(
             return null
         }
 
+        // Prefer an explicit user/manual selection in LyricsDao before falling back to
+        // song.lyrics (which may still hold an older embedded or imported copy).
+        val manualDaoLyrics = song.id.toLongOrNull()
+            ?.let { lyricsDao.getLyrics(it) }
+            ?.takeIf { it.source == "manual" && it.content.isNotBlank() }
+        manualDaoLyrics?.let { entity ->
+            storedCopy(entity.content)?.let { return@withContext it }
+        }
+
         song.lyrics
             ?.trim()
             ?.takeIf { it.isNotBlank() }

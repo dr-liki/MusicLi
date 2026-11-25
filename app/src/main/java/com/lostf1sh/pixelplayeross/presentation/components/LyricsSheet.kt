@@ -543,6 +543,7 @@ fun LyricsSheet(
     }
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
+    var manualSearchRequested by remember { mutableStateOf(false) }
     var wasResetTriggered by remember { mutableStateOf(false) }
     var showSaveLyricsDialog by remember { mutableStateOf(false) }
     var showSyncControls by remember { mutableStateOf(false) }
@@ -620,14 +621,26 @@ fun LyricsSheet(
         immersiveMode = false
     }
 
-    LaunchedEffect(currentSong, lyrics, isLoadingLyrics) {
+    LaunchedEffect(currentSong?.id) {
+        manualSearchRequested = false
+    }
+
+    LaunchedEffect(currentSong, lyrics, isLoadingLyrics, manualSearchRequested) {
         if (currentSong != null && lyrics == null && !isLoadingLyrics) {
             if (!wasResetTriggered) {
                 showFetchLyricsDialog = true
             }
-        } else if (lyrics != null || isLoadingLyrics) {
+        } else if (!manualSearchRequested && (lyrics != null || isLoadingLyrics)) {
             showFetchLyricsDialog = false
             wasResetTriggered = false
+        }
+    }
+
+    LaunchedEffect(lyricsSearchUiState, manualSearchRequested) {
+        if (manualSearchRequested && lyricsSearchUiState is LyricsSearchUiState.Success) {
+            showFetchLyricsDialog = false
+            manualSearchRequested = false
+            onDismissLyricsSearch()
         }
     }
 
@@ -640,11 +653,13 @@ fun LyricsSheet(
             FetchLyricsDialog(
                 uiState = lyricsSearchUiState,
                 currentSong = currentSong,
+                defaultForcePickResults = lyrics != null || !currentSong?.lyrics.isNullOrBlank(),
                 onConfirm = onSearchLyrics,
                 onPickResult = onPickResult,
                 onManualSearch = onManualSearch,
                 onDismiss = {
                     showFetchLyricsDialog = false
+                    manualSearchRequested = false
                     onDismissLyricsSearch()
                     if (lyrics == null && !isLoadingLyrics) {
                         onBackClick()
@@ -1260,7 +1275,11 @@ fun LyricsSheet(
                     lyrics = lyrics,
                     showSyncedLyrics = showSyncedLyrics == true,
                     isSyncControlsVisible = showSyncControls,
-                    onSearchLyrics = { onSearchLyrics(true) },
+                    onSearchLyrics = {
+                        onDismissLyricsSearch()
+                        manualSearchRequested = true
+                        showFetchLyricsDialog = true
+                    },
                     onSaveLyricsAsLrc = { showSaveLyricsDialog = true },
                     canCopyLyrics = canCopyLyrics,
                     onCopyLyrics = {

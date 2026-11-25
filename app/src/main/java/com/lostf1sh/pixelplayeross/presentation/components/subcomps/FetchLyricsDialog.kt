@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,10 +56,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId
 import com.lostf1sh.pixelplayeross.data.repository.LyricsSearchResult
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.LyricsSearchUiState
-import com.lostf1sh.pixelplayeross.utils.ProviderText
 import com.lostf1sh.pixelplayeross.utils.shapes.RoundedStarShape
 import kotlinx.collections.immutable.ImmutableList
 import java.util.Locale
@@ -68,6 +68,7 @@ import kotlin.math.roundToLong
 fun FetchLyricsDialog(
     uiState: LyricsSearchUiState,
     currentSong: Song?,
+    defaultForcePickResults: Boolean = !currentSong?.lyrics.isNullOrBlank(),
     onConfirm: (Boolean) -> Unit,
     onPickResult: (LyricsSearchResult) -> Unit,
     onManualSearch: (String, String?) -> Unit,
@@ -76,7 +77,9 @@ fun FetchLyricsDialog(
 ) {
     if (uiState is LyricsSearchUiState.Success) return
 
-    var forcePickResults by rememberSaveable { mutableStateOf(false) }
+    var forcePickResults by rememberSaveable(currentSong?.id, defaultForcePickResults) {
+        mutableStateOf(defaultForcePickResults)
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -344,27 +347,6 @@ private fun PickResultContent(
                 onClick = { onPickResult(result) }
             )
         }
-
-        if (results.any { it.providerId == LyricsProviderId.LRCLIB }) {
-            item {
-                ProviderText(
-                    providerText = stringResource(R.string.lyrics_provided_by),
-                    uri = stringResource(R.string.lrclib_uri),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)
-                )
-            }
-        }
-        if (results.any { it.providerId == LyricsProviderId.LRC_RED }) {
-            item {
-                ProviderText(
-                    providerText = "Lyrics also powered by lrc.red",
-                    uri = "https://lrc.red",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)
-                )
-            }
-        }
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -378,6 +360,7 @@ private fun PickResultContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResultItemCard(
     result: LyricsSearchResult,
@@ -397,91 +380,94 @@ private fun ResultItemCard(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (hasSyncedLyrics) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                contentAlignment = Alignment.Center
+            // Line 1: Duration, Type of lyrics, Source of lyrics badges
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = if (hasSyncedLyrics) MaterialTheme.colorScheme.onPrimaryContainer
-                           else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = result.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (resultDurationMs != null) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isCloseDurationMatch) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            contentColor = if (isCloseDurationMatch) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        ) {
-                            Text(
-                                text = formatDurationMsBadge(resultDurationMs),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                if (resultDurationMs != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isCloseDurationMatch) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        contentColor = if (isCloseDurationMatch) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
                         }
-                    }
-                    if (hasSyncedLyrics) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Text(
-                                text = if (result.hasWordSync) "Word Sync" else stringResource(R.string.lyrics_synced_badge),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                    ) {
+                        Text(
+                            text = formatDurationMsBadge(resultDurationMs),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
                 }
-                val albumPart = result.albumName.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
-                Text(
-                    text = "${result.artistName}$albumPart · ${result.providerLabel}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (hasSyncedLyrics) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (hasSyncedLyrics) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                ) {
+                    Text(
+                        text = when {
+                            result.hasWordSync -> "Word Sync"
+                            hasSyncedLyrics -> stringResource(R.string.lyrics_synced_badge)
+                            else -> "Plain"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Text(
+                        text = result.providerLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
+
+            // Line 2: Song title
+            Text(
+                text = result.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Line 3: Artist (with optional album)
+            val albumPart = result.albumName.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+            Text(
+                text = "${result.artistName}$albumPart",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

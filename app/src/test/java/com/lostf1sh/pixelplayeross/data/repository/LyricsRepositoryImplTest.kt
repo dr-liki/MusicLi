@@ -617,6 +617,29 @@ class LyricsRepositoryImplTest {
         assertThat(lines.map { it.background?.text }).containsExactly("(Ooh ooh)", null, "(Aah)", null).inOrder()
     }
 
+    @Test
+    fun getLyrics_prefersManualDaoOverrideOverStaleSongLyrics() = runTest {
+        val lyricsDao = mockk<LyricsDao>(relaxed = true)
+        coEvery { lyricsDao.getLyrics(202L) } returns LyricsEntity(
+            songId = 202L,
+            content = "[00:05.00]Replaced manual line",
+            isSynced = true,
+            source = "manual"
+        )
+        val song = testSong(id = "202", title = "Song", artist = "Artist", duration = 180_000L).copy(
+            lyrics = "[00:01.00]Old imported line"
+        )
+        val loaded = LyricsRepositoryImpl(
+            context = testContext(),
+            lrcLibApiService = mockk<LrcLibApiService>(relaxed = true),
+            lyricsDao = lyricsDao,
+            okHttpClient = mockk<OkHttpClient>(relaxed = true),
+            userPreferencesRepository = userPreferencesRepository(externalLyricsEnabled = false)
+        ).getLyrics(song, LyricsSourcePreference.LOCAL_FIRST)
+
+        assertThat(loaded!!.synced!!.map { it.line }).containsExactly("Replaced manual line")
+    }
+
     private fun testContext(filesDir: File = Files.createTempDirectory("pixelplayer-lyrics-test").toFile()): Context {
         return mockk<Context>(relaxed = true) {
             every { this@mockk.filesDir } returns filesDir
