@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.AlertDialog
@@ -73,6 +74,7 @@ private val PredictiveBackMaxOffset = 16.dp
 
 sealed class DrawerDestination(val route: String) {
     object Home : DrawerDestination("home")
+    object Explore : DrawerDestination("explore")
     object Stats : DrawerDestination("stats")
     object Equalizer : DrawerDestination("equalizer")
     object Bookmarks : DrawerDestination("audio_bookmarks")
@@ -242,6 +244,7 @@ private fun DrawerItem(
 @Composable
 private fun shortcutLabel(key: String): String = when (key) {
     SidebarShortcutKeys.HOME -> stringResource(R.string.tab_home)
+    SidebarShortcutKeys.EXPLORE -> stringResource(R.string.tab_explore)
     SidebarShortcutKeys.STATS -> stringResource(R.string.presentation_batch_g_stats_title)
     SidebarShortcutKeys.EQUALIZER -> stringResource(R.string.settings_category_equalizer_title)
     SidebarShortcutKeys.AUDIO_BOOKMARKS -> stringResource(R.string.audio_bookmarks_title)
@@ -311,6 +314,15 @@ private fun DrawerContent(
                 label = shortcutLabel(SidebarShortcutKeys.HOME),
                 selected = selectedRoute == DrawerDestination.Home.route,
                 onClick = { onDestinationSelected(DrawerDestination.Home) }
+            )
+        }
+
+        if (SidebarShortcutKeys.EXPLORE in enabledShortcuts) {
+            DrawerItem(
+                icon = rememberVectorPainter(Icons.Rounded.Explore),
+                label = shortcutLabel(SidebarShortcutKeys.EXPLORE),
+                selected = selectedRoute == DrawerDestination.Explore.route,
+                onClick = { onDestinationSelected(DrawerDestination.Explore) }
             )
         }
 

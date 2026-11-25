@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -97,6 +98,7 @@ import com.lostf1sh.pixelplayeross.ui.theme.LocalPixelPlayerAmoledTheme
 import com.lostf1sh.pixelplayeross.ui.theme.LocalPixelPlayerDarkTheme
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -444,18 +446,18 @@ fun UnifiedPlayerSheetV2(
         pendingOpenQueueSheet,
         allowQueueSheetInteraction,
         isFoldableTwoPane,
-        showPlayerContentArea,
-        queueHiddenOffsetPx
+        showPlayerContentArea
     ) {
         if (!pendingOpenQueueSheet) return@LaunchedEffect
         if (isFoldableTwoPane && showPlayerContentArea) {
             playerViewModel.consumePendingOpenQueueSheet()
         } else if (allowQueueSheetInteraction && !isFoldableTwoPane) {
             if (queueHiddenOffsetPx <= 0f) {
-                // Trigger QueueBottomSheet measurement first without consuming the request
                 queueSheetController.animateTo(true)
-            } else {
-                playerViewModel.consumePendingOpenQueueSheet()
+                snapshotFlow { queueHiddenOffsetPx }.first { it > 0f }
+            }
+            playerViewModel.consumePendingOpenQueueSheet()
+            scope.launch {
                 queueSheetController.animateTo(true)
             }
         }

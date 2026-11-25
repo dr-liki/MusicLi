@@ -286,21 +286,27 @@ class SyncedVideoViewModel @Inject constructor(
         }
     }
 
-    fun selectQuality(height: Int?) {
-        viewModelScope.launch {
-            userPreferencesRepository.setPreferredVideoQuality(height)
+    fun selectQuality(height: Int?, persistPreference: Boolean = true) {
+        if (persistPreference) {
+            viewModelScope.launch {
+                userPreferencesRepository.setPreferredVideoQuality(height)
+            }
         }
         val current = _uiState.value as? SyncedVideoUiState.Ready ?: return
         val targetStream = if (height == null || height <= 0) {
             current.bundle.defaultStream
         } else {
             current.bundle.availableStreams.firstOrNull { (it.height ?: 0) == height }
-                ?: current.bundle.availableStreams.minByOrNull { abs((it.height ?: 0) - height) }
                 ?: current.bundle.defaultStream
+        }
+        val effectiveHeight = if (height != null && height > 0 && (targetStream.height ?: 0) == height) {
+            height
+        } else {
+            null
         }
         _uiState.value = current.copy(
             activeStream = targetStream,
-            selectedHeight = height,
+            selectedHeight = effectiveHeight,
         )
         if (_playerInitialized) {
             val currentPos = player.currentPosition
@@ -384,7 +390,8 @@ class SyncedVideoViewModel @Inject constructor(
     fun onVideoPlaybackError() {
         val ready = _uiState.value as? SyncedVideoUiState.Ready ?: return
         if (ready.selectedHeight != null) {
-            selectQuality(null)
+            // Fall back to Auto for this song only without overwriting the saved default preference
+            selectQuality(null, persistPreference = false)
             return
         }
         if (linkRefreshesLeft > 0) {

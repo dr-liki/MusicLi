@@ -389,21 +389,35 @@ class LyricsRepositoryImpl @Inject constructor(
         val fetchFromEmbedded: Pair<String, suspend () -> Lyrics?> = "Embedded" to { loadEmbeddedLyricsFromMetadata(song) }
         val fetchFromLocal: Pair<String, suspend () -> Lyrics?> = "Local" to { findLocalLyricsFile(song) }
 
+        val fetchFromInline: Pair<String, suspend () -> Lyrics?>? =
+            if (song.path.isBlank() && !song.lyrics.isNullOrBlank()) {
+                "Inline" to {
+                    LyricsUtils.parseLyrics(song.lyrics)
+                        .takeIf { it.isValid() }
+                        ?.copy(areFromRemote = true)
+                }
+            } else {
+                null
+            }
+
         val sourceFetchers = when (sourcePreference) {
             LyricsSourcePreference.API_FIRST -> buildList {
                 if (remoteLyricsEnabled) add(fetchFromApi)
                 add(fetchFromEmbedded)
                 add(fetchFromLocal)
+                fetchFromInline?.let(::add)
             }
             LyricsSourcePreference.EMBEDDED_FIRST -> buildList {
                 add(fetchFromEmbedded)
                 if (remoteLyricsEnabled) add(fetchFromApi)
                 add(fetchFromLocal)
+                fetchFromInline?.let(::add)
             }
             LyricsSourcePreference.LOCAL_FIRST -> buildList {
                 add(fetchFromLocal)
                 add(fetchFromEmbedded)
                 if (remoteLyricsEnabled) add(fetchFromApi)
+                fetchFromInline?.let(::add)
             }
         }
 
@@ -1017,7 +1031,10 @@ class LyricsRepositoryImpl @Inject constructor(
      * Load embedded lyrics from audio file metadata
      */
     private suspend fun loadEmbeddedLyricsFromMetadata(song: Song): Lyrics? = withContext(Dispatchers.IO) {
-        if (song.contentUriString.isEmpty()) {
+        if (song.contentUriString.isEmpty() ||
+            song.contentUriString.startsWith("http://", ignoreCase = true) ||
+            song.contentUriString.startsWith("https://", ignoreCase = true)
+        ) {
             return@withContext null
         }
 

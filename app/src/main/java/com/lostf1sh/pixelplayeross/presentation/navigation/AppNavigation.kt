@@ -46,6 +46,8 @@ import com.lostf1sh.pixelplayeross.presentation.screens.DailyMixScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.EditTransitionScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.EasterEggScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.ExperimentalSettingsScreen
+import com.lostf1sh.pixelplayeross.presentation.screens.ExploreDownloadsScreen
+import com.lostf1sh.pixelplayeross.presentation.screens.ExploreScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.LyricsSettingsScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.GenreDetailScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.HomeScreen
@@ -137,6 +139,60 @@ fun AppNavigation(
                         paddingValuesParent = paddingValues, 
                         playerViewModel = playerViewModel,
                         onOpenSidebar = onOpenSidebar
+                    )
+                }
+            }
+            composable(
+                Screen.Explore.route,
+                enterTransition = {
+                    mainRootEnterTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = enterTransition()
+                    )
+                },
+                exitTransition = {
+                    mainRootExitTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = exitTransition()
+                    )
+                },
+                popEnterTransition = {
+                    mainRootEnterTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = popEnterTransition()
+                    )
+                },
+                popExitTransition = {
+                    mainRootExitTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = popExitTransition()
+                    )
+                },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    ExploreScreen(
+                        paddingValuesParent = paddingValues,
+                        onOpenDownloads = {
+                            navController.navigateSafely(Screen.ExploreDownloads.route)
+                        },
+                        playerViewModel = playerViewModel,
+                    )
+                }
+            }
+            composable(
+                Screen.ExploreDownloads.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    ExploreDownloadsScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
             }
@@ -748,6 +804,7 @@ fun AppNavigation(
 }
 
 private fun String.toRoute(): String = when (this) {
+    LaunchTab.EXPLORE -> Screen.Explore.route
     LaunchTab.SEARCH -> Screen.Search.route
     LaunchTab.LIBRARY -> Screen.Library.route
     else -> Screen.Home.route

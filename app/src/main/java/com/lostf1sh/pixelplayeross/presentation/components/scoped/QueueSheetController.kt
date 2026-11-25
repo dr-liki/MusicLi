@@ -31,6 +31,8 @@ internal class QueueSheetController(
     private var dragOffsetCache: Float? = null
     private var pendingDragTarget: Float? = null
     private var dragSnapJob: Job? = null
+    @Volatile
+    private var activeTargetExpanded: Boolean? = null
 
     private fun resetDragPipeline() {
         dragOffsetCache = null
@@ -58,10 +60,11 @@ internal class QueueSheetController(
     }
 
     suspend fun syncOffsetToVisibility() {
+        if (activeTargetExpanded != null) return
         val hiddenOffset = hiddenOffsetProvider()
         if (hiddenOffset <= 0f) return
         val targetOffset = if (showQueueSheetProvider()) {
-            if (queueSheetOffset.value > hiddenOffset) 0f
+            if (queueSheetOffset.value >= hiddenOffset * 0.95f) 0f
             else queueSheetOffset.value.coerceIn(0f, hiddenOffset)
         } else {
             hiddenOffset
@@ -86,41 +89,46 @@ internal class QueueSheetController(
     }
 
     suspend fun animateTo(targetExpanded: Boolean) {
-        resetDragPipeline()
-        val hiddenOffset = hiddenOffsetProvider()
-        if (hiddenOffset == 0f) {
-            onShowQueueSheetChange(targetExpanded)
-            return
-        }
-        val target = if (targetExpanded) 0f else hiddenOffset
-        val shouldPrewarmFirstFrame = targetExpanded && !showQueueSheetProvider()
-        onShowQueueSheetChange(true)
-        if (shouldPrewarmFirstFrame) {
-            queueSheetOffset.snapTo(hiddenOffset)
-            if (coroutineContext[MonotonicFrameClock] != null) {
-                withFrameNanos { }
-            } else {
-                yield()
+        activeTargetExpanded = targetExpanded
+        try {
+            resetDragPipeline()
+            val hiddenOffset = hiddenOffsetProvider()
+            if (hiddenOffset == 0f) {
+                onShowQueueSheetChange(targetExpanded)
+                return
             }
-        }
-        val travelFraction = if (hiddenOffset > 0f) {
-            (abs(queueSheetOffset.value - target) / hiddenOffset).coerceIn(0f, 1f)
-        } else {
-            1f
-        }
-        val durationMillis = if (targetExpanded) {
-            (220f + (120f * travelFraction)).toInt()
-        } else {
-            (190f + (110f * travelFraction)).toInt()
-        }
-        queueSheetOffset.animateTo(
-            targetValue = target,
-            animationSpec = tween(
-                durationMillis = durationMillis,
-                easing = FastOutSlowInEasing
+            val target = if (targetExpanded) 0f else hiddenOffset
+            val shouldPrewarmFirstFrame = targetExpanded && !showQueueSheetProvider()
+            onShowQueueSheetChange(true)
+            if (shouldPrewarmFirstFrame) {
+                queueSheetOffset.snapTo(hiddenOffset)
+                if (coroutineContext[MonotonicFrameClock] != null) {
+                    withFrameNanos { }
+                } else {
+                    yield()
+                }
+            }
+            val travelFraction = if (hiddenOffset > 0f) {
+                (abs(queueSheetOffset.value - target) / hiddenOffset).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
+            val durationMillis = if (targetExpanded) {
+                (220f + (120f * travelFraction)).toInt()
+            } else {
+                (190f + (110f * travelFraction)).toInt()
+            }
+            queueSheetOffset.animateTo(
+                targetValue = target,
+                animationSpec = tween(
+                    durationMillis = durationMillis,
+                    easing = FastOutSlowInEasing
+                )
             )
-        )
-        onShowQueueSheetChange(targetExpanded)
+            onShowQueueSheetChange(targetExpanded)
+        } finally {
+            activeTargetExpanded = null
+        }
     }
 
     fun animate(targetExpanded: Boolean) {

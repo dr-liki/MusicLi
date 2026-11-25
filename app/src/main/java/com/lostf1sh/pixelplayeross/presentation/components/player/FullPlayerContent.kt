@@ -114,10 +114,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.lostf1sh.pixelplayeross.data.explore.ExploreDownloadStatus
+import com.lostf1sh.pixelplayeross.data.explore.isExploreStream
+import com.lostf1sh.pixelplayeross.data.explore.saavnId
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.AudioBookmarksViewModel
+import com.lostf1sh.pixelplayeross.presentation.viewmodel.ExploreViewModel
 import androidx.compose.material.icons.filled.SmartDisplay
 import com.lostf1sh.pixelplayeross.presentation.video.SyncedVideoViewModel
 import com.lostf1sh.pixelplayeross.presentation.video.SyncedCoverVideoPlayer
@@ -264,6 +271,20 @@ fun FullPlayerContent(
     var showAudioOutputSheet by rememberSaveable { mutableStateOf(false) }
     val bookmarksViewModel: AudioBookmarksViewModel = hiltViewModel()
     val syncedVideoViewModel: SyncedVideoViewModel = hiltViewModel()
+    val exploreViewModel: ExploreViewModel = hiltViewModel()
+    val exploreDownloads by exploreViewModel.downloads.collectAsStateWithLifecycle()
+    val exploreDownloadedIds by exploreViewModel.downloadedSongIds.collectAsStateWithLifecycle()
+    val exploreSaavnId = song.saavnId
+    val isExploreStreamSong = song.isExploreStream
+    val activeExploreDownload = exploreSaavnId?.let { id ->
+        exploreDownloads.firstOrNull { it.song.id == id }
+    }
+    val isExploreDownloading = activeExploreDownload?.status == ExploreDownloadStatus.QUEUED ||
+        activeExploreDownload?.status == ExploreDownloadStatus.DOWNLOADING
+    val isExploreDownloaded = exploreSaavnId != null && (
+        exploreSaavnId in exploreDownloadedIds ||
+            activeExploreDownload?.status == ExploreDownloadStatus.COMPLETED
+    )
     val isSyncedVideoActive by syncedVideoViewModel.isVideoActive.collectAsStateWithLifecycle()
     val syncedVideoEnabled by playerViewModel.syncedVideoEnabled.collectAsStateWithLifecycle()
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
@@ -665,7 +686,13 @@ fun FullPlayerContent(
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            isExploreStream = isExploreStreamSong,
+            isExploreDownloading = isExploreDownloading,
+            isExploreDownloaded = isExploreDownloaded,
+            onExploreDownloadClick = {
+                exploreSaavnId?.let(exploreViewModel::downloadSongBySaavnId)
+            },
         )
     }
 
@@ -1256,7 +1283,11 @@ private fun FullPlayerControlsSection(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isExploreStream: Boolean = false,
+    isExploreDownloading: Boolean = false,
+    isExploreDownloaded: Boolean = false,
+    onExploreDownloadClick: () -> Unit = {},
 ) {
     val stableControlAnimationSpec = remember {
         tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
@@ -1320,7 +1351,11 @@ private fun FullPlayerControlsSection(
                 isFavoriteProvider = isFavoriteProvider,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
-                onFavoriteToggle = onFavoriteToggle
+                onFavoriteToggle = onFavoriteToggle,
+                isExploreStream = isExploreStream,
+                isExploreDownloading = isExploreDownloading,
+                isExploreDownloaded = isExploreDownloaded,
+                onExploreDownloadClick = onExploreDownloadClick,
             )
         }
     }
@@ -2878,7 +2913,11 @@ private fun BottomToggleRow(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isExploreStream: Boolean = false,
+    isExploreDownloading: Boolean = false,
+    isExploreDownloaded: Boolean = false,
+    onExploreDownloadClick: () -> Unit = {},
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
@@ -2954,18 +2993,47 @@ private fun BottomToggleRow(
                 iconId = repeatIcon,
                 contentDesc = stringResource(R.string.cd_repeat)
             )
-            ToggleSegmentButton(
-                modifier = commonModifier,
-                active = isFavorite,
-                activeColor = LocalMaterialTheme.current.tertiaryFixed,
-                activeCornerRadius = rowCorners,
-                activeContentColor = LocalMaterialTheme.current.onTertiaryFixed,
-                inactiveColor = inactiveBg,
-                inactiveContentColor = inactiveContentColor,
-                onClick = onFavoriteToggle,
-                iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
-                contentDesc = stringResource(R.string.cd_favorite)
-            )
+            if (isExploreStream) {
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = isExploreDownloaded,
+                    enabled = !isExploreDownloading,
+                    activeColor = LocalMaterialTheme.current.tertiaryFixed,
+                    activeCornerRadius = rowCorners,
+                    activeContentColor = LocalMaterialTheme.current.onTertiaryFixed,
+                    inactiveColor = inactiveBg,
+                    inactiveContentColor = inactiveContentColor,
+                    onClick = onExploreDownloadClick,
+                ) { contentColor ->
+                    if (isExploreDownloading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = contentColor,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isExploreDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
+                            contentDescription = if (isExploreDownloaded) "Downloaded" else "Download",
+                            tint = contentColor,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            } else {
+                ToggleSegmentButton(
+                    modifier = commonModifier,
+                    active = isFavorite,
+                    activeColor = LocalMaterialTheme.current.tertiaryFixed,
+                    activeCornerRadius = rowCorners,
+                    activeContentColor = LocalMaterialTheme.current.onTertiaryFixed,
+                    inactiveColor = inactiveBg,
+                    inactiveContentColor = inactiveContentColor,
+                    onClick = onFavoriteToggle,
+                    iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
+                    contentDesc = stringResource(R.string.cd_favorite)
+                )
+            }
         }
     }
 }

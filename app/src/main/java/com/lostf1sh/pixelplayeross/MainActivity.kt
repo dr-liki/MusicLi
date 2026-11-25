@@ -182,6 +182,7 @@ data class BottomNavItem(
 /** Top-level destinations shared by the bottom navigation bar and the navigation rail. */
 internal val MainNavItems: ImmutableList<BottomNavItem> = persistentListOf(
     BottomNavItem(R.string.tab_home, R.drawable.rounded_home_24, R.drawable.home_24_rounded_filled, Screen.Home),
+    BottomNavItem(R.string.tab_explore, R.drawable.rounded_explore_24, R.drawable.round_explore_24, Screen.Explore),
     BottomNavItem(R.string.search, R.drawable.rounded_search_24, R.drawable.rounded_search_24, Screen.Search),
     BottomNavItem(R.string.tab_library, R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library)
 )
@@ -864,6 +865,11 @@ class MainActivity : ComponentActivity() {
                     when (destination) {
                         DrawerDestination.Home -> navController.navigateSafely(Screen.Home.route) {
                             popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                        DrawerDestination.Explore -> navController.navigateSafely(Screen.Explore.route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                         DrawerDestination.Stats -> navController.navigateSafely(Screen.Stats.route)
                         DrawerDestination.Equalizer -> navController.navigateSafely(Screen.Equalizer.route)

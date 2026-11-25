@@ -143,7 +143,13 @@ data class SettingsUiState(
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val syncedVideoEnabled: Boolean = true,
-    val showHomePlayQueue: Boolean = true
+    val preferredVideoQuality: Int = 720,
+    val showHomePlayQueue: Boolean = true,
+    val exploreApiBaseUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+    val exploreDownloadQuality: Int = 320,
+    val exploreDownloadSubfolders: Boolean = true,
+    val exploreDownloadLyrics: Boolean = true,
+    val exploreDownloadSafUri: String? = null
 )
 
 data class FailedSongInfo(
@@ -630,6 +636,42 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.syncedVideoEnabledFlow.collect { enabled ->
                 _uiState.update { it.copy(syncedVideoEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.preferredVideoQualityFlow.collect { quality ->
+                _uiState.update { it.copy(preferredVideoQuality = quality ?: -1) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreApiBaseUrlFlow.collect { url ->
+                _uiState.update { it.copy(exploreApiBaseUrl = url) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreDownloadQualityFlow.collect { kbps ->
+                _uiState.update { it.copy(exploreDownloadQuality = kbps) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreDownloadSubfoldersFlow.collect { enabled ->
+                _uiState.update { it.copy(exploreDownloadSubfolders = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreDownloadLyricsFlow.collect { enabled ->
+                _uiState.update { it.copy(exploreDownloadLyrics = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreDownloadSafUriFlow.collect { uri ->
+                _uiState.update { it.copy(exploreDownloadSafUri = uri) }
             }
         }
     }
@@ -1142,6 +1184,42 @@ class SettingsViewModel @Inject constructor(
     fun setSyncedVideoEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setSyncedVideoEnabled(enabled)
+        }
+    }
+
+    fun setPreferredVideoQuality(height: Int?) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPreferredVideoQuality(height)
+        }
+    }
+
+    fun setExploreApiBaseUrl(url: String?) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreApiBaseUrl(url)
+        }
+    }
+
+    fun setExploreDownloadQuality(kbps: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreDownloadQuality(kbps)
+        }
+    }
+
+    fun setExploreDownloadSubfolders(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreDownloadSubfolders(enabled)
+        }
+    }
+
+    fun setExploreDownloadLyrics(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreDownloadLyrics(enabled)
+        }
+    }
+
+    fun setExploreDownloadSafUri(uriString: String?) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreDownloadSafUri(uriString)
         }
     }
 

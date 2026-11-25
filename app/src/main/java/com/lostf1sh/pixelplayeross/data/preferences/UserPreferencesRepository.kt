@@ -292,6 +292,12 @@ constructor(
         val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val UPDATE_AUTO_CHECK = booleanPreferencesKey("update_auto_check")
         val UPDATE_LAST_NOTIFIED_VERSION = stringPreferencesKey("update_last_notified_version")
+
+        val EXPLORE_API_BASE_URL = stringPreferencesKey("explore_api_base_url")
+        val EXPLORE_DOWNLOAD_QUALITY = intPreferencesKey("explore_download_quality")
+        val EXPLORE_DOWNLOAD_SUBFOLDERS = booleanPreferencesKey("explore_download_subfolders")
+        val EXPLORE_DOWNLOAD_LYRICS = booleanPreferencesKey("explore_download_lyrics")
+        val EXPLORE_DOWNLOAD_SAF_URI = stringPreferencesKey("explore_download_saf_uri")
     }
 
     /** Null until the user picks a channel; the updater then follows the installed build. */
@@ -1005,6 +1011,68 @@ constructor(
         }
     }
 
+    val exploreApiBaseUrlFlow: Flow<String> = dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.EXPLORE_API_BASE_URL]?.trim().orEmpty()
+        val normalized = if (raw.isBlank()) DEFAULT_EXPLORE_API_BASE_URL else raw
+        if (normalized.endsWith("/")) normalized else "$normalized/"
+    }
+
+    suspend fun setExploreApiBaseUrl(url: String?) {
+        dataStore.edit { preferences ->
+            val trimmed = url?.trim().orEmpty()
+            if (trimmed.isBlank()) {
+                preferences.remove(PreferencesKeys.EXPLORE_API_BASE_URL)
+            } else {
+                preferences[PreferencesKeys.EXPLORE_API_BASE_URL] =
+                    if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+            }
+        }
+    }
+
+    val exploreDownloadQualityFlow: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_DOWNLOAD_QUALITY] ?: 320
+    }
+
+    suspend fun setExploreDownloadQuality(kbps: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_DOWNLOAD_QUALITY] = kbps
+        }
+    }
+
+    val exploreDownloadSubfoldersFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_DOWNLOAD_SUBFOLDERS] ?: true
+    }
+
+    suspend fun setExploreDownloadSubfolders(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_DOWNLOAD_SUBFOLDERS] = enabled
+        }
+    }
+
+    val exploreDownloadLyricsFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_DOWNLOAD_LYRICS] ?: true
+    }
+
+    suspend fun setExploreDownloadLyrics(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_DOWNLOAD_LYRICS] = enabled
+        }
+    }
+
+    val exploreDownloadSafUriFlow: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_DOWNLOAD_SAF_URI]?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setExploreDownloadSafUri(uriString: String?) {
+        dataStore.edit { preferences ->
+            if (uriString.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.EXPLORE_DOWNLOAD_SAF_URI)
+            } else {
+                preferences[PreferencesKeys.EXPLORE_DOWNLOAD_SAF_URI] = uriString
+            }
+        }
+    }
+
     val allowedDirectoriesFlow: Flow<Set<String>> =
             dataStore.data.map { preferences ->
                 preferences[PreferencesKeys.ALLOWED_DIRECTORIES] ?: emptySet()
@@ -1489,6 +1557,7 @@ constructor(
     }
 
     companion object {
+        const val DEFAULT_EXPLORE_API_BASE_URL = "https://melotune.harshbits.com/api/"
         /** Default character delimiters for splitting multi-artist tags */
         val DEFAULT_ARTIST_DELIMITERS = listOf("/", ";", ",", "+", "&")
         /** Default word-based delimiters (matched case-insensitively with whitespace boundaries) */

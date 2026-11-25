@@ -80,12 +80,19 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
@@ -239,6 +246,19 @@ fun SettingsCategoryScreen(
     var importFileUri by remember { mutableStateOf<Uri?>(null) }
     var showExportEncryptionDialog by remember { mutableStateOf(false) }
     var exportPassphrase by remember { mutableStateOf<String?>(null) }
+    var showExploreApiUrlDialog by remember { mutableStateOf(false) }
+    val exploreFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            }
+            settingsViewModel.setExploreDownloadSafUri(uri.toString())
+        }
+    }
     var minSongDurationDraft by remember(uiState.minSongDuration) {
         mutableStateOf(uiState.minSongDuration.toFloat())
     }
@@ -947,6 +967,7 @@ fun SettingsCategoryScreen(
                                     description = stringResource(R.string.setcat_default_tab_desc),
                                     options = mapOf(
                                         LaunchTab.HOME to stringResource(R.string.tab_home),
+                                        LaunchTab.EXPLORE to stringResource(R.string.tab_explore),
                                         LaunchTab.SEARCH to stringResource(R.string.search),
                                         LaunchTab.LIBRARY to stringResource(R.string.tab_library),
                                     ),
@@ -1159,6 +1180,133 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setSyncedVideoEnabled(it) },
                                     leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.SmartDisplay, null, tint = MaterialTheme.colorScheme.secondary) },
                                     modifier = Modifier.settingHighlight("item_playback_synced_video", highlightKey)
+                                )
+                                ThemeSelectorItem(
+                                    label = stringResource(R.string.setcat_default_video_quality_label),
+                                    description = stringResource(R.string.setcat_default_video_quality_desc),
+                                    options = linkedMapOf(
+                                        "-1" to stringResource(R.string.video_quality_auto),
+                                        "2160" to stringResource(R.string.video_quality_2160),
+                                        "1440" to stringResource(R.string.video_quality_1440),
+                                        "1080" to stringResource(R.string.video_quality_1080),
+                                        "720" to stringResource(R.string.video_quality_720),
+                                        "480" to stringResource(R.string.video_quality_480),
+                                        "360" to stringResource(R.string.video_quality_360),
+                                    ),
+                                    selectedKey = uiState.preferredVideoQuality.toString(),
+                                    onSelectionChanged = { key ->
+                                        val parsed = key.toIntOrNull()
+                                        settingsViewModel.setPreferredVideoQuality(
+                                            if (parsed == null || parsed <= 0) null else parsed
+                                        )
+                                    },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.HighQuality, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_playback_default_video_quality", highlightKey)
+                                )
+                            }
+
+                            SettingsSubsection(
+                                title = stringResource(R.string.setcat_explore_downloads_section)
+                            ) {
+                                ThemeSelectorItem(
+                                    label = stringResource(R.string.setcat_explore_quality_label),
+                                    description = stringResource(R.string.setcat_explore_quality_desc),
+                                    options = linkedMapOf(
+                                        "320" to stringResource(R.string.explore_quality_320),
+                                        "160" to stringResource(R.string.explore_quality_160),
+                                        "96" to stringResource(R.string.explore_quality_96),
+                                    ),
+                                    selectedKey = uiState.exploreDownloadQuality.toString(),
+                                    onSelectionChanged = { key ->
+                                        settingsViewModel.setExploreDownloadQuality(key.toIntOrNull() ?: 320)
+                                    },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_explore_download_quality", highlightKey)
+                                )
+                                SettingsItem(
+                                    title = stringResource(R.string.setcat_explore_folder_title),
+                                    subtitle = uiState.exploreDownloadSafUri?.let { uriStr ->
+                                        android.net.Uri.parse(uriStr).lastPathSegment ?: uriStr
+                                    } ?: stringResource(R.string.setcat_explore_folder_default),
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.FolderOpen, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    trailingIcon = {
+                                        if (uiState.exploreDownloadSafUri != null) {
+                                            TextButton(onClick = { settingsViewModel.setExploreDownloadSafUri(null) }) {
+                                                Text(stringResource(R.string.setcat_explore_folder_reset))
+                                            }
+                                        }
+                                    },
+                                    onClick = { exploreFolderLauncher.launch(null) },
+                                    modifier = Modifier.settingHighlight("item_explore_download_folder", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_explore_subfolders_title),
+                                    subtitle = stringResource(R.string.setcat_explore_subfolders_subtitle),
+                                    checked = uiState.exploreDownloadSubfolders,
+                                    onCheckedChange = { settingsViewModel.setExploreDownloadSubfolders(it) },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.CreateNewFolder, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_explore_subfolders", highlightKey)
+                                )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_explore_lyrics_title),
+                                    subtitle = stringResource(R.string.setcat_explore_lyrics_subtitle),
+                                    checked = uiState.exploreDownloadLyrics,
+                                    onCheckedChange = { settingsViewModel.setExploreDownloadLyrics(it) },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Lyrics, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_explore_lyrics", highlightKey)
+                                )
+                                SettingsItem(
+                                    title = stringResource(R.string.setcat_explore_api_url_title),
+                                    subtitle = uiState.exploreApiBaseUrl,
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Public, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    onClick = { showExploreApiUrlDialog = true },
+                                    modifier = Modifier.settingHighlight("item_explore_api_url", highlightKey)
+                                )
+                                SettingsItem(
+                                    title = stringResource(R.string.setcat_explore_manage_downloads_title),
+                                    subtitle = stringResource(R.string.setcat_explore_manage_downloads_subtitle),
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.DownloadDone, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                    onClick = { navController.navigateSafely(Screen.ExploreDownloads.route) },
+                                    modifier = Modifier.settingHighlight("item_explore_manage_downloads", highlightKey)
+                                )
+                            }
+
+                            if (showExploreApiUrlDialog) {
+                                var draftUrl by remember(uiState.exploreApiBaseUrl) {
+                                    mutableStateOf(uiState.exploreApiBaseUrl)
+                                }
+                                AlertDialog(
+                                    onDismissRequest = { showExploreApiUrlDialog = false },
+                                    title = { Text(stringResource(R.string.setcat_explore_api_url_dialog_title)) },
+                                    text = {
+                                        OutlinedTextField(
+                                            value = draftUrl,
+                                            onValueChange = { draftUrl = it },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                settingsViewModel.setExploreApiBaseUrl(draftUrl)
+                                                showExploreApiUrlDialog = false
+                                            }
+                                        ) {
+                                            Text(stringResource(android.R.string.ok))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = {
+                                                settingsViewModel.setExploreApiBaseUrl(null)
+                                                showExploreApiUrlDialog = false
+                                            }
+                                        ) {
+                                            Text("Reset")
+                                        }
+                                    }
                                 )
                             }
 

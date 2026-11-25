@@ -7,6 +7,8 @@ import androidx.compose.runtime.Immutable
 @Immutable
 sealed class Screen(val route: String) {
     object Home : Screen("home")
+    object Explore : Screen("explore")
+    object ExploreDownloads : Screen("explore_downloads")
     object Search : Screen("search")
     object Library : Screen("library")
     object Settings : Screen("settings")

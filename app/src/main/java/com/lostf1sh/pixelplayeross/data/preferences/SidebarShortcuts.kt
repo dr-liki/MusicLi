@@ -7,10 +7,11 @@ package com.lostf1sh.pixelplayeross.data.preferences
  */
 object SidebarShortcutKeys {
     const val HOME = "home"
+    const val EXPLORE = "explore"
     const val STATS = "stats"
     const val EQUALIZER = "equalizer"
     const val AUDIO_BOOKMARKS = "audio_bookmarks"
 
-    val ALL: List<String> = listOf(HOME, STATS, EQUALIZER, AUDIO_BOOKMARKS)
+    val ALL: List<String> = listOf(HOME, EXPLORE, STATS, EQUALIZER, AUDIO_BOOKMARKS)
     val DEFAULT: Set<String> = ALL.toSet()
 }

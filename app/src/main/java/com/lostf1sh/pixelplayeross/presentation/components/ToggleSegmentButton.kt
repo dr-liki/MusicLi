@@ -110,6 +110,32 @@ fun ToggleSegmentButton(
     activeColor: Color,
     inactiveColor: Color = Color.Gray,
     activeContentColor: Color = LocalMaterialTheme.current.onPrimary,
+    inactiveContentColor: Color = LocalMaterialTheme.current.onSurfaceVariant,
+    activeCornerRadius: Dp = 8.dp,
+    onClick: () -> Unit,
+    content: @Composable (contentColor: Color) -> Unit
+) {
+    ToggleSegmentButtonContainer(
+        modifier = modifier,
+        active = active,
+        enabled = enabled,
+        activeColor = activeColor,
+        inactiveColor = inactiveColor,
+        activeCornerRadius = activeCornerRadius,
+        onClick = onClick
+    ) {
+        content(if (active) activeContentColor else inactiveContentColor)
+    }
+}
+
+@Composable
+fun ToggleSegmentButton(
+    modifier: Modifier,
+    active: Boolean,
+    enabled: Boolean = true,
+    activeColor: Color,
+    inactiveColor: Color = Color.Gray,
+    activeContentColor: Color = LocalMaterialTheme.current.onPrimary,
     inactiveContentColor: Color = LocalMaterialTheme.current.primary,
     activeCornerRadius: Dp = 8.dp,
     onClick: () -> Unit,
