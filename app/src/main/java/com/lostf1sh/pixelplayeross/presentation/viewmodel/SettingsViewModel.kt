@@ -141,7 +141,8 @@ data class SettingsUiState(
     val minTracksPerAlbum: Int = 1,
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
-    val syncedVideoEnabled: Boolean = true
+    val syncedVideoEnabled: Boolean = true,
+    val showHomePlayQueue: Boolean = true
 )
 
 data class FailedSongInfo(
@@ -324,6 +325,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.discoverShowGradientFlow.collect { show ->
                 _uiState.update { it.copy(discoverShowGradient = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.showHomePlayQueueFlow.collect { show ->
+                _uiState.update { it.copy(showHomePlayQueue = show) }
             }
         }
 
@@ -798,6 +805,12 @@ class SettingsViewModel @Inject constructor(
     fun setDiscoverShowGradient(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setDiscoverShowGradient(enabled)
+        }
+    }
+
+    fun setShowHomePlayQueue(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setShowHomePlayQueue(enabled)
         }
     }
 

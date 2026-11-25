@@ -439,6 +439,16 @@ fun UnifiedPlayerSheetV2(
             queueSheetController.animateTo(false)
         }
     }
+    val pendingOpenQueueSheet by playerViewModel.pendingOpenQueueSheet.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingOpenQueueSheet, allowQueueSheetInteraction, isFoldableTwoPane, showPlayerContentArea) {
+        if (!pendingOpenQueueSheet) return@LaunchedEffect
+        if (isFoldableTwoPane && showPlayerContentArea) {
+            playerViewModel.consumePendingOpenQueueSheet()
+        } else if (allowQueueSheetInteraction && !isFoldableTwoPane) {
+            playerViewModel.consumePendingOpenQueueSheet()
+            queueSheetController.animateTo(true)
+        }
+    }
     val onQueueSheetHeightPxChange = queueSheetState.onQueueSheetHeightPxChange
 
     val sheetBackAndDragState = rememberSheetBackAndDragState(

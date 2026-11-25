@@ -306,19 +306,21 @@ class SyncedVideoViewModel @Inject constructor(
             val currentPos = player.currentPosition
             val isPlaying = player.playWhenReady
             val mediaItem = MediaItem.Builder().setUri(targetStream.url).build()
-            player.setMediaItem(mediaItem, currentPos)
+            player.stop()
+            player.clearMediaItems()
+            player.setMediaItem(mediaItem, currentPos.coerceAtLeast(0L))
             player.prepare()
             if (isPlaying) player.play()
         }
     }
 
-    fun refreshCurrentVideoLink() {
+    fun refreshCurrentVideoLink(currentPositionMs: Long? = null) {
         val title = currentTitle ?: return
         val artist = currentArtist ?: return
         val genre = currentGenre
         val durationMs = currentDurationMs
         val ready = _uiState.value as? SyncedVideoUiState.Ready
-        val currentPos = if (_playerInitialized) player.currentPosition else 0L
+        val targetPos = currentPositionMs ?: if (_playerInitialized) player.currentPosition else 0L
         val wasPlaying = if (_playerInitialized) player.playWhenReady else false
 
         if (ready != null) {
@@ -329,7 +331,13 @@ class SyncedVideoViewModel @Inject constructor(
         }
 
         currentKey = null
+        linkRefreshesLeft = MAX_LINK_REFRESHES_PER_SONG
         loadJob?.cancel()
+        if (_playerInitialized) {
+            player.stop()
+            player.clearMediaItems()
+        }
+        runCatching { okHttpClient.connectionPool.evictAll() }
 
         loadJob = viewModelScope.launch {
             val selectedVideoId = videoRepository.savedVideoOverride(title, artist)
@@ -359,7 +367,7 @@ class SyncedVideoViewModel @Inject constructor(
 
                 if (_playerInitialized || _isVideoActive.value) {
                     val mediaItem = MediaItem.Builder().setUri(activeStream.url).build()
-                    player.setMediaItem(mediaItem, currentPos.coerceAtLeast(0L))
+                    player.setMediaItem(mediaItem, targetPos.coerceAtLeast(0L))
                     player.prepare()
                     if (wasPlaying) {
                         player.play()

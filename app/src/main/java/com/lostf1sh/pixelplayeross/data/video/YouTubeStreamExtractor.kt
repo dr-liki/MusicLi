@@ -474,6 +474,8 @@ class YouTubeStreamExtractor @Inject constructor(
                             title = item.name.orEmpty(),
                             channel = item.uploaderName.orEmpty(),
                             durationSeconds = item.duration.takeIf { it > 0 }?.toInt(),
+                            thumbnailUrl = item.thumbnails.lastOrNull()?.url?.takeIf { it.isNotBlank() }
+                                ?: "https://i.ytimg.com/vi/$vId/hqdefault.jpg",
                         )
                     }
                 }
@@ -499,12 +501,19 @@ class YouTubeStreamExtractor @Inject constructor(
                                 ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text").orEmpty()
                         val durationText = vr.optJSONObject("lengthText")?.optString("simpleText").orEmpty()
                         val durationSec = parseDurationSeconds(durationText)
+                        val thumbnails = vr.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                        val thumbUrl = if (thumbnails != null && thumbnails.length() > 0) {
+                            thumbnails.optJSONObject(thumbnails.length() - 1)?.optString("url")
+                        } else {
+                            null
+                        }?.takeIf { it.isNotBlank() } ?: "https://i.ytimg.com/vi/$vId/hqdefault.jpg"
                         if (vId.isNotBlank() && title.isNotBlank()) {
                             out += RawVideoResult(
                                 videoId = vId,
                                 title = title,
                                 channel = channel,
                                 durationSeconds = durationSec,
+                                thumbnailUrl = thumbUrl,
                             )
                         }
                     }
@@ -569,6 +578,7 @@ data class RawVideoResult(
     val title: String,
     val channel: String,
     val durationSeconds: Int?,
+    val thumbnailUrl: String? = null,
 )
 
 private class OkHttpNewPipeDownloader(

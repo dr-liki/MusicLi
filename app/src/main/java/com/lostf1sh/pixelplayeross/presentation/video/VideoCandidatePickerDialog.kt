@@ -1,9 +1,11 @@
 package com.lostf1sh.pixelplayeross.presentation.video
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -35,13 +37,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.lostf1sh.pixelplayeross.R
 import java.util.Locale
 
@@ -50,6 +55,7 @@ fun VideoCandidatePickerDialog(
     viewModel: SyncedVideoViewModel,
     trackTitle: String,
     trackArtist: String,
+    audioDurationMs: Long = 0L,
 ) {
     val state by viewModel.videoPickerState.collectAsStateWithLifecycle()
     val defaultSearchQuery by viewModel.currentSearchQuery.collectAsStateWithLifecycle()
@@ -74,6 +80,7 @@ fun VideoCandidatePickerDialog(
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
                             onSearch = { viewModel.searchCustomQuery(searchQuery) },
+                            audioDurationMs = audioDurationMs,
                         )
                         Spacer(Modifier.height(16.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -106,6 +113,7 @@ fun VideoCandidatePickerDialog(
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
                             onSearch = { viewModel.searchCustomQuery(searchQuery) },
+                            audioDurationMs = audioDurationMs,
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(picker.message, color = MaterialTheme.colorScheme.error)
@@ -140,6 +148,7 @@ fun VideoCandidatePickerDialog(
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
                             onSearch = { viewModel.searchCustomQuery(searchQuery) },
+                            audioDurationMs = audioDurationMs,
                         )
                         Spacer(Modifier.height(8.dp))
                         if (picker.candidates.isEmpty()) {
@@ -159,27 +168,45 @@ fun VideoCandidatePickerDialog(
                                         } else Color.Transparent,
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                                            Text(
-                                                candidate.title,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis,
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            AsyncImage(
+                                                model = candidate.thumbnailUrl
+                                                    ?: "https://i.ytimg.com/vi/${candidate.videoId}/hqdefault.jpg",
+                                                contentDescription = candidate.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .width(88.dp)
+                                                    .aspectRatio(16f / 9f)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                             )
-                                            Text(
-                                                buildString {
-                                                    append(candidate.channel)
-                                                    candidate.durationSeconds?.let {
-                                                        append(" • ").append(formatSeconds(it))
-                                                    }
-                                                    append(" • ").append(stringResource(R.string.video_candidate_likely_match))
-                                                },
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    candidate.title,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Spacer(Modifier.height(2.dp))
+                                                Text(
+                                                    buildString {
+                                                        candidate.durationSeconds?.let {
+                                                            append(formatSeconds(it)).append(" • ")
+                                                        }
+                                                        append(candidate.channel)
+                                                        append(" • ").append(stringResource(R.string.video_candidate_likely_match))
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -242,6 +269,7 @@ internal fun VideoSearchInput(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
+    audioDurationMs: Long = 0L,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -277,8 +305,21 @@ internal fun VideoSearchInput(
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (audioDurationMs > 0L) {
+                Text(
+                    text = stringResource(
+                        R.string.video_song_duration_label,
+                        formatSeconds((audioDurationMs / 1000L).toInt()),
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Spacer(Modifier.width(1.dp))
+            }
             FilledTonalButton(
                 onClick = onSearch,
                 enabled = searchQuery.isNotBlank(),

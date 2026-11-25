@@ -272,6 +272,7 @@ constructor(
         val DISCOVER_SHOW_PLAY_BUTTON = booleanPreferencesKey("discover_show_play_button")
         val DISCOVER_SHOW_NEXT_BUTTON = booleanPreferencesKey("discover_show_next_button")
         val DISCOVER_SHOW_GRADIENT = booleanPreferencesKey("discover_show_gradient")
+        val SHOW_HOME_PLAY_QUEUE = booleanPreferencesKey("show_home_play_queue")
 
         val SIDEBAR_SHORTCUTS = stringSetPreferencesKey("sidebar_shortcuts")
 
@@ -971,6 +972,16 @@ constructor(
     suspend fun setSyncedVideoEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.SYNCED_VIDEO_ENABLED] = enabled
+        }
+    }
+
+    val showHomePlayQueueFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.SHOW_HOME_PLAY_QUEUE] ?: true
+    }
+
+    suspend fun setShowHomePlayQueue(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_HOME_PLAY_QUEUE] = enabled
         }
     }
 

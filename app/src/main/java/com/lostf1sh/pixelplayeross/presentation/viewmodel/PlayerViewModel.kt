@@ -2291,6 +2291,18 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private val _pendingOpenQueueSheet = MutableStateFlow(false)
+    val pendingOpenQueueSheet: StateFlow<Boolean> = _pendingOpenQueueSheet.asStateFlow()
+
+    fun openQueueFromHome() {
+        _pendingOpenQueueSheet.value = true
+        expandPlayerSheet()
+    }
+
+    fun consumePendingOpenQueueSheet() {
+        _pendingOpenQueueSheet.value = false
+    }
+
     fun expandPlayerSheet(resetPredictiveState: Boolean = true) {
         _sheetState.value = PlayerSheetState.EXPANDED
         if (resetPredictiveState) {

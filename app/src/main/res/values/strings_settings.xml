@@ -230,6 +230,14 @@
     <string name="video_search_query_placeholder">Search YouTube (key terms &amp; tags)…</string>
     <string name="video_search_button">Search</string>
     <string name="video_rotate_screen">Rotate screen</string>
+    <string name="video_refreshing_stream">Refreshing stream…</string>
+    <string name="video_song_duration_label">Song: %1$s</string>
+    <string name="home_play_queue_title">Play queue</string>
+    <string name="home_play_queue_open">OPEN</string>
+    <string name="home_play_queue_remove_cd">Remove from play queue</string>
+    <string name="home_play_queue_playing_cd">Currently playing</string>
+    <string name="setcat_home_play_queue_title">Show Play Queue on Home</string>
+    <string name="setcat_home_play_queue_subtitle">Display a horizontally scrollable queue row below Discover Carousel</string>
     <string name="setcat_autoplay_on_skip_title">Auto-play on skip</string>
     <string name="setcat_autoplay_on_skip_subtitle">Start playing automatically when you skip to another song while paused.</string>
     <string name="setcat_haptics">Haptics</string>

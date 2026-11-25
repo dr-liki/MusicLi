@@ -91,6 +91,7 @@ import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselPlace
 import com.lostf1sh.pixelplayeross.presentation.components.DiscoverCarouselSection
 import com.lostf1sh.pixelplayeross.presentation.components.HomeGradientTopBar
 import com.lostf1sh.pixelplayeross.presentation.components.HomeOptionsBottomSheet
+import com.lostf1sh.pixelplayeross.presentation.components.HomePlayQueueSection
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
 import com.lostf1sh.pixelplayeross.presentation.components.RecentlyPlayedSection
 import com.lostf1sh.pixelplayeross.presentation.components.RecentlyPlayedSectionMinSongsToShow
@@ -227,6 +228,7 @@ fun HomeScreen(
     val currentSong by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong }
     }.collectAsStateWithLifecycle(initialValue = initialCurrentSong)
+    val currentQueue by playerViewModel.queueFlow.collectAsStateWithLifecycle()
 
     val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState
@@ -410,6 +412,41 @@ fun HomeScreen(
                     }
                 }
 
+                if (settingsUiState.showHomePlayQueue && currentQueue.isNotEmpty()) {
+                    item(
+                        key = "home_play_queue_section",
+                        contentType = "home_play_queue_section"
+                    ) {
+                        val playQueueLabel = stringResource(R.string.home_play_queue_title)
+                        HomePlayQueueSection(
+                            queue = currentQueue,
+                            currentSongId = currentSong?.id,
+                            onOpenQueueClick = { playerViewModel.openQueueFromHome() },
+                            onArtworkClick = { song, isCurrent ->
+                                if (isCurrent) {
+                                    playerViewModel.expandPlayerSheet()
+                                } else {
+                                    playerViewModel.showAndPlaySong(
+                                        song = song,
+                                        contextSongs = currentQueue,
+                                        queueName = playQueueLabel
+                                    )
+                                }
+                            },
+                            onTextClick = { song ->
+                                songForOptions = HomeSongOptions(
+                                    song = song,
+                                    queueSongs = currentQueue,
+                                    queueName = playQueueLabel
+                                )
+                            },
+                            onRemoveSong = { songId ->
+                                playerViewModel.removeSongFromQueue(songId)
+                            }
+                        )
+                    }
+                }
+
                 if (useNavigationRail && dailyMixSongs.isNotEmpty()) {
                     if (recentlyPlayedSongs.size >= RecentlyPlayedSectionMinSongsToShow) {
                         item(
@@ -583,6 +620,8 @@ fun HomeScreen(
             sheetState = sheetState
         ) {
             HomeOptionsBottomSheet(
+                showHomePlayQueue = settingsUiState.showHomePlayQueue,
+                onToggleShowHomePlayQueue = { settingsViewModel.setShowHomePlayQueue(it) },
                 onNavigateToMashup = {
                     scope.launch {
                         sheetState.hide()

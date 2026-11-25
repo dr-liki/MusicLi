@@ -858,6 +858,13 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setDiscoverShowGradient(it) },
                                     modifier = Modifier.settingHighlight("item_appearance_discover_show_gradient", highlightKey)
                                 )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_home_play_queue_title),
+                                    subtitle = stringResource(R.string.setcat_home_play_queue_subtitle),
+                                    checked = uiState.showHomePlayQueue,
+                                    onCheckedChange = { settingsViewModel.setShowHomePlayQueue(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_home_play_queue", highlightKey)
+                                )
                             }
 
                             SettingsSubsection(title = stringResource(R.string.setcat_navigation_bar)) {

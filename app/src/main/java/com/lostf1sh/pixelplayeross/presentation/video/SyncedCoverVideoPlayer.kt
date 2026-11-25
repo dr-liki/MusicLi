@@ -10,10 +10,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -41,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +61,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.PlaybackParameters
 import com.lostf1sh.pixelplayeross.R
+import com.lostf1sh.pixelplayeross.data.video.YouTubeVideoStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
@@ -146,21 +150,80 @@ fun SyncedCoverVideoPlayer(
             is SyncedVideoUiState.Ready -> {
                 val player = viewModel.player
                 val isFullscreen by viewModel.isFullscreen.collectAsStateWithLifecycle()
+                var videoAspectRatio by remember(state.bundle.videoId, state.activeStream.itag) {
+                    mutableFloatStateOf(computeVideoAspectRatio(player, state.activeStream))
+                }
 
-                // High-frame-rate SurfaceView
-                AndroidView(
-                    factory = { ctx ->
-                        SurfaceView(ctx).apply {
-                            player.setVideoSurfaceView(this)
+                DisposableEffect(player) {
+                    videoAspectRatio = computeVideoAspectRatio(player, state.activeStream)
+                    val listener = object : androidx.media3.common.Player.Listener {
+                        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                            if (videoSize.width > 0 && videoSize.height > 0) {
+                                val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
+                                if (ratio > 0f && ratio.isFinite()) {
+                                    videoAspectRatio = ratio
+                                }
+                            }
                         }
-                    },
-                    update = { surfaceView ->
-                        if (!isFullscreen) {
-                            player.setVideoSurfaceView(surfaceView)
-                        }
-                    },
+                    }
+                    player.addListener(listener)
+                    onDispose {
+                        player.removeListener(listener)
+                    }
+                }
+
+                // High-frame-rate SurfaceView fitted without stretching
+                BoxWithConstraints(
                     modifier = Modifier.fillMaxSize(),
-                )
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val containerAspect = if (maxHeight > 0.dp) maxWidth / maxHeight else 16f / 9f
+                    val videoModifier = if (containerAspect > videoAspectRatio) {
+                        Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(videoAspectRatio)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(videoAspectRatio)
+                    }
+                    AndroidView(
+                        factory = { ctx ->
+                            SurfaceView(ctx).apply {
+                                player.setVideoSurfaceView(this)
+                            }
+                        },
+                        update = { surfaceView ->
+                            if (!isFullscreen) {
+                                player.setVideoSurfaceView(surfaceView)
+                            }
+                        },
+                        modifier = videoModifier,
+                    )
+                }
+
+                if (state.isRefreshing) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(32.dp),
+                                color = Color.White,
+                                strokeWidth = 3.dp,
+                            )
+                            Spacer(Modifier.padding(top = 8.dp))
+                            Text(
+                                text = stringResource(R.string.video_refreshing_stream),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                            )
+                        }
+                    }
+                }
 
                 DisposableEffect(Unit) {
                     onDispose {
@@ -282,7 +345,7 @@ fun SyncedCoverVideoPlayer(
 
                             // "Refresh Link" Button
                             IconButton(
-                                onClick = { viewModel.refreshCurrentVideoLink() },
+                                onClick = { viewModel.refreshCurrentVideoLink(currentPositionProvider()) },
                                 modifier = Modifier.size(36.dp),
                             ) {
                                 Icon(
@@ -386,10 +449,32 @@ fun SyncedCoverVideoPlayer(
         }
     }
 
-    // Video Candidate Picker Dialog (Option 3)
-    VideoCandidatePickerDialog(
-        viewModel = viewModel,
-        trackTitle = trackTitle,
-        trackArtist = trackArtist,
-    )
+    // Video Candidate Picker Dialog (Option 3) - only render here when not fullscreen
+    // (SyncedVideoDialog hosts its own picker dialog when fullscreen is active).
+    val isFullscreen by viewModel.isFullscreen.collectAsStateWithLifecycle()
+    if (!isFullscreen) {
+        VideoCandidatePickerDialog(
+            viewModel = viewModel,
+            trackTitle = trackTitle,
+            trackArtist = trackArtist,
+            audioDurationMs = audioDurationMs,
+        )
+    }
+}
+
+internal fun computeVideoAspectRatio(
+    player: androidx.media3.common.Player,
+    stream: YouTubeVideoStream?,
+): Float {
+    val vs = player.videoSize
+    if (vs.width > 0 && vs.height > 0) {
+        val ratio = (vs.width.toFloat() * vs.pixelWidthHeightRatio) / vs.height.toFloat()
+        if (ratio > 0f && ratio.isFinite()) return ratio
+    }
+    val w = stream?.width
+    val h = stream?.height
+    if (w != null && h != null && w > 0 && h > 0) {
+        return w.toFloat() / h.toFloat()
+    }
+    return 16f / 9f
 }

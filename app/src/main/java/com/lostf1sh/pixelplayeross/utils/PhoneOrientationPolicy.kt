@@ -15,8 +15,19 @@ private const val LargeScreenSmallestWidthDp = 600
  */
 object PhoneOrientationPolicy : Application.ActivityLifecycleCallbacks {
 
+    @Volatile
+    private var allowFullscreenLandscape: Boolean = false
+
+    fun setFullscreenLandscapeOverride(activity: Activity?, enabled: Boolean) {
+        allowFullscreenLandscape = enabled
+        if (!enabled && activity != null) {
+            apply(activity)
+        }
+    }
+
     @SuppressLint("SourceLockedOrientationActivity")
     fun apply(activity: Activity) {
+        if (allowFullscreenLandscape) return
         val isPhone = activity.resources.configuration.smallestScreenWidthDp < LargeScreenSmallestWidthDp
         val orientation = if (isPhone) {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

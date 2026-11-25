@@ -38,7 +38,9 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -71,6 +73,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lostf1sh.pixelplayeross.R
+import com.lostf1sh.pixelplayeross.utils.PhoneOrientationPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.Locale
@@ -101,17 +104,19 @@ fun SyncedVideoDialog(
 
     var videoAspectRatio by remember(uiState) {
         val stream = (uiState as? SyncedVideoUiState.Ready)?.activeStream
-        val w = stream?.width
-        val h = stream?.height
-        val ratio = if (w != null && h != null && h > 0) w.toFloat() / h.toFloat() else 16f / 9f
-        mutableFloatStateOf(ratio)
+        mutableFloatStateOf(computeVideoAspectRatio(viewModel.player, stream))
     }
 
     DisposableEffect(viewModel.player) {
+        val stream = (uiState as? SyncedVideoUiState.Ready)?.activeStream
+        videoAspectRatio = computeVideoAspectRatio(viewModel.player, stream)
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
-                    videoAspectRatio = videoSize.width.toFloat() / videoSize.height.toFloat()
+                    val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
+                    if (ratio > 0f && ratio.isFinite()) {
+                        videoAspectRatio = ratio
+                    }
                 }
             }
         }
@@ -143,7 +148,8 @@ fun SyncedVideoDialog(
             ?: generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
                 .filterIsInstance<Activity>().firstOrNull()
         val prevOrientation = activity?.requestedOrientation
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        PhoneOrientationPolicy.setFullscreenLandscapeOverride(activity, true)
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
         val window = activity?.window
         val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
@@ -151,6 +157,7 @@ fun SyncedVideoDialog(
         insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         insetsController?.hide(WindowInsetsCompat.Type.systemBars())
         onDispose {
+            PhoneOrientationPolicy.setFullscreenLandscapeOverride(activity, false)
             if (prevOrientation != null) {
                 activity.requestedOrientation = prevOrientation
             }
@@ -186,7 +193,20 @@ fun SyncedVideoDialog(
                         modifier = Modifier.padding(24.dp),
                     ) {
                         Text(state.message, color = Color.White)
-                        Spacer(Modifier.padding(top = 16.dp))
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            FilledTonalButton(
+                                onClick = { viewModel.refreshCurrentVideoLink(currentPositionProvider()) },
+                            ) {
+                                Text("Retry")
+                            }
+                            FilledTonalButton(
+                                onClick = { viewModel.openVideoPicker(trackTitle, trackArtist, genre, audioDurationMs) },
+                            ) {
+                                Text(stringResource(R.string.video_choose_video))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                         IconButton(onClick = { viewModel.setFullscreen(false) }) {
                             Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
                         }
@@ -199,7 +219,7 @@ fun SyncedVideoDialog(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val containerAspect = maxWidth / maxHeight
+                        val containerAspect = if (maxHeight > 0.dp) maxWidth / maxHeight else 16f / 9f
                         val videoModifier = if (containerAspect > videoAspectRatio) {
                             Modifier
                                 .fillMaxHeight()
@@ -221,6 +241,25 @@ fun SyncedVideoDialog(
                             },
                             modifier = videoModifier,
                         )
+                    }
+
+                    if (state.isRefreshing) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.45f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = Color.White)
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    text = stringResource(R.string.video_refreshing_stream),
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                )
+                            }
+                        }
                     }
 
                     DisposableEffect(Unit) {
@@ -352,7 +391,7 @@ fun SyncedVideoDialog(
 
                                     // Refresh Link Button
                                     IconButton(
-                                        onClick = { viewModel.refreshCurrentVideoLink() }
+                                        onClick = { viewModel.refreshCurrentVideoLink(currentPositionProvider()) }
                                     ) {
                                         Icon(
                                             imageVector = Icons.Filled.Refresh,
@@ -482,6 +521,13 @@ fun SyncedVideoDialog(
                     }
                 }
             }
+
+            VideoCandidatePickerDialog(
+                viewModel = viewModel,
+                trackTitle = trackTitle,
+                trackArtist = trackArtist,
+                audioDurationMs = audioDurationMs,
+            )
         }
     }
 }

@@ -253,6 +253,7 @@ class SyncedVideoRepository @Inject constructor(
                 channel = candidate.channel,
                 durationSeconds = candidate.durationSeconds,
                 matchScore = score,
+                thumbnailUrl = candidate.thumbnailUrl,
             )
         }
 
@@ -299,6 +300,7 @@ class SyncedVideoRepository @Inject constructor(
                 channel = candidate.channel,
                 durationSeconds = candidate.durationSeconds,
                 matchScore = score,
+                thumbnailUrl = candidate.thumbnailUrl,
             )
         }.sortedWith(
             compareByDescending<VideoSearchCandidate> { it.matchScore }

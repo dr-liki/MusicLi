@@ -29,6 +29,7 @@ data class VideoSearchCandidate(
     val channel: String,
     val durationSeconds: Int?,
     val matchScore: Int,
+    val thumbnailUrl: String? = null,
 )
 
 /** Accepts a YouTube video ID or a standard YouTube watch/share URL. */
