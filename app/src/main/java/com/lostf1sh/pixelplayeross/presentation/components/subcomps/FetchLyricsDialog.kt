@@ -54,11 +54,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Song
+import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId
 import com.lostf1sh.pixelplayeross.data.repository.LyricsSearchResult
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.LyricsSearchUiState
 import com.lostf1sh.pixelplayeross.utils.ProviderText
 import com.lostf1sh.pixelplayeross.utils.shapes.RoundedStarShape
 import kotlinx.collections.immutable.ImmutableList
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToLong
 
 @Composable
 fun FetchLyricsDialog(
@@ -106,6 +110,7 @@ fun FetchLyricsDialog(
                     }
                     is LyricsSearchUiState.PickResult -> {
                         PickResultContent(
+                            currentSong = currentSong,
                             results = uiState.results,
                             onPickResult = onPickResult,
                             onCancel = onDismiss
@@ -295,6 +300,7 @@ private fun LoadingContent() {
 
 @Composable
 private fun PickResultContent(
+    currentSong: Song?,
     results: ImmutableList<LyricsSearchResult>,
     onPickResult: (LyricsSearchResult) -> Unit,
     onCancel: () -> Unit
@@ -306,24 +312,58 @@ private fun PickResultContent(
         modifier = Modifier.fillMaxWidth()
     )
 
-    Spacer(modifier = Modifier.height(24.dp))
+    if (currentSong != null && currentSong.duration > 0L) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ) {
+            Text(
+                text = "Current song · ${formatDurationMsBadge(currentSong.duration)}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(20.dp))
 
     LazyColumn(
-        modifier = Modifier.heightIn(max = 350.dp),
+        modifier = Modifier.heightIn(max = 360.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
-        items(results, key = { it.record.id }) { result ->
-            ResultItemCard(result = result, onClick = { onPickResult(result) })
+        items(results, key = { it.id }) { result ->
+            ResultItemCard(
+                result = result,
+                songDurationMs = currentSong?.duration,
+                onClick = { onPickResult(result) }
+            )
         }
 
-        item {
-            ProviderText(
-                providerText = stringResource(R.string.lyrics_provided_by),
-                uri = stringResource(R.string.lrclib_uri),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)
-            )
+        if (results.any { it.providerId == LyricsProviderId.LRCLIB }) {
+            item {
+                ProviderText(
+                    providerText = stringResource(R.string.lyrics_provided_by),
+                    uri = stringResource(R.string.lrclib_uri),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)
+                )
+            }
+        }
+        if (results.any { it.providerId == LyricsProviderId.LRC_RED }) {
+            item {
+                ProviderText(
+                    providerText = "Lyrics also powered by lrc.red",
+                    uri = "https://lrc.red",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)
+                )
+            }
         }
     }
 
@@ -341,10 +381,16 @@ private fun PickResultContent(
 @Composable
 private fun ResultItemCard(
     result: LyricsSearchResult,
+    songDurationMs: Long?,
     onClick: () -> Unit
 ) {
-    val hasSyncedLyrics = result.record.hasSyncedContent
-    
+    val hasSyncedLyrics = result.hasSyncedContent
+    val resultDurationMs = result.durationSec?.takeIf { it > 0.0 }?.times(1000.0)?.roundToLong()
+    val isCloseDurationMatch = resultDurationMs != null &&
+        songDurationMs != null &&
+        songDurationMs > 0L &&
+        abs(resultDurationMs - songDurationMs) <= 3_000L
+
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -379,10 +425,10 @@ private fun ResultItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = result.record.name,
+                        text = result.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -390,6 +436,28 @@ private fun ResultItemCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (resultDurationMs != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isCloseDurationMatch) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            contentColor = if (isCloseDurationMatch) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        ) {
+                            Text(
+                                text = formatDurationMsBadge(resultDurationMs),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     if (hasSyncedLyrics) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
@@ -397,7 +465,7 @@ private fun ResultItemCard(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ) {
                             Text(
-                                text = stringResource(R.string.lyrics_synced_badge),
+                                text = if (result.hasWordSync) "Word Sync" else stringResource(R.string.lyrics_synced_badge),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -405,12 +473,9 @@ private fun ResultItemCard(
                         }
                     }
                 }
+                val albumPart = result.albumName.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
                 Text(
-                    text = stringResource(
-                        R.string.presentation_batch_g_list_song_artist_album,
-                        result.record.artistName,
-                        result.record.albumName
-                    ),
+                    text = "${result.artistName}$albumPart · ${result.providerLabel}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -419,6 +484,13 @@ private fun ResultItemCard(
             }
         }
     }
+}
+
+internal fun formatDurationMsBadge(durationMs: Long): String {
+    val totalSeconds = (durationMs.coerceAtLeast(0L) + 500L) / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return String.format(Locale.ROOT, "%02d:%02d", minutes, seconds)
 }
 
 @Composable

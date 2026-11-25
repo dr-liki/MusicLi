@@ -17,6 +17,8 @@ import com.lostf1sh.pixelplayeross.data.model.LyricsSourcePreference
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.network.lyrics.LrcLibApiService
 import com.lostf1sh.pixelplayeross.data.network.lyrics.LrcLibResponse
+import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId
+import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.MultiProviderLyricsOrchestrator
 import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
 import com.lostf1sh.pixelplayeross.utils.LyricsImportSecurity
 import com.lostf1sh.pixelplayeross.utils.LyricsImportValidationResult
@@ -138,7 +140,8 @@ class LyricsRepositoryImpl @Inject constructor(
     private val lrcLibApiService: LrcLibApiService,
     private val lyricsDao: com.lostf1sh.pixelplayeross.data.database.LyricsDao,
     private val okHttpClient: OkHttpClient,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val orchestrator: MultiProviderLyricsOrchestrator? = null
 ) : LyricsRepository {
 
 
@@ -459,6 +462,28 @@ class LyricsRepositoryImpl @Inject constructor(
         if (cachedJson != null) {
             Timber.tag(TAG).d("===== LOADED LYRICS FROM JSON DISK CACHE =====")
             return@withContext cachedJson
+        }
+
+        if (orchestrator != null) {
+            val multiMatch = runCatching { orchestrator.fetchBestMatch(song) }
+                .onFailure { Timber.tag(TAG).e(it, "Multi-provider lyrics fetch failed") }
+                .getOrNull()
+            if (multiMatch != null) {
+                try {
+                    lyricsDao.insert(
+                        com.lostf1sh.pixelplayeross.data.database.LyricsEntity(
+                            songId = song.id.toLong(),
+                            content = multiMatch.rawLyrics,
+                            isSynced = !multiMatch.lyrics.synced.isNullOrEmpty(),
+                            source = "remote"
+                        )
+                    )
+                } catch (e: NumberFormatException) {
+                    Timber.tag(TAG).w("Skipping DB save for non-numeric song ID: ${song.id}")
+                }
+                return@withContext multiMatch.lyrics
+            }
+            return@withContext null
         }
 
         val currentTime = System.currentTimeMillis()
@@ -1218,6 +1243,10 @@ class LyricsRepositoryImpl @Inject constructor(
                 }
             }
 
+            if (orchestrator != null) {
+                return@withContext Result.failure(NoLyricsFoundException())
+            }
+
             val response = withNetworkRetry(operationName = "lrclib_get_lyrics") {
                 lrcLibApiService.getLyrics(
                     trackName = song.title,
@@ -1283,6 +1312,16 @@ class LyricsRepositoryImpl @Inject constructor(
             LogUtils.d(this@LyricsRepositoryImpl, "Searching remote for lyrics for: ${song.title} by ${song.displayArtist}")
 
             val combinedQuery = "${song.title} ${song.displayArtist}"
+
+            if (orchestrator != null) {
+                val results = orchestrator.searchCandidates(song)
+                return@withContext if (results.isNotEmpty()) {
+                    Result.success(Pair(combinedQuery, results))
+                } else {
+                    Result.failure(NoLyricsFoundException(combinedQuery))
+                }
+            }
+
             val cleanTitle = song.title.trim()
             val cleanArtist = song.displayArtist.trim()
 
@@ -1328,11 +1367,11 @@ class LyricsRepositoryImpl @Inject constructor(
                     }
                     val hasSynced = response.hasSyncedContent
                     LogUtils.d(this@LyricsRepositoryImpl, "  Found: ${response.name} by ${response.artistName} (synced: $hasSynced)")
-                    LyricsSearchResult(response, parsedLyrics, rawLyrics)
+                    lrcLibResultToSearchResult(response, parsedLyrics, rawLyrics)
                 }
 
                 if (results.isNotEmpty()) {
-                    val syncedCount = results.count { it.record.hasSyncedContent }
+                    val syncedCount = results.count { it.hasSyncedContent }
                     LogUtils.d(this@LyricsRepositoryImpl, "Found ${results.size} lyrics for: ${song.title} ($syncedCount with synced)")
                     Result.success(Pair(combinedQuery, results))
                 } else {
@@ -1370,6 +1409,15 @@ class LyricsRepositoryImpl @Inject constructor(
 
             LogUtils.d(this@LyricsRepositoryImpl, "Manual lyrics search: title=$title, artist=$artist")
 
+            if (orchestrator != null) {
+                val results = orchestrator.searchByQuery(cleanTitle, cleanArtist)
+                return@withContext if (results.isEmpty()) {
+                    Result.failure(NoLyricsFoundException(query))
+                } else {
+                    Result.success(Pair(query, results))
+                }
+            }
+
             val strategies = buildList {
                 add(RemoteSearchStrategy("manual_query") { lrcLibApiService.searchLyrics(query = query) })
                 if (!cleanArtist.isNullOrBlank()) {
@@ -1392,8 +1440,8 @@ class LyricsRepositoryImpl @Inject constructor(
                 val parsed = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
                 if (!parsed.isValid()) return@mapNotNull null
 
-                LyricsSearchResult(response, parsed, rawLyrics)
-            }.sortedByDescending { it.record.hasSyncedContent }
+                lrcLibResultToSearchResult(response, parsed, rawLyrics)
+            }.sortedByDescending { it.hasSyncedContent }
 
             if (results.isEmpty()) {
                 Result.failure(NoLyricsFoundException(query))
@@ -1604,17 +1652,52 @@ class LyricsRepositoryImpl @Inject constructor(
         return cleaned.trim()
     }
 
+    private fun lrcLibResultToSearchResult(
+        response: LrcLibResponse,
+        lyrics: Lyrics,
+        rawLyrics: String
+    ): LyricsSearchResult = LyricsSearchResult(
+        id = "LRCLIB:${response.id}",
+        providerId = LyricsProviderId.LRCLIB,
+        providerLabel = LyricsProviderId.LRCLIB.displayName,
+        title = response.name,
+        artistName = response.artistName,
+        albumName = response.albumName,
+        durationSec = response.duration.takeIf { it > 0.0 },
+        hasSyncedContent = response.hasSyncedContent,
+        hasWordSync = !response.lyricsfile.isNullOrBlank(),
+        attributionUrl = LyricsProviderId.LRCLIB.attributionUrl,
+        score = 0,
+        lyrics = lyrics,
+        rawLyrics = rawLyrics,
+    )
+
     private fun romanizeForMatch(text: String): String {
         return when {
             MultiLangRomanizer.isJapanese(text) -> MultiLangRomanizer.romanizeJapanese(text) ?: text
             MultiLangRomanizer.isChinese(text) -> MultiLangRomanizer.romanizeChinese(text) ?: text
             MultiLangRomanizer.isKorean(text) -> MultiLangRomanizer.romanizeKorean(text)
+            MultiLangRomanizer.isIndic(text) -> MultiLangRomanizer.romanizeIndic(text)
             else -> text
         }
     }
 }
 
-data class LyricsSearchResult(val record: LrcLibResponse, val lyrics: Lyrics, val rawLyrics: String)
+data class LyricsSearchResult(
+    val id: String,
+    val providerId: LyricsProviderId,
+    val providerLabel: String,
+    val title: String,
+    val artistName: String,
+    val albumName: String,
+    val durationSec: Double?,
+    val hasSyncedContent: Boolean,
+    val hasWordSync: Boolean = false,
+    val attributionUrl: String? = null,
+    val score: Int = 0,
+    val lyrics: Lyrics,
+    val rawLyrics: String,
+)
 
 data class NoLyricsFoundException(val query: String? = null) : Exception()
 

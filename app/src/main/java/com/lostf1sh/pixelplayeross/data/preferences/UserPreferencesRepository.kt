@@ -320,6 +320,12 @@ constructor(
         val EXPLORE_DOWNLOAD_SAF_URI = stringPreferencesKey("explore_download_saf_uri")
         val EXPLORE_RECENT_SEARCHES = stringPreferencesKey("explore_recent_searches")
         val LYRICS_TRANSLATION_TARGET_LANG = stringPreferencesKey("lyrics_translation_target_lang")
+        val LYRICS_SEARCH_STRATEGY = stringPreferencesKey("lyrics_search_strategy")
+        val LYRICS_PREFER_SYNCED = booleanPreferencesKey("lyrics_prefer_synced")
+        val LYRICS_ENABLED_PROVIDERS = stringPreferencesKey("lyrics_enabled_providers")
+        val LYRICS_PROVIDER_ORDER = stringPreferencesKey("lyrics_provider_order")
+        val LYRICS_ROMANIZATION_STYLE = stringPreferencesKey("lyrics_romanization_style")
+        val LYRICS_ROMANIZED_FIRST = booleanPreferencesKey("lyrics_romanized_first")
     }
 
     /** Null until the user picks a channel; the updater then follows the installed build. */
@@ -1140,6 +1146,91 @@ constructor(
         dataStore.edit { preferences ->
             val normalized = langCode.trim().ifBlank { "auto" }
             preferences[PreferencesKeys.LYRICS_TRANSLATION_TARGET_LANG] = normalized
+        }
+    }
+
+    val lyricsSearchStrategyFlow: Flow<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy> =
+        dataStore.data.map { preferences ->
+            com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy.fromStorage(
+                preferences[PreferencesKeys.LYRICS_SEARCH_STRATEGY]
+            )
+        }
+
+    suspend fun setLyricsSearchStrategy(
+        strategy: com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy
+    ) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_SEARCH_STRATEGY] = strategy.storageValue
+        }
+    }
+
+    val lyricsPreferSyncedFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LYRICS_PREFER_SYNCED] ?: true
+    }
+
+    suspend fun setLyricsPreferSynced(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_PREFER_SYNCED] = enabled
+        }
+    }
+
+    val enabledLyricsProvidersFlow: Flow<Set<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId>> =
+        dataStore.data.map { preferences ->
+            com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.parseEnabled(
+                preferences[PreferencesKeys.LYRICS_ENABLED_PROVIDERS]
+            )
+        }
+
+    suspend fun setEnabledLyricsProviders(
+        providers: Set<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId>
+    ) {
+        if (providers.isEmpty()) return
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_ENABLED_PROVIDERS] = providers.joinToString(",") { it.name }
+        }
+    }
+
+    val lyricsProviderOrderFlow: Flow<List<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId>> =
+        dataStore.data.map { preferences ->
+            com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.parseOrder(
+                preferences[PreferencesKeys.LYRICS_PROVIDER_ORDER]
+            )
+        }
+
+    suspend fun setLyricsProviderOrder(
+        order: List<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId>
+    ) {
+        val fullOrder = com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.parseOrder(
+            order.joinToString(",") { it.name }
+        )
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_PROVIDER_ORDER] = fullOrder.joinToString(",") { it.name }
+        }
+    }
+
+    val lyricsRomanizationStyleFlow: Flow<com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle> =
+        dataStore.data.map { preferences ->
+            com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle.fromStorage(
+                preferences[PreferencesKeys.LYRICS_ROMANIZATION_STYLE]
+            )
+        }
+
+    suspend fun setLyricsRomanizationStyle(
+        style: com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
+    ) {
+        com.lostf1sh.pixelplayeross.utils.MultiLangRomanizer.preferredIndicStyle = style
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_ROMANIZATION_STYLE] = style.storageValue
+        }
+    }
+
+    val lyricsRomanizedFirstFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LYRICS_ROMANIZED_FIRST] ?: false
+    }
+
+    suspend fun setLyricsRomanizedFirst(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LYRICS_ROMANIZED_FIRST] = enabled
         }
     }
 

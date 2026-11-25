@@ -156,7 +156,17 @@ data class SettingsUiState(
     val exploreDownloadSubfolders: Boolean = true,
     val exploreDownloadLyrics: Boolean = true,
     val exploreDownloadSafUri: String? = null,
-    val lyricsTranslationTargetLang: String = "auto"
+    val lyricsTranslationTargetLang: String = "auto",
+    val lyricsSearchStrategy: com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy =
+        com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy.AUTO_FASTEST,
+    val lyricsPreferSynced: Boolean = true,
+    val enabledLyricsProviders: Set<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId> =
+        com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.DEFAULT_ENABLED,
+    val lyricsProviderOrder: List<com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId> =
+        com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId.DEFAULT_ORDER,
+    val lyricsRomanizationStyle: com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle =
+        com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle.SING_ALONG,
+    val lyricsRomanizedFirst: Boolean = false
 )
 
 data class FailedSongInfo(
@@ -704,6 +714,43 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.exploreDownloadSafUriFlow.collect { uri ->
                 _uiState.update { it.copy(exploreDownloadSafUri = uri) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsSearchStrategyFlow.collect { strategy ->
+                _uiState.update { it.copy(lyricsSearchStrategy = strategy) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsPreferSyncedFlow.collect { enabled ->
+                _uiState.update { it.copy(lyricsPreferSynced = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.enabledLyricsProvidersFlow.collect { enabled ->
+                _uiState.update { it.copy(enabledLyricsProviders = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsProviderOrderFlow.collect { order ->
+                _uiState.update { it.copy(lyricsProviderOrder = order) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsRomanizationStyleFlow.collect { style ->
+                com.lostf1sh.pixelplayeross.utils.MultiLangRomanizer.preferredIndicStyle = style
+                _uiState.update { it.copy(lyricsRomanizationStyle = style) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsRomanizedFirstFlow.collect { enabled ->
+                _uiState.update { it.copy(lyricsRomanizedFirst = enabled) }
             }
         }
     }
@@ -1260,6 +1307,66 @@ class SettingsViewModel @Inject constructor(
     fun setLyricsTranslationTargetLang(langCode: String) {
         viewModelScope.launch {
             userPreferencesRepository.setLyricsTranslationTargetLang(langCode)
+        }
+    }
+
+    fun setLyricsSearchStrategy(
+        strategy: com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy
+    ) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLyricsSearchStrategy(strategy)
+        }
+    }
+
+    fun setLyricsPreferSynced(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLyricsPreferSynced(enabled)
+        }
+    }
+
+    fun toggleLyricsProvider(
+        providerId: com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId,
+        enabled: Boolean
+    ) {
+        viewModelScope.launch {
+            val current = _uiState.value.enabledLyricsProviders.toMutableSet()
+            if (enabled) {
+                current.add(providerId)
+            } else {
+                if (current.size <= 1) return@launch
+                current.remove(providerId)
+            }
+            userPreferencesRepository.setEnabledLyricsProviders(current)
+        }
+    }
+
+    fun moveLyricsProvider(
+        providerId: com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId,
+        delta: Int
+    ) {
+        viewModelScope.launch {
+            val order = _uiState.value.lyricsProviderOrder.toMutableList()
+            val index = order.indexOf(providerId)
+            if (index < 0) return@launch
+            val targetIndex = (index + delta).coerceIn(0, order.lastIndex)
+            if (index == targetIndex) return@launch
+            val item = order.removeAt(index)
+            order.add(targetIndex, item)
+            userPreferencesRepository.setLyricsProviderOrder(order)
+        }
+    }
+
+    fun setLyricsRomanizationStyle(
+        style: com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
+    ) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLyricsRomanizationStyle(style)
+        }
+    }
+
+    fun setLyricsRomanizedFirst(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLyricsRomanizedFirst(enabled)
         }
     }
 

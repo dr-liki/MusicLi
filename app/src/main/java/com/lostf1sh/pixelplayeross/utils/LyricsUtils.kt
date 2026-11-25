@@ -47,6 +47,8 @@ import com.lostf1sh.pixelplayeross.data.model.BackgroundVocals
 import com.lostf1sh.pixelplayeross.data.model.Lyrics
 import com.lostf1sh.pixelplayeross.data.model.SyncedLine
 import com.lostf1sh.pixelplayeross.data.model.SyncedWord
+import com.lostf1sh.pixelplayeross.utils.romanize.IndicRomanizer
+import com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
 import kotlinx.coroutines.flow.Flow
 import timber.log.Timber
 
@@ -58,6 +60,8 @@ import kotlin.math.max
 import kotlin.math.sin
 
 object MultiLangRomanizer {
+    @Volatile
+    var preferredIndicStyle: RomanizationStyle = RomanizationStyle.SING_ALONG
     private val kuromojiTokenizer: Tokenizer? by lazy {
         try {
             Thread.currentThread().contextClassLoader = MultiLangRomanizer::class.java.classLoader
@@ -72,14 +76,6 @@ object MultiLangRomanizer {
         "cho" to mapOf("ᄀ" to "g", "ᄁ" to "kk", "ᄂ" to "n", "ᄃ" to "d", "ᄄ" to "tt", "ᄅ" to "r", "ᄆ" to "m", "ᄇ" to "b", "ᄈ" to "pp", "ᄉ" to "s", "ᄊ" to "ss", "ᄋ" to "", "ᄌ" to "j", "ᄍ" to "jj", "ᄎ" to "ch", "ᄏ" to "k", "ᄐ" to "t", "ᄑ" to "p", "ᄒ" to "h"),
         "jung" to mapOf("ᅡ" to "a", "ᅢ" to "ae", "ᅣ" to "ya", "ᅤ" to "yae", "ᅥ" to "eo", "ᅦ" to "e", "ᅧ" to "yeo", "ᅨ" to "ye", "ᅩ" to "o", "ᅪ" to "wa", "ᅫ" to "wae", "ᅬ" to "oe", "ᅭ" to "yo", "ᅮ" to "u", "ᅯ" to "wo", "ᅰ" to "we", "ᅱ" to "wi", "ᅲ" to "yu", "ᅳ" to "eu", "ᅴ" to "eui", "ᅵ" to "i"),
         "jong" to mapOf("ᆨ" to "k", "ᆨᄋ" to "g", "ᆨᄂ" to "ngn", "ᆨᄅ" to "ngn", "ᆨᄆ" to "ngm", "ᆨᄒ" to "kh", "ᆩ" to "kk", "ᆩᄋ" to "kg", "ᆩᄂ" to "ngn", "ᆩᄅ" to "ngn", "ᆩᄆ" to "ngm", "ᆩᄒ" to "kh", "ᆪ" to "k", "ᆪᄋ" to "ks", "ᆪᄂ" to "ngn", "ᆪᄅ" to "ngn", "ᆪᄆ" to "ngm", "ᆪᄒ" to "kch", "ᆫ" to "n", "ᆫᄅ" to "ll", "ᆬ" to "n", "ᆬᄋ" to "nj", "ᆬᄂ" to "nn", "ᆬᄅ" to "nn", "ᆬᄆ" to "nm", "ᆬㅎ" to "nch", "ᆭ" to "n", "ᆭᄋ" to "nh", "ᆭᄅ" to "nn", "ᆮ" to "t", "ᆮᄋ" to "d", "ᆮᄂ" to "nn", "ᆮᄅ" to "nn", "ᆮᄆ" to "nm", "ᆮᄒ" to "th", "ᆯ" to "l", "ᆯᄋ" to "r", "ᆯᄂ" to "ll", "ᆯᄅ" to "ll", "ᆰ" to "k", "ᆰᄋ" to "lg", "ᆰᄂ" to "ngn", "ᆰᄅ" to "ngn", "ᆰᄆ" to "ngm", "ᆰᄒ" to "lkh", "ᆱ" to "m", "ᆱᄋ" to "lm", "ᆱᄂ" to "mn", "ᆱᄅ" to "mn", "ᆱᄆ" to "mm", "ᆱᄒ" to "lmh", "ᆲ" to "p", "ᆲᄋ" to "lb", "ᆲᄂ" to "mn", "ᆲᄅ" to "mn", "ᆲᄆ" to "mm", "ᆲᄒ" to "lph", "ᆳ" to "t", "ᆳᄋ" to "ls", "ᆳᄂ" to "nn", "ᆳᄅ" to "nn", "ᆳᄆ" to "nm", "ᆳᄒ" to "lsh", "ᆴ" to "t", "ᆴᄋ" to "lt", "ᆴᄂ" to "nn", "ᆴᄅ" to "nn", "ᆴᄆ" to "nm", "ᆴᄒ" to "lth", "ᆵ" to "p", "ᆵᄋ" to "lp", "ᆵᄂ" to "mn", "ᆵᄅ" to "mn", "ᆵᄆ" to "mm", "ᆵᄒ" to "lph", "ᆶ" to "l", "ᆶᄋ" to "lh", "ᆶᄂ" to "ll", "ᆶᄅ" to "ll", "ᆶᄆ" to "lm", "ᆶᄒ" to "lh", "ᆷ" to "m", "ᆷᄅ" to "mn", "ᆸ" to "p", "ᆸᄋ" to "b", "ᆸᄂ" to "mn", "ᆸᄅ" to "mn", "ᆸᄆ" to "mm", "ᆸᄒ" to "ph", "ᆹ" to "p", "ᆹᄋ" to "ps", "ᆹᄂ" to "mn", "ᆹᄅ" to "mn", "ᆹᄆ" to "mm", "ᆹᄒ" to "psh", "ᆺ" to "t", "ᆺᄋ" to "s", "ᆺᄂ" to "nn", "ᆺᄅ" to "nn", "ᆺᄆ" to "nm", "ᆺᄒ" to "sh", "ᆻ" to "t", "ᆻᄋ" to "ss", "ᆻᄂ" to "tn", "ᆻᄅ" to "tn", "ᆻᄆ" to "nm", "ᆻᄒ" to "th", "ᆼ" to "ng", "ᆽ" to "t", "ᆽᄋ" to "j", "ᆽᄂ" to "nn", "ᆽᄅ" to "nn", "ᆽᄆ" to "nm", "ᆽᄒ" to "ch", "ᆾ" to "t", "ᆾᄋ" to "ch", "ᆾᄂ" to "nn", "ᆾᄅ" to "nn", "ᆾᄆ" to "nm", "ᆾᄒ" to "ch", "ᆿ" to "k", "ᆿᄋ" to "k", "ᆿᄂ" to "ngn", "ᆿᄅ" to "ngn", "ᆿᄆ" to "ngm", "ᆿᄒ" to "kh", "ᇀ" to "t", "ᇀᄋ" to "t", "ᇀᄂ" to "nn", "ᇀᄅ" to "nn", "ᇀᄆ" to "nm", "ᇀᄒ" to "th", "ᇁ" to "p", "ᇁᄋ" to "p", "ᇁᄂ" to "mn", "ᇁᄅ" to "mn", "ᇁᄆ" to "mm", "ᇁᄒ" to "ph", "ᇂ" to "t", "ᇂᄋ" to "h", "ᇂᄂ" to "nn", "ᇂᄅ" to "nn", "ᇂᄆ" to "mm", "ᇂᄒ" to "t", "ᇂᄀ" to "k")
-    )
-
-    private val DEVANAGARI_ROMAJI_MAP = mapOf(
-        "अ" to "a", "आ" to "aa", "इ" to "i", "ई" to "ee", "उ" to "u", "ऊ" to "oo", "ऋ" to "ri", "ए" to "e", "ऐ" to "ai", "ओ" to "o", "औ" to "au", "क" to "k", "ख" to "kh", "ग" to "g", "घ" to "gh", "ङ" to "ng", "च" to "ch", "छ" to "chh", "ज" to "j", "झ" to "jh", "ञ" to "ny", "ट" to "t", "ठ" to "th", "ड" to "d", "ढ" to "dh", "ण" to "n", "त" to "t", "थ" to "th", "द" to "d", "ध" to "dh", "न" to "n", "प" to "p", "फ" to "ph", "ब" to "b", "भ" to "bh", "म" to "m", "य" to "y", "र" to "r", "ल" to "l", "व" to "v", "श" to "sh", "ष" to "sh", "स" to "s", "ह" to "h", "क्ष" to "ksh", "त्र" to "tr", "ज्ञ" to "gy", "श्र" to "shr", "ा" to "aa", "ि" to "i", "ी" to "ee", "ु" to "u", "ू" to "oo", "ृ" to "ri", "े" to "e", "ै" to "ai", "ो" to "o", "ौ" to "au", "ं" to "n", "ः" to "h", "ँ" to "n", "़" to "", "्" to "", "०" to "0", "१" to "1", "२" to "2", "३" to "3", "४" to "4", "५" to "5", "६" to "6", "७" to "7", "८" to "8", "९" to "9", "ॐ" to "Om", "ऽ" to "", "क़" to "q", "ख़" to "kh", "ग़" to "g", "ज़" to "z", "ड़" to "r", "ढ़" to "rh", "फ़" to "f", "य़" to "y", "क\u093C" to "q", "ख\u093C" to "kh", "ग\u093C" to "g", "ज\u093C" to "z", "ड\u093C" to "r", "ढ\u093C" to "rh", "फ\u093C" to "f", "य\u093C" to "y"
-    )
-
-    private val GURMUKHI_ROMAJI_MAP = mapOf(
-        "ੳ" to "o", "ਅ" to "a", "ੲ" to "e", "ਸ" to "s", "ਹ" to "h", "ਕ" to "k", "ਖ" to "kh", "ਗ" to "g", "ਘ" to "gh", "ਙ" to "ng", "ਚ" to "ch", "ਛ" to "chh", "ਜ" to "j", "ਝ" to "jh", "ਞ" to "ny", "ਟ" to "t", "ਠ" to "th", "ਡ" to "d", "ਢ" to "dh", "ਣ" to "n", "ਤ" to "t", "ਥ" to "th", "ਦ" to "d", "ਧ" to "dh", "ਨ" to "n", "ਪ" to "p", "ਫ" to "ph", "ਬ" to "b", "ਭ" to "bh", "ਮ" to "m", "ਯ" to "y", "ਰ" to "r", "ਲ" to "l", "ਵ" to "v", "ੜ" to "r", "ਸ਼" to "sh", "ਖ਼" to "kh", "ਗ਼" to "g", "ਜ਼" to "z", "ਫ਼" to "f", "ਲ਼" to "l", "ਾ" to "aa", "ਿ" to "i", "ੀ" to "ee", "ੁ" to "u", "ੂ" to "oo", "ੇ" to "e", "ੈ" to "ai", "ੋ" to "o", "ੌ" to "au", "ੰ" to "n", "ਂ" to "n", "ੱ" to "", "੍" to "", "਼" to "", "ੴ" to "Ek Onkar", "੦" to "0", "੧" to "1", "੨" to "2", "੩" to "3", "੪" to "4", "੫" to "5", "੬" to "6", "੭" to "7", "੮" to "8", "੯" to "9"
     )
 
     private val GENERAL_CYRILLIC_ROMAJI_MAP = mapOf(
@@ -117,6 +113,11 @@ object MultiLangRomanizer {
     fun isKorean(text: String) = text.any { it in '\uAC00'..'\uD7A3' }
     fun isHindi(text: String) = text.any { it in '\u0900'..'\u097F' }
     fun isPunjabi(text: String) = text.any { it in '\u0A00'..'\u0A7F' }
+    fun isTamil(text: String) = text.any { it in '\u0B80'..'\u0BFF' }
+    fun isTelugu(text: String) = text.any { it in '\u0C00'..'\u0C7F' }
+    fun isKannada(text: String) = text.any { it in '\u0C80'..'\u0CFF' }
+    fun isMalayalam(text: String) = text.any { it in '\u0D00'..'\u0D7F' }
+    fun isIndic(text: String) = IndicRomanizer.containsIndicScript(text)
     fun isCyrillic(text: String) = text.any { it in '\u0400'..'\u04FF' }
     fun isChinese(text: String) = text.any { it in '\u4E00'..'\u9FFF' }
 
@@ -129,6 +130,10 @@ object MultiLangRomanizer {
             code in 0xAC00..0xD7A3 ||
             code in 0x0900..0x097F ||
             code in 0x0A00..0x0A7F ||
+            code in 0x0B80..0x0BFF ||
+            code in 0x0C00..0x0C7F ||
+            code in 0x0C80..0x0CFF ||
+            code in 0x0D00..0x0D7F ||
             code in 0x0400..0x04FF
         }
     }
@@ -137,13 +142,16 @@ object MultiLangRomanizer {
      * Romanizes a single lyric line, or returns null when its script needs no romanization.
      * [entireLyricsHasKana] lets Han-only lines in Japanese lyrics use Japanese readings.
      */
-    fun romanizeLine(line: String, entireLyricsHasKana: Boolean = false): String? {
+    fun romanizeLine(
+        line: String,
+        entireLyricsHasKana: Boolean = false,
+        indicStyle: RomanizationStyle = preferredIndicStyle
+    ): String? {
         return when {
             isJapanese(line, entireLyricsHasKana) -> romanizeJapanese(line)
             isChinese(line) -> romanizeChinese(line)
             isKorean(line) -> romanizeKorean(line)
-            isHindi(line) -> romanizeHindi(line)
-            isPunjabi(line) -> romanizePunjabi(line)
+            isIndic(line) -> romanizeIndic(line, indicStyle)
             isCyrillic(line) -> romanizeCyrillic(line)
             else -> null
         }?.capitalizeFirstLetter()?.trim()?.takeIf { it.isNotEmpty() }
@@ -418,63 +426,14 @@ object MultiLangRomanizer {
         return romajaBuilder.toString()
     }
 
-    fun romanizeHindi(text: String): String {
-        val sb = StringBuilder(text.length)
-        var i = 0
-        while (i < text.length) {
-            var consumed = false
-            if (i + 1 < text.length) {
-                val twoCharCandidate = text.substring(i, i + 2)
-                val mappedTwoChar = DEVANAGARI_ROMAJI_MAP[twoCharCandidate]
-                if (mappedTwoChar != null) {
-                    sb.append(mappedTwoChar)
-                    i += 2
-                    consumed = true
-                }
-            }
-            if (!consumed) {
-                val charStr = text[i].toString()
-                sb.append(DEVANAGARI_ROMAJI_MAP[charStr] ?: charStr)
-                i += 1
-            }
-        }
-        return sb.toString()
-    }
+    fun romanizeIndic(
+        text: String,
+        style: RomanizationStyle = preferredIndicStyle
+    ): String = IndicRomanizer.romanize(text, style)
 
-    fun romanizePunjabi(text: String): String {
-        val sb = StringBuilder(text.length)
-        var i = 0
-        while (i < text.length) {
-            val char = text[i]
-            var consumed = false
-            if (char == '\u0A71') {
-                if (i + 1 < text.length) {
-                    val nextCharStr = text[i+1].toString()
-                    val nextMapped = GURMUKHI_ROMAJI_MAP[nextCharStr]
-                    if (nextMapped != null && nextMapped.isNotEmpty()) {
-                        sb.append(nextMapped[0])
-                    }
-                }
-                i++
-                continue
-            }
-            if (i + 1 < text.length) {
-                val twoCharCandidate = text.substring(i, i + 2)
-                val mappedTwoChar = GURMUKHI_ROMAJI_MAP[twoCharCandidate]
-                if (mappedTwoChar != null) {
-                    sb.append(mappedTwoChar)
-                    i += 2
-                    consumed = true
-                }
-            }
-            if (!consumed) {
-                val str = char.toString()
-                sb.append(GURMUKHI_ROMAJI_MAP[str] ?: str)
-                i++
-            }
-        }
-        return sb.toString()
-    }
+    fun romanizeHindi(text: String): String = romanizeIndic(text)
+
+    fun romanizePunjabi(text: String): String = romanizeIndic(text)
 
     fun romanizeCyrillic(text: String): String? {
         if (text.isEmpty()) return null
@@ -1038,8 +997,16 @@ object LyricsUtils {
         if (syncedLines.isEmpty()) return Lyrics(plain = emptyList(), synced = emptyList())
 
         val sorted = syncedLines.sortedBy { it.time }
-        val paired = pairTranslationLines(sorted)
-        val plainVersion = paired.map { it.line }
+        val paired = pairTranslationLines(sorted).map { line ->
+            line.copy(romanization = MultiLangRomanizer.romanizeLine(line.line))
+        }
+        val plainVersion = paired.map { line ->
+            buildString {
+                append(line.line)
+                if (!line.romanization.isNullOrEmpty()) append("\n").append(line.romanization)
+                if (!line.translation.isNullOrEmpty()) append("\n").append(line.translation)
+            }
+        }
         return Lyrics(synced = paired, plain = plainVersion, areFromRemote = false)
     }
 

@@ -30,12 +30,19 @@ import androidx.compose.material.icons.outlined.ClearAll
 import androidx.compose.material.icons.outlined.LinearScale
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,7 +75,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.LyricsSourcePreference
+import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsProviderId
+import com.lostf1sh.pixelplayeross.data.network.lyrics.providers.LyricsSearchStrategy
 import com.lostf1sh.pixelplayeross.data.preferences.LyricsWordHighlightStyle
+import com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
 import com.lostf1sh.pixelplayeross.data.preferences.MAX_LYRICS_FONT_SIZE_SP
 import com.lostf1sh.pixelplayeross.data.preferences.MIN_LYRICS_FONT_SIZE_SP
 import com.lostf1sh.pixelplayeross.presentation.components.CollapsibleCommonTopBar
@@ -320,6 +330,12 @@ fun LyricsSettingsScreen(
                             "auto" to stringResource(R.string.lyrics_translation_auto),
                             "en" to "English",
                             "hi" to "Hindi",
+                            "kn" to "Kannada",
+                            "ta" to "Tamil",
+                            "te" to "Telugu",
+                            "ml" to "Malayalam",
+                            "mr" to "Marathi",
+                            "pa" to "Punjabi",
                             "es" to "Spanish",
                             "fr" to "French",
                             "de" to "German",
@@ -346,6 +362,40 @@ fun LyricsSettingsScreen(
                         },
                         modifier = Modifier.settingHighlight("item_lyrics_translation_target", highlightKey)
                     )
+                    ThemeSelectorItem(
+                        label = "Romanization style",
+                        description = "Choose between sing-along phonetic vowels (aa, ee, oo) or compact Latin spelling",
+                        options = mapOf(
+                            RomanizationStyle.SING_ALONG.storageValue to "Sing-along phonetic",
+                            RomanizationStyle.COMPACT.storageValue to "Compact"
+                        ),
+                        selectedKey = uiState.lyricsRomanizationStyle.storageValue,
+                        onSelectionChanged = { key ->
+                            settingsViewModel.setLyricsRomanizationStyle(RomanizationStyle.fromStorage(key))
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.Abc,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_lyrics_romanization_style", highlightKey)
+                    )
+                    SwitchSettingItem(
+                        title = "Romanized-first layout",
+                        subtitle = "Show phonetic Latin lyrics larger above the original script when romanization is enabled",
+                        checked = uiState.lyricsRomanizedFirst,
+                        onCheckedChange = settingsViewModel::setLyricsRomanizedFirst,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.Abc,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_lyrics_romanized_first", highlightKey)
+                    )
                     SettingsItem(
                         title = stringResource(R.string.setcat_reset_imported_lyrics_title),
                         subtitle = stringResource(R.string.setcat_reset_imported_lyrics_subtitle),
@@ -355,6 +405,114 @@ fun LyricsSettingsScreen(
                         modifier = Modifier.settingHighlight("item_lyrics_reset_imported", highlightKey),
                         onClick = { showClearLyricsDialog = true }
                     )
+                }
+            }
+
+            item(key = "lyrics_providers") {
+                LyricsSettingsSubsection(
+                    title = "Lyric Providers",
+                    addBottomSpace = false
+                ) {
+                    ThemeSelectorItem(
+                        label = "Search strategy",
+                        description = "Auto Fastest races all enabled providers and prefers synced matches; Priority Order checks one by one",
+                        options = mapOf(
+                            LyricsSearchStrategy.AUTO_FASTEST.storageValue to "Auto Fastest",
+                            LyricsSearchStrategy.PRIORITY_ORDER.storageValue to "Priority Order"
+                        ),
+                        selectedKey = uiState.lyricsSearchStrategy.storageValue,
+                        onSelectionChanged = { key ->
+                            settingsViewModel.setLyricsSearchStrategy(LyricsSearchStrategy.fromStorage(key))
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.TravelExplore,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_lyrics_search_strategy", highlightKey)
+                    )
+                    SwitchSettingItem(
+                        title = "Prefer synced lyrics",
+                        subtitle = "Wait briefly in Auto Fastest or keep scanning lower-ranked providers when only plain lyrics arrive first",
+                        checked = uiState.lyricsPreferSynced,
+                        onCheckedChange = settingsViewModel::setLyricsPreferSynced,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.Sync,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_lyrics_prefer_synced", highlightKey)
+                    )
+
+                    uiState.lyricsProviderOrder.forEachIndexed { index, providerId ->
+                        val isEnabled = providerId in uiState.enabledLyricsProviders
+                        val canDisable = !isEnabled || uiState.enabledLyricsProviders.size > 1
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "${index + 1}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = providerId.displayName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = providerId.capabilitiesLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { settingsViewModel.moveLyricsProvider(providerId, -1) },
+                                    enabled = index > 0
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowUp,
+                                        contentDescription = "Move up"
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { settingsViewModel.moveLyricsProvider(providerId, 1) },
+                                    enabled = index < uiState.lyricsProviderOrder.lastIndex
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                                        contentDescription = "Move down"
+                                    )
+                                }
+                                Switch(
+                                    checked = isEnabled,
+                                    enabled = canDisable,
+                                    onCheckedChange = { checked ->
+                                        settingsViewModel.toggleLyricsProvider(providerId, checked)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

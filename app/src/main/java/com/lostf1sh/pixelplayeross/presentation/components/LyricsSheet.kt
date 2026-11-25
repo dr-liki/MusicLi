@@ -159,6 +159,7 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.PlayingEqIcon
 import com.lostf1sh.pixelplayeross.utils.MultiLangRomanizer
+import com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
@@ -338,7 +339,9 @@ fun LyricsSheet(
     }
 
     val hasRomanizedLyrics = remember(lyrics) {
-        val hasSynced = lyrics?.synced?.any { !it.romanization.isNullOrBlank() } == true
+        val hasSynced = lyrics?.synced?.any {
+            !it.romanization.isNullOrBlank() || MultiLangRomanizer.isScriptThatNeedsRomanization(it.line)
+        } == true
         val hasPlain = lyrics?.plain?.any { line ->
             MultiLangRomanizer.isScriptThatNeedsRomanization(line)
         } == true
@@ -419,17 +422,51 @@ fun LyricsSheet(
 
     // Plain lyrics are stored without romanization; derive it off the main thread only
     // while the romanization toggle is on.
+    val lyricsRomanizationStyleFlow = remember(context) {
+        context.dataStore.data.map {
+            RomanizationStyle.fromStorage(it[stringPreferencesKey("lyrics_romanization_style")])
+        }
+    }
+    val lyricsRomanizationStyle by lyricsRomanizationStyleFlow.collectAsStateWithLifecycle(
+        initialValue = RomanizationStyle.SING_ALONG
+    )
+    LaunchedEffect(lyricsRomanizationStyle) {
+        MultiLangRomanizer.preferredIndicStyle = lyricsRomanizationStyle
+    }
+
+    val lyricsRomanizedFirstFlow = remember(context) {
+        context.dataStore.data.map { it[booleanPreferencesKey("lyrics_romanized_first")] ?: false }
+    }
+    val lyricsRomanizedFirst by lyricsRomanizedFirstFlow.collectAsStateWithLifecycle(initialValue = false)
+
     val shouldRomanizePlainLyrics = showLyricsRomanization && hasRomanizedLyrics
     val plainLyricsRomanization by produceState<List<String?>?>(
         initialValue = null,
         lyrics?.plain,
-        shouldRomanizePlainLyrics
+        shouldRomanizePlainLyrics,
+        lyricsRomanizationStyle
     ) {
         val plainLines = lyrics?.plain
         value = if (!shouldRomanizePlainLyrics || plainLines.isNullOrEmpty()) {
             null
         } else {
-            withContext(Dispatchers.Default) { romanizePlainLyrics(plainLines) }
+            withContext(Dispatchers.Default) { romanizePlainLyrics(plainLines, lyricsRomanizationStyle) }
+        }
+    }
+
+    val resolvedSyncedLines by produceState(
+        initialValue = lyrics?.synced.orEmpty(),
+        lyrics?.synced,
+        showLyricsRomanization,
+        lyricsRomanizationStyle
+    ) {
+        val rawSynced = lyrics?.synced.orEmpty()
+        if (rawSynced.isEmpty() || !showLyricsRomanization) {
+            value = rawSynced
+        } else {
+            value = withContext(Dispatchers.Default) {
+                romanizeSyncedLines(rawSynced, lyricsRomanizationStyle)
+            }
         }
     }
 
@@ -834,8 +871,8 @@ fun LyricsSheet(
                     }
 
                     true -> {
-                        lyrics?.synced?.let { synced ->
-                            val syncedLines = remember(synced) { synced.toImmutableList() }
+                        if (resolvedSyncedLines.isNotEmpty()) {
+                            val syncedLines = remember(resolvedSyncedLines) { resolvedSyncedLines.toImmutableList() }
                             SyncedLyricsList(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -880,6 +917,7 @@ fun LyricsSheet(
                                 lyricsAlignment = lyricsAlignment,
                                 showTranslation = showLyricsTranslation,
                                 showRomanization = showLyricsRomanization,
+                                romanizedFirst = lyricsRomanizedFirst,
                                 wordHighlightStyle = lyricsWordHighlightStyle,
                                 duetLayoutEnabled = lyricsDuetLayoutEnabled,
                                 showBackgroundVocals = showLyricsBackgroundVocals,
@@ -926,6 +964,7 @@ fun LyricsSheet(
                                         lyricsAlignment = lyricsAlignment,
                                         showTranslation = if (hasTranslatedLyrics) showLyricsTranslation else true,
                                         showRomanization = if (hasRomanizedLyrics) showLyricsRomanization else true,
+                                        romanizedFirst = lyricsRomanizedFirst,
                                         modifier = Modifier.fillMaxWidth(),
                                         onLongClick = {
                                             copyLyricsToClipboard(
@@ -1397,6 +1436,7 @@ fun SyncedLyricsList(
     lyricsAlignment: String = "left",
     showTranslation: Boolean = true,
     showRomanization: Boolean = true,
+    romanizedFirst: Boolean = false,
     wordHighlightStyle: LyricsWordHighlightStyle = LyricsWordHighlightStyle.DEFAULT,
     duetLayoutEnabled: Boolean = true,
     showBackgroundVocals: Boolean = true,
@@ -1583,6 +1623,7 @@ fun SyncedLyricsList(
                             ),
                             showTranslation = showTranslation,
                             showRomanization = showRomanization,
+                            romanizedFirst = romanizedFirst,
                             showBackgroundVocals = showBackgroundVocals,
                             wordHighlightStyle = effectiveHighlightStyle,
                             accentColor = accentColor,
@@ -1630,6 +1671,7 @@ fun LyricLineRow(
     lyricsAlignment: String = "left",
     showTranslation: Boolean = true,
     showRomanization: Boolean = true,
+    romanizedFirst: Boolean = false,
     showBackgroundVocals: Boolean = true,
     wordHighlightStyle: LyricsWordHighlightStyle = LyricsWordHighlightStyle.DEFAULT,
     accentColor: Color,
@@ -1775,6 +1817,7 @@ fun LyricLineRow(
         else -> Alignment.TopStart
     }
 
+    val showRomanizedPrimary = romanizedFirst && showRomanization && !romanizationText.isNullOrBlank()
     Column(
         modifier = animatedModifier
             .fillMaxWidth()
@@ -1787,6 +1830,21 @@ fun LyricLineRow(
             .padding(vertical = verticalPadding, horizontal = 2.dp),
         horizontalAlignment = horizontalAlignment
     ) {
+        if (showRomanizedPrimary && !romanizationText.isNullOrBlank()) {
+            Text(
+                text = romanizationText,
+                style = style,
+                color = lineColor,
+                fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
+                textAlign = textAlign,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        val nativeTextStyle = if (showRomanizedPrimary) secondaryStyle else style
+        val nativeLineColor = if (showRomanizedPrimary) romanizationColor else lineColor
+        val nativeWeight = if (showRomanizedPrimary) FontWeight.Normal else if (isCurrentLine) FontWeight.Bold else FontWeight.Normal
+
         if (!wordClusters.isNullOrEmpty()) {
             // One child per visual word: syllables with no space between them stay together.
             SyncedWordFlow(
@@ -1794,35 +1852,39 @@ fun LyricLineRow(
                 positionProvider = positionProvider,
                 rangeStartMs = lineStartTime,
                 rangeEndMs = lineEndTimeMs,
-                style = style,
-                fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
-                reserveBoldWidth = true,
+                style = nativeTextStyle,
+                fontWeight = nativeWeight,
+                reserveBoldWidth = !showRomanizedPrimary,
                 highlightedColor = accentColor,
                 unhighlightedColor = unsungWordColor,
                 highlightStyle = wordHighlightStyle,
                 emphasisEnabled = decorativeMotionEnabled,
-                lyricsAlignment = lyricsAlignment
+                lyricsAlignment = lyricsAlignment,
+                modifier = if (showRomanizedPrimary) Modifier.padding(top = 4.dp) else Modifier
             )
         } else if (sanitizedLine.isNotBlank()) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = boxAlignment) {
+            Box(
+                modifier = if (showRomanizedPrimary) Modifier.fillMaxWidth().padding(top = 4.dp) else Modifier.fillMaxWidth(),
+                contentAlignment = boxAlignment
+            ) {
                 Text(
                     text = sanitizedLine,
-                    style = style,
+                    style = nativeTextStyle,
                     color = Color.Transparent,
                     fontWeight = FontWeight.Bold,
                     textAlign = textAlign
                 )
                 Text(
                     text = sanitizedLine,
-                    style = style,
-                    color = lineColor,
-                    fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
+                    style = nativeTextStyle,
+                    color = nativeLineColor,
+                    fontWeight = nativeWeight,
                     textAlign = textAlign
                 )
             }
         }
 
-        if (showRomanization && !romanizationText.isNullOrBlank()) {
+        if (!showRomanizedPrimary && showRomanization && !romanizationText.isNullOrBlank()) {
             Text(
                 text = romanizationText,
                 style = secondaryStyle,
@@ -1883,6 +1945,7 @@ fun PlainLyricsLine(
     lyricsAlignment: String = "left",
     showTranslation: Boolean = true,
     showRomanization: Boolean = true,
+    romanizedFirst: Boolean = false,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     onLongClickLabel: String? = null
@@ -1960,19 +2023,19 @@ fun PlainLyricsLine(
         Modifier
     }
 
+    val showRomanizedPrimary = romanizedFirst && showRomanization && romanizationText.isNotBlank()
     Column(modifier = modifier.then(longClickModifier), horizontalAlignment = horizontalAlignment) {
         if (primaryText.isNotBlank()) {
-            Text(
-                text = primaryText,
-                style = style,
-                color = LocalContentColor.current.copy(alpha = 0.7f),
-                textAlign = textAlign,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            if (showRomanization && romanizationText.isNotBlank()) {
+            if (showRomanizedPrimary) {
                 Text(
                     text = romanizationText,
+                    style = style,
+                    color = LocalContentColor.current.copy(alpha = 0.85f),
+                    textAlign = textAlign,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = primaryText,
                     style = translationStyle,
                     color = translationColor,
                     textAlign = textAlign,
@@ -1980,6 +2043,26 @@ fun PlainLyricsLine(
                         .fillMaxWidth()
                         .padding(top = 4.dp)
                 )
+            } else {
+                Text(
+                    text = primaryText,
+                    style = style,
+                    color = LocalContentColor.current.copy(alpha = 0.7f),
+                    textAlign = textAlign,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (showRomanization && romanizationText.isNotBlank()) {
+                    Text(
+                        text = romanizationText,
+                        style = translationStyle,
+                        color = translationColor,
+                        textAlign = textAlign,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    )
+                }
             }
 
             val effectiveTranslationText = externalTranslation?.takeIf { it.isNotBlank() } ?: translationText
@@ -2000,13 +2083,38 @@ fun PlainLyricsLine(
 
 private val KanaRange = '\u3040'..'\u30FF'
 
+/** Romanizes synced lines that lack romanization or use Indic scripts (respecting current style). */
+internal fun romanizeSyncedLines(
+    lines: List<SyncedLine>,
+    indicStyle: RomanizationStyle = MultiLangRomanizer.preferredIndicStyle
+): List<SyncedLine> {
+    val hasKana = lines.any { line -> line.line.any { it in KanaRange } }
+    return lines.map { syncedLine ->
+        val needsRecompute = syncedLine.romanization.isNullOrBlank() ||
+            MultiLangRomanizer.isIndic(syncedLine.line)
+        val refreshed = if (needsRecompute && MultiLangRomanizer.isScriptThatNeedsRomanization(syncedLine.line)) {
+            MultiLangRomanizer.romanizeLine(
+                line = syncedLine.line,
+                entireLyricsHasKana = hasKana,
+                indicStyle = indicStyle
+            )
+        } else {
+            syncedLine.romanization
+        }
+        if (refreshed != syncedLine.romanization) syncedLine.copy(romanization = refreshed) else syncedLine
+    }
+}
+
 /** Romanizes each plain lyric line; null entries mean the line needs no romanization. */
-internal fun romanizePlainLyrics(lines: List<String>): List<String?> {
+internal fun romanizePlainLyrics(
+    lines: List<String>,
+    indicStyle: RomanizationStyle = MultiLangRomanizer.preferredIndicStyle
+): List<String?> {
     val entireLyricsHasKana = lines.any { line -> line.any { it in KanaRange } }
     return lines.map { line ->
         val primary = sanitizeLyricLineText(line.substringBefore('\n'))
         if (MultiLangRomanizer.isScriptThatNeedsRomanization(primary)) {
-            MultiLangRomanizer.romanizeLine(primary, entireLyricsHasKana)
+            MultiLangRomanizer.romanizeLine(primary, entireLyricsHasKana, indicStyle)
         } else {
             null
         }

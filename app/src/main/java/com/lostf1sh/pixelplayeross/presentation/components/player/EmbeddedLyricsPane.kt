@@ -122,11 +122,13 @@ import com.lostf1sh.pixelplayeross.presentation.components.lyricsSheetColors
 import com.lostf1sh.pixelplayeross.presentation.components.resolveCurrentLineIndex
 import com.lostf1sh.pixelplayeross.presentation.components.resolveSeekPositionMs
 import com.lostf1sh.pixelplayeross.presentation.components.romanizePlainLyrics
+import com.lostf1sh.pixelplayeross.presentation.components.romanizeSyncedLines
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.LyricsMoreBottomSheet
 import com.lostf1sh.pixelplayeross.presentation.components.withLyricsFontSize
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.StablePlayerState
 import com.lostf1sh.pixelplayeross.utils.MultiLangRomanizer
 import com.lostf1sh.pixelplayeross.utils.ProviderText
+import com.lostf1sh.pixelplayeross.utils.romanize.RomanizationStyle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.StateFlow
@@ -180,7 +182,9 @@ fun EmbeddedLyricsPane(
     }
 
     val hasRomanizedLyrics = remember(lyrics) {
-        val hasSynced = lyrics?.synced?.any { !it.romanization.isNullOrBlank() } == true
+        val hasSynced = lyrics?.synced?.any {
+            !it.romanization.isNullOrBlank() || MultiLangRomanizer.isScriptThatNeedsRomanization(it.line)
+        } == true
         val hasPlain = lyrics?.plain?.any { line ->
             MultiLangRomanizer.isScriptThatNeedsRomanization(line)
         } == true
@@ -319,18 +323,47 @@ fun EmbeddedLyricsPane(
         lyricsTextStyle.withLyricsFontSize(lyricsFontSizeSp)
     }
 
+    val lyricsRomanizationStyleFlow = remember(context) {
+        context.dataStore.data.map {
+            RomanizationStyle.fromStorage(it[androidx.datastore.preferences.core.stringPreferencesKey("lyrics_romanization_style")])
+        }
+    }
+    val lyricsRomanizationStyle by lyricsRomanizationStyleFlow.collectAsStateWithLifecycle(
+        initialValue = RomanizationStyle.SING_ALONG
+    )
+    val lyricsRomanizedFirstFlow = remember(context) {
+        context.dataStore.data.map { it[booleanPreferencesKey("lyrics_romanized_first")] ?: false }
+    }
+    val lyricsRomanizedFirst by lyricsRomanizedFirstFlow.collectAsStateWithLifecycle(initialValue = false)
+
     val shouldRomanizePlainLyrics = showLyricsRomanization && hasRomanizedLyrics
     val plainLyricsRomanization by produceState<List<String?>?>(
         initialValue = null,
         lyrics?.plain,
-        shouldRomanizePlainLyrics
+        shouldRomanizePlainLyrics,
+        lyricsRomanizationStyle
     ) {
         value = if (shouldRomanizePlainLyrics && lyrics?.plain != null) {
             withContext(Dispatchers.Default) {
-                romanizePlainLyrics(lyrics.plain)
+                romanizePlainLyrics(lyrics.plain, lyricsRomanizationStyle)
             }
         } else {
             null
+        }
+    }
+    val resolvedSyncedLines by produceState(
+        initialValue = lyrics?.synced.orEmpty(),
+        lyrics?.synced,
+        showLyricsRomanization,
+        lyricsRomanizationStyle
+    ) {
+        val rawSynced = lyrics?.synced.orEmpty()
+        value = if (rawSynced.isEmpty() || !showLyricsRomanization) {
+            rawSynced
+        } else {
+            withContext(Dispatchers.Default) {
+                romanizeSyncedLines(rawSynced, lyricsRomanizationStyle)
+            }
         }
     }
 
@@ -611,8 +644,8 @@ fun EmbeddedLyricsPane(
                             label = "lyricsModeSwitch"
                         ) { isSyncedMode ->
                             if (isSyncedMode) {
-                                lyrics?.synced?.let { synced: List<SyncedLine> ->
-                                    val syncedLines: ImmutableList<SyncedLine> = remember(synced) { synced.toImmutableList() }
+                                if (resolvedSyncedLines.isNotEmpty()) {
+                                    val syncedLines: ImmutableList<SyncedLine> = remember(resolvedSyncedLines) { resolvedSyncedLines.toImmutableList() }
                                     SyncedLyricsList(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -653,6 +686,7 @@ fun EmbeddedLyricsPane(
                                         lyricsAlignment = lyricsAlignment,
                                         showTranslation = showLyricsTranslation,
                                         showRomanization = showLyricsRomanization,
+                                        romanizedFirst = lyricsRomanizedFirst,
                                         wordHighlightStyle = lyricsWordHighlightStyle,
                                         duetLayoutEnabled = lyricsDuetLayoutEnabled,
                                         showBackgroundVocals = showLyricsBackgroundVocals,
@@ -690,6 +724,7 @@ fun EmbeddedLyricsPane(
                                                 line = line,
                                                 style = sizedLyricsTextStyle,
                                                 romanization = plainLyricsRomanization?.getOrNull(index),
+                                                romanizedFirst = lyricsRomanizedFirst,
                                                 lyricsAlignment = lyricsAlignment,
                                                 showTranslation = if (hasTranslatedLyrics) showLyricsTranslation else true,
                                                 showRomanization = if (hasRomanizedLyrics) showLyricsRomanization else true,
