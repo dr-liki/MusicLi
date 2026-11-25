@@ -271,6 +271,7 @@ constructor(
         val DISCOVER_SHOW_YEAR = booleanPreferencesKey("discover_show_year")
         val DISCOVER_SHOW_PLAY_BUTTON = booleanPreferencesKey("discover_show_play_button")
         val DISCOVER_SHOW_NEXT_BUTTON = booleanPreferencesKey("discover_show_next_button")
+        val DISCOVER_SHOW_QUEUE_BUTTON = booleanPreferencesKey("discover_show_queue_button")
         val DISCOVER_SHOW_GRADIENT = booleanPreferencesKey("discover_show_gradient")
         val SHOW_HOME_PLAY_QUEUE = booleanPreferencesKey("show_home_play_queue")
 
@@ -2357,6 +2358,17 @@ constructor(
     suspend fun setDiscoverShowNextButton(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.DISCOVER_SHOW_NEXT_BUTTON] = enabled
+        }
+    }
+
+    val discoverShowQueueButtonFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_QUEUE_BUTTON] ?: true
+        }
+
+    suspend fun setDiscoverShowQueueButton(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DISCOVER_SHOW_QUEUE_BUTTON] = enabled
         }
     }
 

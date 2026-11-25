@@ -44,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.size.Size
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Song
 import kotlinx.collections.immutable.ImmutableList
@@ -185,7 +186,8 @@ private fun HomePlayQueueCard(
                     model = song.albumArtUriString,
                     contentDescription = song.title,
                     contentScale = ContentScale.Crop,
-                    targetSize = SmartImageCompactListTargetSize,
+                    targetSize = Size(512, 512),
+                    allowHardware = true,
                     modifier = Modifier.fillMaxSize(),
                 )
 

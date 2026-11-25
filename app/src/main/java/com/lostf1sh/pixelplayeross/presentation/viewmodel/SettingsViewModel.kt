@@ -136,6 +136,7 @@ data class SettingsUiState(
     val discoverShowYear: Boolean = true,
     val discoverShowPlayButton: Boolean = true,
     val discoverShowNextButton: Boolean = true,
+    val discoverShowQueueButton: Boolean = true,
     val discoverShowGradient: Boolean = true,
     val minSongDuration: Int = 10000,
     val minTracksPerAlbum: Int = 1,
@@ -319,6 +320,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.discoverShowNextButtonFlow.collect { show ->
                 _uiState.update { it.copy(discoverShowNextButton = show) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.discoverShowQueueButtonFlow.collect { show ->
+                _uiState.update { it.copy(discoverShowQueueButton = show) }
             }
         }
 
@@ -799,6 +806,12 @@ class SettingsViewModel @Inject constructor(
     fun setDiscoverShowNextButton(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.setDiscoverShowNextButton(enabled)
+        }
+    }
+
+    fun setDiscoverShowQueueButton(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDiscoverShowQueueButton(enabled)
         }
     }
 

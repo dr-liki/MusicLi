@@ -374,6 +374,9 @@ fun HomeScreen(
                             onPlayAlbumNext = { album ->
                                 playerViewModel.playAlbumNext(album)
                             },
+                            onAddAlbumToQueue = { album ->
+                                playerViewModel.addAlbumToQueue(album)
+                            },
                             useNavigationRail = useNavigationRail,
                             autoScroll = settingsUiState.discoverAutoScroll,
                             showAlbumName = settingsUiState.discoverShowAlbumName,
@@ -381,6 +384,7 @@ fun HomeScreen(
                             showYear = settingsUiState.discoverShowYear,
                             showPlayButton = settingsUiState.discoverShowPlayButton,
                             showNextButton = settingsUiState.discoverShowNextButton,
+                            showQueueButton = settingsUiState.discoverShowQueueButton,
                             showGradient = settingsUiState.discoverShowGradient
                         )
                     }

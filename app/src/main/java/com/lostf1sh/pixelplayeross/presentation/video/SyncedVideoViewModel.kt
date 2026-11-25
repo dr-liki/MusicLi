@@ -413,9 +413,10 @@ class SyncedVideoViewModel @Inject constructor(
                 return@launch
             }
             if (videoPickerRequest != request) return@launch
+            val (pinnedList, savedId) = pinSavedCandidateFirst(title, artist, candidates)
             _videoPickerState.value = VideoPickerUiState.Results(
-                candidates = candidates,
-                savedVideoId = videoRepository.savedVideoOverride(title, artist),
+                candidates = pinnedList,
+                savedVideoId = savedId,
             )
         }
     }
@@ -441,11 +442,38 @@ class SyncedVideoViewModel @Inject constructor(
                 return@launch
             }
             if (videoPickerRequest != request) return@launch
+            val (pinnedList, savedId) = pinSavedCandidateFirst(request.title, request.artist, candidates)
             _videoPickerState.value = VideoPickerUiState.Results(
-                candidates = candidates,
-                savedVideoId = videoRepository.savedVideoOverride(request.title, request.artist),
+                candidates = pinnedList,
+                savedVideoId = savedId,
             )
         }
+    }
+
+    private suspend fun pinSavedCandidateFirst(
+        title: String,
+        artist: String,
+        candidates: List<VideoSearchCandidate>,
+    ): Pair<List<VideoSearchCandidate>, String?> {
+        val savedEntity = videoRepository.getSavedVideoEntity(title, artist)
+        val savedId = savedEntity?.videoId ?: videoRepository.savedVideoOverride(title, artist)
+        if (savedId.isNullOrBlank()) return candidates to null
+
+        val existing = candidates.firstOrNull { it.videoId == savedId }
+        val ordered = if (existing != null) {
+            listOf(existing) + candidates.filterNot { it.videoId == savedId }
+        } else {
+            val pinned = VideoSearchCandidate(
+                videoId = savedId,
+                title = savedEntity?.videoTitle?.takeIf { it.isNotBlank() } ?: "Saved video ($savedId)",
+                channel = savedEntity?.videoChannel?.takeIf { it.isNotBlank() } ?: artist,
+                durationSeconds = savedEntity?.durationSeconds,
+                matchScore = Int.MAX_VALUE,
+                thumbnailUrl = "https://i.ytimg.com/vi/$savedId/hqdefault.jpg",
+            )
+            listOf(pinned) + candidates
+        }
+        return ordered to savedId
     }
 
     fun dismissVideoPicker() {

@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import android.view.SurfaceView
+import android.view.TextureView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -214,6 +214,7 @@ fun SyncedVideoDialog(
                 }
                 is SyncedVideoUiState.Ready -> {
                     val player = viewModel.player
+                    val fullscreenTextureView = remember { mutableStateOf<TextureView?>(null) }
 
                     BoxWithConstraints(
                         modifier = Modifier.fillMaxSize(),
@@ -232,12 +233,10 @@ fun SyncedVideoDialog(
 
                         AndroidView(
                             factory = { ctx ->
-                                SurfaceView(ctx).apply {
-                                    player.setVideoSurfaceView(this)
+                                TextureView(ctx).also { tv ->
+                                    fullscreenTextureView.value = tv
+                                    player.setVideoTextureView(tv)
                                 }
-                            },
-                            update = { surfaceView ->
-                                player.setVideoSurfaceView(surfaceView)
                             },
                             modifier = videoModifier,
                         )
@@ -264,7 +263,10 @@ fun SyncedVideoDialog(
 
                     DisposableEffect(Unit) {
                         onDispose {
-                            player.clearVideoSurfaceView(null)
+                            fullscreenTextureView.value?.let { tv ->
+                                player.clearVideoTextureView(tv)
+                            }
+                            fullscreenTextureView.value = null
                         }
                     }
 

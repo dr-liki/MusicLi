@@ -852,6 +852,13 @@ fun SettingsCategoryScreen(
                                     modifier = Modifier.settingHighlight("item_appearance_discover_show_next_button", highlightKey)
                                 )
                                 SwitchSettingItem(
+                                    title = stringResource(R.string.setcat_discover_show_queue_button_title),
+                                    subtitle = stringResource(R.string.setcat_discover_show_queue_button_subtitle),
+                                    checked = uiState.discoverShowQueueButton,
+                                    onCheckedChange = { settingsViewModel.setDiscoverShowQueueButton(it) },
+                                    modifier = Modifier.settingHighlight("item_appearance_discover_show_queue_button", highlightKey)
+                                )
+                                SwitchSettingItem(
                                     title = stringResource(R.string.setcat_discover_show_gradient_title),
                                     subtitle = stringResource(R.string.setcat_discover_show_gradient_subtitle),
                                     checked = uiState.discoverShowGradient,

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,7 +20,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.lostf1sh.pixelplayeross.R
@@ -62,14 +64,34 @@ fun VideoCandidatePickerDialog(
     var videoLink by remember(trackTitle, trackArtist) { mutableStateOf("") }
     var searchQuery by remember(defaultSearchQuery) { mutableStateOf(defaultSearchQuery) }
 
-    when (val picker = state) {
-        VideoPickerUiState.Hidden -> Unit
-        VideoPickerUiState.Loading -> {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissVideoPicker,
-                title = { Text(stringResource(R.string.video_choose_video)) },
-                text = {
-                    Column {
+    if (state == VideoPickerUiState.Hidden) return
+
+    Dialog(
+        onDismissRequest = viewModel::dismissVideoPicker,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 24.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+            ) {
+                when (val picker = state) {
+                    VideoPickerUiState.Hidden -> Unit
+                    VideoPickerUiState.Loading -> {
+                        Text(
+                            text = stringResource(R.string.video_choose_video),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(12.dp))
                         VideoLinkInput(
                             videoLink = videoLink,
                             onVideoLinkChange = { videoLink = it },
@@ -88,21 +110,20 @@ fun VideoCandidatePickerDialog(
                             Spacer(Modifier.width(12.dp))
                             Text(stringResource(R.string.video_searching, trackTitle))
                         }
+                        Spacer(Modifier.height(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = viewModel::dismissVideoPicker) {
+                                Text(stringResource(android.R.string.cancel))
+                            }
+                        }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = viewModel::dismissVideoPicker) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                },
-            )
-        }
-        is VideoPickerUiState.Error -> {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissVideoPicker,
-                title = { Text(stringResource(R.string.video_search_failed)) },
-                text = {
-                    Column {
+                    is VideoPickerUiState.Error -> {
+                        Text(
+                            text = stringResource(R.string.video_search_failed),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(12.dp))
                         VideoLinkInput(
                             videoLink = videoLink,
                             onVideoLinkChange = { videoLink = it },
@@ -117,27 +138,26 @@ fun VideoCandidatePickerDialog(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(picker.message, color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = viewModel::dismissVideoPicker) {
+                                Text(stringResource(android.R.string.ok))
+                            }
+                        }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = viewModel::dismissVideoPicker) {
-                        Text(stringResource(android.R.string.ok))
-                    }
-                },
-            )
-        }
-        is VideoPickerUiState.Results -> {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissVideoPicker,
-                title = { Text(stringResource(R.string.video_choose_video)) },
-                text = {
-                    Column {
+                    is VideoPickerUiState.Results -> {
+                        Text(
+                            text = stringResource(R.string.video_choose_video),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(6.dp))
                         Text(
                             text = "Pick the correct video for $trackTitle. Your selection will be remembered for this song.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
                         VideoLinkInput(
                             videoLink = videoLink,
                             onVideoLinkChange = { videoLink = it },
@@ -157,7 +177,7 @@ fun VideoCandidatePickerDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         } else {
-                            LazyColumn(modifier = Modifier.height(280.dp)) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                                 items(picker.candidates, key = { it.videoId }) { candidate ->
                                     val isSelected = candidate.videoId == picker.savedVideoId
                                     Surface(
@@ -178,7 +198,7 @@ fun VideoCandidatePickerDialog(
                                                 contentDescription = candidate.title,
                                                 contentScale = ContentScale.Crop,
                                                 modifier = Modifier
-                                                    .width(88.dp)
+                                                    .width(96.dp)
                                                     .aspectRatio(16f / 9f)
                                                     .clip(RoundedCornerShape(8.dp))
                                                     .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -186,15 +206,17 @@ fun VideoCandidatePickerDialog(
                                             Spacer(Modifier.width(10.dp))
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    candidate.title,
+                                                    text = candidate.title,
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.SemiBold,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
                                                 )
-                                                Spacer(Modifier.height(2.dp))
+                                                Spacer(Modifier.height(3.dp))
                                                 Text(
-                                                    buildString {
+                                                    text = buildString {
+                                                        if (isSelected) {
+                                                            append(stringResource(R.string.video_candidate_saved_badge))
+                                                            append(" • ")
+                                                        }
                                                         candidate.durationSeconds?.let {
                                                             append(formatSeconds(it)).append(" • ")
                                                         }
@@ -202,7 +224,11 @@ fun VideoCandidatePickerDialog(
                                                         append(" • ").append(stringResource(R.string.video_candidate_likely_match))
                                                     },
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
                                                 )
@@ -212,21 +238,25 @@ fun VideoCandidatePickerDialog(
                                 }
                             }
                         }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = viewModel::dismissVideoPicker) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                },
-                dismissButton = {
-                    if (picker.savedVideoId != null) {
-                        TextButton(onClick = viewModel::clearVideoOverride) {
-                            Text("Reset")
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            if (picker.savedVideoId != null) {
+                                TextButton(onClick = viewModel::clearVideoOverride) {
+                                    Text("Reset")
+                                }
+                            } else {
+                                Spacer(Modifier.width(1.dp))
+                            }
+                            TextButton(onClick = viewModel::dismissVideoPicker) {
+                                Text(stringResource(android.R.string.cancel))
+                            }
                         }
                     }
                 }
-            )
+            }
         }
     }
 }

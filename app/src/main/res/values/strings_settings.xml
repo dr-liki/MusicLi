@@ -225,6 +225,7 @@
     <string name="video_search_failed">Video search failed</string>
     <string name="video_no_matches">No likely matches found. Paste the exact YouTube link above.</string>
     <string name="video_candidate_likely_match">likely match</string>
+    <string name="video_candidate_saved_badge">Saved</string>
     <string name="video_stream_unavailable">Video stream unavailable</string>
     <string name="video_refresh_link">Refresh video stream</string>
     <string name="video_search_query_placeholder">Search YouTube (key terms &amp; tags)…</string>
@@ -439,6 +440,8 @@
     <string name="setcat_discover_show_play_button_subtitle">Display quick play button on the card</string>
     <string name="setcat_discover_show_next_button_title">Show Next Button</string>
     <string name="setcat_discover_show_next_button_subtitle">Display a button to play the album next</string>
+    <string name="setcat_discover_show_queue_button_title">Show Queue Button</string>
+    <string name="setcat_discover_show_queue_button_subtitle">Display a button to add the album to the queue</string>
     <string name="setcat_discover_show_gradient_title">Show Gradient Overlay</string>
     <string name="setcat_discover_show_gradient_subtitle">Display gradient behind text for legibility</string>
 </resources>

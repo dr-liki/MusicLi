@@ -2203,6 +2203,40 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun addAlbumToQueue(album: Album) {
+        Timber.tag("PlayerViewModel").d("addAlbumToQueue called for album: ${album.title}")
+        viewModelScope.launch {
+            try {
+                val songsList: List<Song> = withContext(dispatchers.io) {
+                    musicRepository.getSongsForAlbum(album.id).first()
+                }
+
+                if (songsList.isNotEmpty()) {
+                    val sortedSongs = songsList.sortedWith(
+                        compareBy<Song> { it.discNumber ?: 1 }
+                            .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
+                            .thenBy { it.title.lowercase() }
+                    )
+
+                    if (stablePlayerState.value.currentSong == null) {
+                        playSongs(sortedSongs, sortedSongs.first(), album.title, null)
+                        _isSheetVisible.value = true
+                    } else {
+                        sortedSongs.forEach { addSongToQueue(it) }
+                        val n = sortedSongs.size
+                        _toastEvents.emit(
+                            context.resources.getQuantityString(R.plurals.n_songs_added_to_queue, n, n)
+                        )
+                    }
+                } else {
+                    Timber.tag("PlayerViewModel").w("Album '${album.title}' has no playable songs.")
+                }
+            } catch (e: Exception) {
+                Timber.tag("PlayerViewModel").e(e, "Error adding album to queue ${album.title}")
+            }
+        }
+    }
+
     fun playArtist(artist: Artist) {
         Timber.tag("ShuffleDebug").d("playArtist called for artist: ${artist.name}")
         viewModelScope.launch {

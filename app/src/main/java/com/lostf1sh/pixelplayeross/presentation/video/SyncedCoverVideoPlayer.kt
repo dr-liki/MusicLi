@@ -1,7 +1,7 @@
 package com.lostf1sh.pixelplayeross.presentation.video
 
 import android.os.SystemClock
-import android.view.SurfaceView
+import android.view.TextureView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,10 +79,38 @@ fun SyncedCoverVideoPlayer(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isFullscreen by viewModel.isFullscreen.collectAsStateWithLifecycle()
     var showControls by remember { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var lastTapTimeMs by remember { mutableLongStateOf(0L) }
     var lastSeekTimeMs by remember { mutableLongStateOf(0L) }
+
+    val readyState = uiState as? SyncedVideoUiState.Ready
+    var videoAspectRatio by remember(readyState?.bundle?.videoId, readyState?.activeStream?.itag) {
+        mutableFloatStateOf(
+            if (readyState != null) computeVideoAspectRatio(viewModel.player, readyState.activeStream) else 16f / 9f
+        )
+    }
+
+    DisposableEffect(viewModel.player, readyState?.bundle?.videoId, readyState?.activeStream?.itag) {
+        if (readyState != null) {
+            videoAspectRatio = computeVideoAspectRatio(viewModel.player, readyState.activeStream)
+        }
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
+                    if (ratio > 0f && ratio.isFinite()) {
+                        videoAspectRatio = ratio
+                    }
+                }
+            }
+        }
+        viewModel.player.addListener(listener)
+        onDispose {
+            viewModel.player.removeListener(listener)
+        }
+    }
 
     LaunchedEffect(showControls) {
         if (showControls) {
@@ -91,10 +119,16 @@ fun SyncedCoverVideoPlayer(
         }
     }
 
+    val containerAspectRatio = if (readyState != null) {
+        videoAspectRatio.coerceIn(0.6f, 2.6f)
+    } else {
+        16f / 9f
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f)
+            .aspectRatio(containerAspectRatio)
             .clip(RoundedCornerShape(24.dp))
             .background(Color.Black),
         contentAlignment = Alignment.Center,
@@ -149,57 +183,27 @@ fun SyncedCoverVideoPlayer(
             }
             is SyncedVideoUiState.Ready -> {
                 val player = viewModel.player
-                val isFullscreen by viewModel.isFullscreen.collectAsStateWithLifecycle()
-                var videoAspectRatio by remember(state.bundle.videoId, state.activeStream.itag) {
-                    mutableFloatStateOf(computeVideoAspectRatio(player, state.activeStream))
-                }
 
-                DisposableEffect(player) {
-                    videoAspectRatio = computeVideoAspectRatio(player, state.activeStream)
-                    val listener = object : androidx.media3.common.Player.Listener {
-                        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                            if (videoSize.width > 0 && videoSize.height > 0) {
-                                val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
-                                if (ratio > 0f && ratio.isFinite()) {
-                                    videoAspectRatio = ratio
-                                }
-                            }
-                        }
-                    }
-                    player.addListener(listener)
-                    onDispose {
-                        player.removeListener(listener)
-                    }
-                }
-
-                // High-frame-rate SurfaceView fitted without stretching
-                BoxWithConstraints(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val containerAspect = if (maxHeight > 0.dp) maxWidth / maxHeight else 16f / 9f
-                    val videoModifier = if (containerAspect > videoAspectRatio) {
-                        Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(videoAspectRatio)
-                    } else {
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(videoAspectRatio)
-                    }
+                // High-frame-rate TextureView fitted directly to container aspect ratio (zero black bars)
+                if (!isFullscreen) {
+                    val inlineTextureView = remember { mutableStateOf<TextureView?>(null) }
                     AndroidView(
                         factory = { ctx ->
-                            SurfaceView(ctx).apply {
-                                player.setVideoSurfaceView(this)
+                            TextureView(ctx).also { tv ->
+                                inlineTextureView.value = tv
+                                player.setVideoTextureView(tv)
                             }
                         },
-                        update = { surfaceView ->
-                            if (!isFullscreen) {
-                                player.setVideoSurfaceView(surfaceView)
-                            }
-                        },
-                        modifier = videoModifier,
+                        modifier = Modifier.fillMaxSize(),
                     )
+                    DisposableEffect(Unit) {
+                        onDispose {
+                            inlineTextureView.value?.let { tv ->
+                                player.clearVideoTextureView(tv)
+                            }
+                            inlineTextureView.value = null
+                        }
+                    }
                 }
 
                 if (state.isRefreshing) {
@@ -221,14 +225,6 @@ fun SyncedCoverVideoPlayer(
                                 color = Color.White,
                                 fontSize = 12.sp,
                             )
-                        }
-                    }
-                }
-
-                DisposableEffect(Unit) {
-                    onDispose {
-                        if (!viewModel.isFullscreen.value) {
-                            player.clearVideoSurfaceView(null)
                         }
                     }
                 }
@@ -451,7 +447,6 @@ fun SyncedCoverVideoPlayer(
 
     // Video Candidate Picker Dialog (Option 3) - only render here when not fullscreen
     // (SyncedVideoDialog hosts its own picker dialog when fullscreen is active).
-    val isFullscreen by viewModel.isFullscreen.collectAsStateWithLifecycle()
     if (!isFullscreen) {
         VideoCandidatePickerDialog(
             viewModel = viewModel,

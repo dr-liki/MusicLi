@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
@@ -68,7 +71,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverCarouselSection(
     albums: ImmutableList<Album>,
@@ -82,8 +85,10 @@ fun DiscoverCarouselSection(
     showYear: Boolean = true,
     showPlayButton: Boolean = true,
     showNextButton: Boolean = true,
+    showQueueButton: Boolean = true,
     showGradient: Boolean = true,
-    onPlayAlbumNext: (Album) -> Unit = {}
+    onPlayAlbumNext: (Album) -> Unit = {},
+    onAddAlbumToQueue: (Album) -> Unit = {}
 ) {
     if (albums.isEmpty()) return
 
@@ -293,6 +298,33 @@ fun DiscoverCarouselSection(
                                             )
                                         }
                                     }
+                                    if (showQueueButton) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                onAddAlbumToQueue(album)
+                                            },
+                                            shape = RoundedCornerShape(percent = 50),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = stringResource(R.string.home_discover_action_queue),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
 
                                 Row(
@@ -443,14 +475,15 @@ fun DiscoverCarouselSection(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 if (showPlayButton) {
                                     Button(
@@ -463,18 +496,18 @@ fun DiscoverCarouselSection(
                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                         ),
-                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(44.dp)
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                        modifier = Modifier.height(40.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.PlayArrow,
                                             contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = stringResource(R.string.home_discover_action_play),
-                                            style = MaterialTheme.typography.titleMedium,
+                                            style = MaterialTheme.typography.labelLarge,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -490,18 +523,45 @@ fun DiscoverCarouselSection(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(44.dp)
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.height(40.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.SkipNext,
                                             contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = stringResource(R.string.home_discover_action_next),
-                                            style = MaterialTheme.typography.titleMedium,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                if (showQueueButton) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onAddAlbumToQueue(album)
+                                        },
+                                        shape = RoundedCornerShape(percent = 50),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.height(40.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.home_discover_action_queue),
+                                            style = MaterialTheme.typography.labelLarge,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
