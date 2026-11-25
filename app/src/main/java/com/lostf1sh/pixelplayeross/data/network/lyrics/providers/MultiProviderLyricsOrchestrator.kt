@@ -16,6 +16,28 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+sealed interface BatchLyricsLookupResult {
+    data class Matched(
+        val result: LyricsSearchResult,
+    ) : BatchLyricsLookupResult
+
+    data class NotFound(
+        val providersTried: List<LyricsProviderId>,
+    ) : BatchLyricsLookupResult
+
+    data class RateLimited(
+        val providerId: LyricsProviderId,
+        val retryAfterMs: Long?,
+        val providersTried: List<LyricsProviderId>,
+    ) : BatchLyricsLookupResult
+
+    data class NetworkError(
+        val providerId: LyricsProviderId?,
+        val message: String?,
+        val providersTried: List<LyricsProviderId>,
+    ) : BatchLyricsLookupResult
+}
+
 /**
  * Coordinates all remote lyric providers with user-configured search strategy
  * (Auto Fastest concurrent race vs Priority Order waterfall), enabled filters,
@@ -169,6 +191,97 @@ class MultiProviderLyricsOrchestrator(
             }
         }
         return plainFallback
+    }
+
+    /**
+     * Strictly walks enabled providers in user-configured priority sequence (never AUTO_FASTEST)
+     * for automated bulk embedding. Preserves priority ordering on HTTP 429 / Retry-After by
+     * returning [BatchLyricsLookupResult.RateLimited] instead of silently falling through.
+     */
+    suspend fun fetchSyncedByPriorityForBatch(
+        song: Song,
+        syncedOnly: Boolean = true,
+    ): BatchLyricsLookupResult {
+        val orderedProviders = activeOrderedProviders()
+        if (orderedProviders.isEmpty()) {
+            return BatchLyricsLookupResult.NotFound(emptyList())
+        }
+
+        val orderList = orderedProviders.map { it.id }
+        val providersTried = mutableListOf<LyricsProviderId>()
+        var plainFallback: LyricsSearchResult? = null
+        var anySucceededRequest = false
+        var lastIoException: java.io.IOException? = null
+        var lastIoProviderId: LyricsProviderId? = null
+
+        for (provider in orderedProviders) {
+            providersTried += provider.id
+            val startedAt = System.currentTimeMillis()
+            val candidates = try {
+                val result = withTimeoutOrNull(perProviderTimeoutMs) {
+                    provider.search(song.title, song.displayArtist, song.album, song.duration)
+                }
+                if (result == null) {
+                    recordLatency(provider.id, System.currentTimeMillis() - startedAt)
+                    continue
+                }
+                anySucceededRequest = true
+                recordLatency(provider.id, System.currentTimeMillis() - startedAt)
+                result
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (rle: ProviderRateLimitException) {
+                Timber.tag(TAG).w(
+                    rle,
+                    "Batch lyrics lookup rate-limited on ${provider.id.name} (retryAfterMs=${rle.retryAfterMs})",
+                )
+                return BatchLyricsLookupResult.RateLimited(
+                    providerId = provider.id,
+                    retryAfterMs = rle.retryAfterMs,
+                    providersTried = providersTried.toList(),
+                )
+            } catch (io: java.io.IOException) {
+                Timber.tag(TAG).w(io, "Batch lyrics lookup network error on ${provider.id.name}")
+                lastIoException = io
+                lastIoProviderId = provider.id
+                continue
+            } catch (t: Throwable) {
+                Timber.tag(TAG).d(t, "Lyrics provider ${provider.id.name} failed during batch lookup")
+                continue
+            }
+
+            if (candidates.isEmpty()) continue
+
+            val scoredResults = LyricsMatchScorer.rankCandidates(
+                song = song,
+                candidates = candidates,
+                mode = LyricsMatchMode.AUTOMATIC,
+                providerOrder = orderList,
+            ).mapNotNull { (cand, score) -> toSearchResult(cand, score) }
+
+            val syncedMatch = scoredResults.firstOrNull { it.hasSyncedContent }
+            if (syncedMatch != null) {
+                return BatchLyricsLookupResult.Matched(syncedMatch)
+            }
+
+            if (!syncedOnly && plainFallback == null) {
+                plainFallback = scoredResults.firstOrNull()
+            }
+        }
+
+        if (plainFallback != null) {
+            return BatchLyricsLookupResult.Matched(plainFallback)
+        }
+
+        if (!anySucceededRequest && lastIoException != null) {
+            return BatchLyricsLookupResult.NetworkError(
+                providerId = lastIoProviderId,
+                message = lastIoException.message,
+                providersTried = providersTried.toList(),
+            )
+        }
+
+        return BatchLyricsLookupResult.NotFound(providersTried.toList())
     }
 
     private suspend fun fetchFastest(

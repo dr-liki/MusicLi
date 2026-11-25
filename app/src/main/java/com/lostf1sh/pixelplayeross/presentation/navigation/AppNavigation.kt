@@ -48,6 +48,7 @@ import com.lostf1sh.pixelplayeross.presentation.screens.EasterEggScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.ExperimentalSettingsScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.ExploreDownloadsScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.ExploreScreen
+import com.lostf1sh.pixelplayeross.presentation.screens.BulkLyricsEmbedScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.LyricsSettingsScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.GenreDetailScreen
 import com.lostf1sh.pixelplayeross.presentation.screens.HomeScreen
@@ -405,6 +406,17 @@ fun AppNavigation(
                             highlightKey = highlightKey
                         )
                     }
+                }
+            }
+            composable(
+                route = Screen.BulkLyricsEmbed.route,
+                enterTransition = { enterTransition() },
+                exitTransition = { exitTransition() },
+                popEnterTransition = { popEnterTransition() },
+                popExitTransition = { popExitTransition() },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    BulkLyricsEmbedScreen(navController = navController)
                 }
             }
             composable(

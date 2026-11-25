@@ -15,6 +15,30 @@ class LrcLibLyricsProvider @Inject constructor(
 
     override val id: LyricsProviderId = LyricsProviderId.LRCLIB
 
+    private inline fun <T> runLrcLibCall(block: () -> T): T? {
+        return try {
+            block()
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (rle: ProviderRateLimitException) {
+            throw rle
+        } catch (he: retrofit2.HttpException) {
+            val code = he.code()
+            val retryAfter = he.response()?.headers()?.get("Retry-After")
+            if (code == 429 || (code == 503 && !retryAfter.isNullOrBlank())) {
+                throw ProviderRateLimitException(
+                    retryAfterMs = ProviderHttpClient.parseRetryAfterMs(retryAfter),
+                    statusCode = code,
+                    url = he.response()?.raw()?.request?.url?.toString().orEmpty(),
+                    message = "LrcLib HTTP $code rate limited",
+                )
+            }
+            null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     override suspend fun search(
         title: String,
         artist: String?,
@@ -29,44 +53,44 @@ class LrcLibLyricsProvider @Inject constructor(
             val queries = buildList<suspend () -> Array<LrcLibResponse>?> {
                 if (!cleanArtist.isNullOrBlank()) {
                     add {
-                        runCatching {
+                        runLrcLibCall {
                             lrcLibApiService.searchLyrics(
                                 query = "$cleanTitle $cleanArtist",
                                 artistName = cleanArtist
                             )
-                        }.getOrNull()
+                        }
                     }
                     add {
-                        runCatching {
+                        runLrcLibCall {
                             lrcLibApiService.searchLyrics(
                                 trackName = cleanTitle,
                                 artistName = cleanArtist
                             )
-                        }.getOrNull()
+                        }
                     }
                     val durationSec = durationMs?.let { (it / 1000).toInt() }?.takeIf { it > 0 }
                     if (durationSec != null) {
                         add {
-                            runCatching {
+                            runLrcLibCall {
                                 lrcLibApiService.getLyrics(
                                     trackName = cleanTitle,
                                     artistName = cleanArtist,
                                     albumName = album.orEmpty(),
                                     duration = durationSec
                                 )?.let { arrayOf(it) }
-                            }.getOrNull()
+                            }
                         }
                     }
                 }
                 add {
-                    runCatching {
+                    runLrcLibCall {
                         lrcLibApiService.searchLyrics(trackName = cleanTitle)
-                    }.getOrNull()
+                    }
                 }
                 add {
-                    runCatching {
+                    runLrcLibCall {
                         lrcLibApiService.searchLyrics(query = cleanTitle)
-                    }.getOrNull()
+                    }
                 }
             }
 

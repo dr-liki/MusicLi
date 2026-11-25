@@ -122,4 +122,166 @@ class LyricsOrchestratorTest {
         val parsedEnabled = LyricsProviderId.parseEnabled("")
         assertEquals(LyricsProviderId.DEFAULT_ENABLED, parsedEnabled)
     }
+
+    @Test
+    fun `fetchSyncedByPriorityForBatch ignores AUTO_FASTEST and returns first synced provider in priority order`() = runTest {
+        val slowerHigherPriority = object : LyricsProvider {
+            override val id = LyricsProviderId.LRCLIB
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ): List<LyricsProviderCandidate> {
+                kotlinx.coroutines.delay(80L)
+                return listOf(
+                    LyricsProviderCandidate(
+                        externalId = "lrc-1",
+                        providerId = id,
+                        title = sampleSong.title,
+                        artistName = sampleSong.artist,
+                        rawLyrics = "[00:05.00]Priority line",
+                        hasSyncedContent = true,
+                    ),
+                )
+            }
+        }
+        val fasterLowerPriority = object : LyricsProvider {
+            override val id = LyricsProviderId.BETTER_LYRICS
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ): List<LyricsProviderCandidate> {
+                kotlinx.coroutines.delay(5L)
+                return listOf(
+                    LyricsProviderCandidate(
+                        externalId = "bl-1",
+                        providerId = id,
+                        title = sampleSong.title,
+                        artistName = sampleSong.artist,
+                        rawLyrics = "[00:05.00]Faster line",
+                        hasSyncedContent = true,
+                    ),
+                )
+            }
+        }
+
+        val orchestrator = MultiProviderLyricsOrchestrator(
+            providersById = mapOf(
+                LyricsProviderId.LRCLIB to slowerHigherPriority,
+                LyricsProviderId.BETTER_LYRICS to fasterLowerPriority,
+            ),
+            strategyProvider = { LyricsSearchStrategy.AUTO_FASTEST },
+            preferSyncedProvider = { true },
+            enabledProvidersProvider = { setOf(LyricsProviderId.LRCLIB, LyricsProviderId.BETTER_LYRICS) },
+            providerOrderProvider = { listOf(LyricsProviderId.LRCLIB, LyricsProviderId.BETTER_LYRICS) },
+        )
+
+        val result = orchestrator.fetchSyncedByPriorityForBatch(sampleSong, syncedOnly = true)
+        org.junit.Assert.assertTrue(result is BatchLyricsLookupResult.Matched)
+        assertEquals(LyricsProviderId.LRCLIB, (result as BatchLyricsLookupResult.Matched).result.providerId)
+    }
+
+    @Test
+    fun `fetchSyncedByPriorityForBatch skips plain lyrics when syncedOnly is true`() = runTest {
+        val plainProvider = object : LyricsProvider {
+            override val id = LyricsProviderId.LRCLIB
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ) = listOf(
+                LyricsProviderCandidate(
+                    externalId = "plain-1",
+                    providerId = id,
+                    title = sampleSong.title,
+                    artistName = sampleSong.artist,
+                    rawLyrics = "Just plain unsynced lyrics",
+                    hasSyncedContent = false,
+                ),
+            )
+        }
+        val syncedFallback = object : LyricsProvider {
+            override val id = LyricsProviderId.KUGOU
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ) = listOf(
+                LyricsProviderCandidate(
+                    externalId = "kg-1",
+                    providerId = id,
+                    title = sampleSong.title,
+                    artistName = sampleSong.artist,
+                    rawLyrics = "[00:12.00]Synced fallback",
+                    hasSyncedContent = true,
+                ),
+            )
+        }
+
+        val orchestrator = MultiProviderLyricsOrchestrator(
+            providersById = mapOf(
+                LyricsProviderId.LRCLIB to plainProvider,
+                LyricsProviderId.KUGOU to syncedFallback,
+            ),
+            strategyProvider = { LyricsSearchStrategy.PRIORITY_ORDER },
+            preferSyncedProvider = { true },
+            enabledProvidersProvider = { setOf(LyricsProviderId.LRCLIB, LyricsProviderId.KUGOU) },
+            providerOrderProvider = { listOf(LyricsProviderId.LRCLIB, LyricsProviderId.KUGOU) },
+        )
+
+        val result = orchestrator.fetchSyncedByPriorityForBatch(sampleSong, syncedOnly = true)
+        org.junit.Assert.assertTrue(result is BatchLyricsLookupResult.Matched)
+        assertEquals(LyricsProviderId.KUGOU, (result as BatchLyricsLookupResult.Matched).result.providerId)
+    }
+
+    @Test
+    fun `fetchSyncedByPriorityForBatch returns RateLimited instead of falling through`() = runTest {
+        var secondaryCalled = false
+        val rateLimitedFirst = object : LyricsProvider {
+            override val id = LyricsProviderId.LRCLIB
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ): List<LyricsProviderCandidate> {
+                throw ProviderRateLimitException(retryAfterMs = 30_000L, statusCode = 429)
+            }
+        }
+        val secondary = object : LyricsProvider {
+            override val id = LyricsProviderId.KUGOU
+            override suspend fun search(
+                title: String,
+                artist: String?,
+                album: String?,
+                durationMs: Long?,
+            ): List<LyricsProviderCandidate> {
+                secondaryCalled = true
+                return emptyList()
+            }
+        }
+
+        val orchestrator = MultiProviderLyricsOrchestrator(
+            providersById = mapOf(
+                LyricsProviderId.LRCLIB to rateLimitedFirst,
+                LyricsProviderId.KUGOU to secondary,
+            ),
+            strategyProvider = { LyricsSearchStrategy.PRIORITY_ORDER },
+            preferSyncedProvider = { true },
+            enabledProvidersProvider = { setOf(LyricsProviderId.LRCLIB, LyricsProviderId.KUGOU) },
+            providerOrderProvider = { listOf(LyricsProviderId.LRCLIB, LyricsProviderId.KUGOU) },
+        )
+
+        val result = orchestrator.fetchSyncedByPriorityForBatch(sampleSong, syncedOnly = true)
+        org.junit.Assert.assertTrue(result is BatchLyricsLookupResult.RateLimited)
+        val rateLimited = result as BatchLyricsLookupResult.RateLimited
+        assertEquals(LyricsProviderId.LRCLIB, rateLimited.providerId)
+        assertEquals(30_000L, rateLimited.retryAfterMs)
+        assertEquals(false, secondaryCalled)
+    }
 }

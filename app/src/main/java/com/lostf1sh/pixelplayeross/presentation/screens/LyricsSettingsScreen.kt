@@ -170,6 +170,7 @@ fun LyricsSettingsScreen(
             delay(200)
             val targetIndex = when (highlightKey) {
                 "item_lyrics_source_priority", "item_lyrics_reset_imported" -> 1
+                "item_bulk_lyrics_embed" -> 2
                 else -> 0
             }
             lazyListState.animateScrollToItem(targetIndex)
@@ -414,6 +415,23 @@ fun LyricsSettingsScreen(
                     title = "Lyric Providers",
                     addBottomSpace = false
                 ) {
+                    SettingsItem(
+                        title = stringResource(R.string.bulk_lyrics_entry_title),
+                        subtitle = stringResource(R.string.bulk_lyrics_entry_subtitle),
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.Sync,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_bulk_lyrics_embed", highlightKey),
+                        onClick = {
+                            navController.navigate(
+                                com.lostf1sh.pixelplayeross.presentation.navigation.Screen.BulkLyricsEmbed.route
+                            )
+                        }
+                    )
                     ThemeSelectorItem(
                         label = "Search strategy",
                         description = "Auto Fastest races all enabled providers and prefers synced matches; Priority Order checks one by one",
@@ -552,7 +570,7 @@ fun LyricsSettingsScreen(
 }
 
 @Composable
-private fun LyricsSettingsSubsection(
+internal fun LyricsSettingsSubsection(
     title: String,
     addBottomSpace: Boolean = true,
     content: @Composable () -> Unit

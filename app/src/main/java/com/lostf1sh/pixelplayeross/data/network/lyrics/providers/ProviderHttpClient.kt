@@ -10,9 +10,30 @@ import java.util.concurrent.TimeUnit
 /**
  * Shared lightweight HTTP helper for lyric providers with bounded timeouts.
  */
+internal class ProviderRateLimitException(
+    val retryAfterMs: Long? = null,
+    val statusCode: Int = 429,
+    val url: String = "",
+    message: String = "HTTP $statusCode rate limited",
+) : java.io.IOException(message)
+
 internal object ProviderHttpClient {
     const val APP_USER_AGENT =
         "PixelPlayerOSS/1.0 (https://github.com/dr-liki/PixelPlayerOSS)"
+
+    fun parseRetryAfterMs(retryAfterHeader: String?): Long? {
+        val trimmed = retryAfterHeader?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        trimmed.toLongOrNull()?.let { seconds ->
+            return (seconds.coerceAtLeast(1L)) * 1_000L
+        }
+        return runCatching {
+            val instant = java.time.ZonedDateTime.parse(
+                trimmed,
+                java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME,
+            ).toInstant()
+            (instant.toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(1_000L)
+        }.getOrNull()
+    }
 
     suspend fun getText(
         okHttpClient: OkHttpClient,
@@ -31,6 +52,15 @@ internal object ProviderHttpClient {
             .build()
 
         client.newCall(request).execute().use { response ->
+            val retryAfterHeader = response.header("Retry-After")
+            if (response.code == 429 || (response.code == 503 && !retryAfterHeader.isNullOrBlank())) {
+                throw ProviderRateLimitException(
+                    retryAfterMs = parseRetryAfterMs(retryAfterHeader),
+                    statusCode = response.code,
+                    url = url,
+                    message = "HTTP ${response.code} rate limited from $url",
+                )
+            }
             if (!response.isSuccessful) return@withContext null
             response.body.string().takeIf { it.isNotBlank() }
         }

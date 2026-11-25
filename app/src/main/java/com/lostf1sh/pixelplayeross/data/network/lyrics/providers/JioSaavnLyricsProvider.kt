@@ -19,6 +19,30 @@ class JioSaavnLyricsProvider @Inject constructor(
 
     override val id: LyricsProviderId = LyricsProviderId.JIOSAAVN
 
+    private inline fun <T> runJioSaavnCall(block: () -> T): T? {
+        return try {
+            block()
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (rle: ProviderRateLimitException) {
+            throw rle
+        } catch (he: retrofit2.HttpException) {
+            val code = he.code()
+            val retryAfter = he.response()?.headers()?.get("Retry-After")
+            if (code == 429 || (code == 503 && !retryAfter.isNullOrBlank())) {
+                throw ProviderRateLimitException(
+                    retryAfterMs = ProviderHttpClient.parseRetryAfterMs(retryAfter),
+                    statusCode = code,
+                    url = he.response()?.raw()?.request?.url?.toString().orEmpty(),
+                    message = "JioSaavn HTTP $code rate limited",
+                )
+            }
+            null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     override suspend fun search(
         title: String,
         artist: String?,
@@ -34,9 +58,9 @@ class JioSaavnLyricsProvider @Inject constructor(
         if (query.isBlank()) return emptyList()
 
         val baseUrl = userPreferencesRepository.exploreApiBaseUrlFlow.first()
-        val searchResponse = runCatching {
+        val searchResponse = runJioSaavnCall {
             jioSaavnApiClient.searchSongs(baseUrl, query, page = 0, limit = 6)
-        }.getOrNull() ?: return emptyList()
+        } ?: return emptyList()
 
         val rawDtos = searchResponse.data?.results.orEmpty()
         val targetDtos = rawDtos
@@ -53,9 +77,9 @@ class JioSaavnLyricsProvider @Inject constructor(
                     val song = exploreRepository.resolveSong(songId, includeLyrics = true).getOrNull()
                         ?: return@async null
                     val normalized = song.lyricsText?.trim()?.takeIf { it.isNotBlank() }
-                        ?: runCatching {
+                        ?: runJioSaavnCall {
                             jioSaavnApiClient.getLyricsById(baseUrl, songId).data?.lyrics
-                        }.getOrNull()?.let(::decodeHtml)?.trim()?.takeIf { it.isNotBlank() }
+                        }?.let(::decodeHtml)?.trim()?.takeIf { it.isNotBlank() }
                         ?: return@async null
 
                     LyricsProviderCandidate(

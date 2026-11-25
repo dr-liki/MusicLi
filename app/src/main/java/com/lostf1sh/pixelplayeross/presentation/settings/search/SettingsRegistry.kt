@@ -336,6 +336,23 @@ object SettingsRegistry {
                 type = SettingType.NAVIGABLE_CARD,
                 keywordsStatic = listOf("reset lyrics", "imported lyrics", "clear", "remove", "delete lyrics")
             ),
+            SettingSpec(
+                id = "bulk_lyrics_embed",
+                itemKey = "item_bulk_lyrics_embed",
+                titleRes = R.string.bulk_lyrics_entry_title,
+                subtitleRes = R.string.bulk_lyrics_entry_subtitle,
+                category = SettingsCategory.PLAYBACK,
+                subscreenRoute = Screen.BulkLyricsEmbed.route,
+                type = SettingType.NAVIGABLE_CARD,
+                keywordsStatic = listOf(
+                    "bulk lyrics",
+                    "auto embed lyrics",
+                    "synced lyrics",
+                    "embed tags",
+                    "lrc",
+                    "rate limit",
+                )
+            ),
 
             // --- ACCOUNTS (grouped under Library) ---
             SettingSpec(
