@@ -1079,6 +1079,7 @@ fun FullPlayerContent(
             animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
+        val isTranslatingLyrics by playerViewModel.isTranslatingLyrics.collectAsStateWithLifecycle()
         LyricsSheet(
             stablePlayerStateFlow = playerViewModel.stablePlayerState,
             playbackPositionFlow = playerViewModel.currentPlaybackPosition,
@@ -1113,7 +1114,9 @@ fun FullPlayerContent(
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            isTranslatingLyrics = isTranslatingLyrics,
+            onTranslateLyrics = { playerViewModel.translateLyricsForCurrentSong() }
         )
     }
 

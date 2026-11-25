@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test
 class MainNavItemsTest {
 
     @Test
-    fun `navigation shows home explore search and library in order`() {
+    fun `navigation shows home search library and explore in order`() {
         assertEquals(
-            listOf(Screen.Home, Screen.Explore, Screen.Search, Screen.Library),
+            listOf(Screen.Home, Screen.Search, Screen.Library, Screen.Explore),
             MainNavItems.map { it.screen },
         )
         assertEquals(
-            listOf(R.string.tab_home, R.string.tab_explore, R.string.search, R.string.tab_library),
+            listOf(R.string.tab_home, R.string.search, R.string.tab_library, R.string.tab_explore),
             MainNavItems.map { it.labelResId },
         )
     }

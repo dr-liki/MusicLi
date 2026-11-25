@@ -197,6 +197,10 @@ class ExploreTrackDownloader @Inject constructor(
         _downloads.update { list -> list.filterNot { it.downloadId == downloadId } }
     }
 
+    fun clearCompleted() {
+        _downloads.update { list -> list.filterNot { it.status == ExploreDownloadStatus.COMPLETED } }
+    }
+
     private suspend fun executeDownload(downloadId: String, initialSong: ExploreSong, subfolder: String?) {
         val notifId = EXPLORE_NOTIFICATION_BASE_ID + (downloadId.hashCode() and 0x7FFF)
         val tempAudio = File(context.cacheDir, "explore_${initialSong.id}_${System.currentTimeMillis()}.m4a")

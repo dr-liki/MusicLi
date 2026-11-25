@@ -179,6 +179,9 @@ fun AppNavigation(
                         onOpenDownloads = {
                             navController.navigateSafely(Screen.ExploreDownloads.route)
                         },
+                        onOpenSettings = {
+                            navController.navigateSafely(Screen.Settings.route)
+                        },
                         playerViewModel = playerViewModel,
                     )
                 }

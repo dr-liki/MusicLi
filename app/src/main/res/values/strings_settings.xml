@@ -490,4 +490,12 @@
     <string name="setcat_discover_show_queue_button_subtitle">Display a button to add the album to the queue</string>
     <string name="setcat_discover_show_gradient_title">Show Gradient Overlay</string>
     <string name="setcat_discover_show_gradient_subtitle">Display gradient behind text for legibility</string>
+
+    <!-- Explore Streaming & Downloads / Settings -->
+    <string name="explore_downloads_settings_subtitle">Manage downloaded tracks and .lrc lyrics</string>
+    <string name="setcat_explore_stream_quality_label">Streaming quality</string>
+    <string name="setcat_explore_stream_quality_desc">Audio bitrate used when streaming Explore tracks</string>
+    <string name="lyrics_translation_target_label">Translation language</string>
+    <string name="lyrics_translation_target_desc">Language used for on-demand live lyrics translation</string>
+    <string name="lyrics_translation_auto">Auto (App Language)</string>
 </resources>

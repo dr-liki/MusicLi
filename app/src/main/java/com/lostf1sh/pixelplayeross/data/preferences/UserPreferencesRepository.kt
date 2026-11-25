@@ -313,10 +313,13 @@ constructor(
         val UPDATE_LAST_NOTIFIED_VERSION = stringPreferencesKey("update_last_notified_version")
 
         val EXPLORE_API_BASE_URL = stringPreferencesKey("explore_api_base_url")
+        val EXPLORE_STREAM_QUALITY = intPreferencesKey("explore_stream_quality")
         val EXPLORE_DOWNLOAD_QUALITY = intPreferencesKey("explore_download_quality")
         val EXPLORE_DOWNLOAD_SUBFOLDERS = booleanPreferencesKey("explore_download_subfolders")
         val EXPLORE_DOWNLOAD_LYRICS = booleanPreferencesKey("explore_download_lyrics")
         val EXPLORE_DOWNLOAD_SAF_URI = stringPreferencesKey("explore_download_saf_uri")
+        val EXPLORE_RECENT_SEARCHES = stringPreferencesKey("explore_recent_searches")
+        val LYRICS_TRANSLATION_TARGET_LANG = stringPreferencesKey("lyrics_translation_target_lang")
     }
 
     /** Null until the user picks a channel; the updater then follows the installed build. */
@@ -1097,6 +1100,46 @@ constructor(
                 preferences[PreferencesKeys.EXPLORE_API_BASE_URL] =
                     if (trimmed.endsWith("/")) trimmed else "$trimmed/"
             }
+        }
+    }
+
+    val exploreStreamQualityFlow: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_STREAM_QUALITY] ?: 320
+    }
+
+    suspend fun setExploreStreamQuality(kbps: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_STREAM_QUALITY] = kbps
+        }
+    }
+
+    val exploreRecentSearchesFlow: Flow<List<String>> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_RECENT_SEARCHES]
+            ?.split("\n")
+            ?.map(String::trim)
+            ?.filter(String::isNotBlank)
+            .orEmpty()
+    }
+
+    suspend fun saveExploreRecentSearches(searches: List<String>) {
+        dataStore.edit { preferences ->
+            val clean = searches.map(String::trim).filter(String::isNotBlank).take(10)
+            if (clean.isEmpty()) {
+                preferences.remove(PreferencesKeys.EXPLORE_RECENT_SEARCHES)
+            } else {
+                preferences[PreferencesKeys.EXPLORE_RECENT_SEARCHES] = clean.joinToString("\n")
+            }
+        }
+    }
+
+    val lyricsTranslationTargetLangFlow: Flow<String> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LYRICS_TRANSLATION_TARGET_LANG]?.takeIf { it.isNotBlank() } ?: "auto"
+    }
+
+    suspend fun setLyricsTranslationTargetLang(langCode: String) {
+        dataStore.edit { preferences ->
+            val normalized = langCode.trim().ifBlank { "auto" }
+            preferences[PreferencesKeys.LYRICS_TRANSLATION_TARGET_LANG] = normalized
         }
     }
 

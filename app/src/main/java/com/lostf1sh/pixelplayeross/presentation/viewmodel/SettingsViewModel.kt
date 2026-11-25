@@ -151,10 +151,12 @@ data class SettingsUiState(
     val preferredVideoQuality: Int = 720,
     val showHomePlayQueue: Boolean = true,
     val exploreApiBaseUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+    val exploreStreamQuality: Int = 320,
     val exploreDownloadQuality: Int = 320,
     val exploreDownloadSubfolders: Boolean = true,
     val exploreDownloadLyrics: Boolean = true,
-    val exploreDownloadSafUri: String? = null
+    val exploreDownloadSafUri: String? = null,
+    val lyricsTranslationTargetLang: String = "auto"
 )
 
 data class FailedSongInfo(
@@ -666,6 +668,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.exploreApiBaseUrlFlow.collect { url ->
                 _uiState.update { it.copy(exploreApiBaseUrl = url) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.exploreStreamQualityFlow.collect { kbps ->
+                _uiState.update { it.copy(exploreStreamQuality = kbps) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.lyricsTranslationTargetLangFlow.collect { lang ->
+                _uiState.update { it.copy(lyricsTranslationTargetLang = lang) }
             }
         }
 
@@ -1234,6 +1248,18 @@ class SettingsViewModel @Inject constructor(
     fun setExploreApiBaseUrl(url: String?) {
         viewModelScope.launch {
             userPreferencesRepository.setExploreApiBaseUrl(url)
+        }
+    }
+
+    fun setExploreStreamQuality(kbps: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreStreamQuality(kbps)
+        }
+    }
+
+    fun setLyricsTranslationTargetLang(langCode: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLyricsTranslationTargetLang(langCode)
         }
     }
 

@@ -1264,6 +1264,21 @@ fun SettingsCategoryScreen(
                                 title = stringResource(R.string.setcat_explore_downloads_section)
                             ) {
                                 ThemeSelectorItem(
+                                    label = stringResource(R.string.setcat_explore_stream_quality_label),
+                                    description = stringResource(R.string.setcat_explore_stream_quality_desc),
+                                    options = linkedMapOf(
+                                        "320" to stringResource(R.string.explore_quality_320),
+                                        "160" to stringResource(R.string.explore_quality_160),
+                                        "96" to stringResource(R.string.explore_quality_96),
+                                    ),
+                                    selectedKey = uiState.exploreStreamQuality.toString(),
+                                    onSelectionChanged = { key ->
+                                        settingsViewModel.setExploreStreamQuality(key.toIntOrNull() ?: 320)
+                                    },
+                                    leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.HighQuality, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    modifier = Modifier.settingHighlight("item_explore_stream_quality", highlightKey)
+                                )
+                                ThemeSelectorItem(
                                     label = stringResource(R.string.setcat_explore_quality_label),
                                     description = stringResource(R.string.setcat_explore_quality_desc),
                                     options = linkedMapOf(

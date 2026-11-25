@@ -343,13 +343,23 @@ fun TimerOptionsBottomSheet(
                         .padding(vertical = 8.dp, horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.sleep_timer_ui_end_of_current_track),
+                    Column(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = 8.dp),
-                        color = if (isSwitchEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
-                    )
+                            .padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.sleep_timer_ui_end_of_current_track),
+                            color = if (isSwitchEnabled) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isSwitchEnabled) {
+                            Text(
+                                text = "Stops after current track · Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
                     Switch(
                         checked = isSwitchEnabled,
                         enabled = isTimerMode || counterSliderPosition == 1f,

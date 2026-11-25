@@ -10,6 +10,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.core.content.ContextCompat
 import com.lostf1sh.pixelplayeross.data.model.LibraryTabId
 import androidx.core.net.toUri
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
@@ -45,6 +47,7 @@ import com.lostf1sh.pixelplayeross.data.model.FolderSource
 import com.lostf1sh.pixelplayeross.data.model.Genre
 import com.lostf1sh.pixelplayeross.data.model.Lyrics
 import com.lostf1sh.pixelplayeross.data.model.LyricsSourcePreference
+import com.lostf1sh.pixelplayeross.data.network.lyrics.LyricsTranslator
 import com.lostf1sh.pixelplayeross.data.model.SearchFilterType
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.model.SortOption
@@ -57,6 +60,7 @@ import com.lostf1sh.pixelplayeross.data.preferences.FullPlayerLoadingTweaks
 import com.lostf1sh.pixelplayeross.data.preferences.AlbumArtPaletteStyle
 import com.lostf1sh.pixelplayeross.data.preferences.ThemePreferencesRepository
 import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
+import com.lostf1sh.pixelplayeross.data.preferences.dataStore
 import com.lostf1sh.pixelplayeross.data.preferences.AlbumArtQuality
 import com.lostf1sh.pixelplayeross.data.preferences.ThemePreference
 import com.lostf1sh.pixelplayeross.data.preferences.restartsAtPosition
@@ -285,6 +289,7 @@ class PlayerViewModel @Inject constructor(
     private val listeningStatsTracker: ListeningStatsTracker,
     private val dailyMixStateHolder: DailyMixStateHolder,
     private val lyricsStateHolder: LyricsStateHolder,
+    private val lyricsTranslator: LyricsTranslator,
     private val queueStateHolder: QueueStateHolder,
     private val queueUndoStateHolder: QueueUndoStateHolder,
     private val playlistDismissUndoStateHolder: PlaylistDismissUndoStateHolder,
@@ -5174,6 +5179,43 @@ class PlayerViewModel @Inject constructor(
     fun acceptLyricsSearchResultForCurrentSong(result: LyricsSearchResult) {
         val currentSong = stablePlayerState.value.currentSong ?: return
         lyricsStateHolder.acceptLyricsSearchResult(result, currentSong)
+    }
+
+    private val _isTranslatingLyrics = MutableStateFlow(false)
+    val isTranslatingLyrics: StateFlow<Boolean> = _isTranslatingLyrics.asStateFlow()
+
+    fun translateLyricsForCurrentSong() {
+        val currentState = playbackStateHolder.stablePlayerState.value
+        val currentSong = currentState.currentSong ?: return
+        val currentLyrics = currentState.lyrics ?: return
+        if (_isTranslatingLyrics.value) return
+
+        viewModelScope.launch {
+            _isTranslatingLyrics.value = true
+            try {
+                val targetLang = userPreferencesRepository.lyricsTranslationTargetLangFlow.first()
+                val result = lyricsTranslator.translateLyrics(
+                    songId = currentSong.id,
+                    lyrics = currentLyrics,
+                    targetLanguageSetting = targetLang
+                )
+                result.onSuccess { translated ->
+                    if (playbackStateHolder.stablePlayerState.value.currentSong?.id == currentSong.id) {
+                        playbackStateHolder.updateStablePlayerState { state ->
+                            state.copy(lyrics = translated)
+                        }
+                    }
+                    context.dataStore.edit { prefs ->
+                        prefs[booleanPreferencesKey("show_lyrics_translation")] = true
+                    }
+                }.onFailure { error ->
+                    Timber.w(error, "Failed to translate lyrics for song=%s", currentSong.id)
+                    sendToast("Could not translate lyrics right now")
+                }
+            } finally {
+                _isTranslatingLyrics.value = false
+            }
+        }
     }
 
     fun resetLyricsForCurrentSong() {

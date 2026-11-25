@@ -101,6 +101,11 @@ class ExploreViewModel @Inject constructor(
 
     init {
         loadFeed(language = "All")
+        viewModelScope.launch {
+            userPreferencesRepository.exploreRecentSearchesFlow.collect { history ->
+                _uiState.update { it.copy(recentSearches = history) }
+            }
+        }
     }
 
     fun selectLanguage(language: String) {
@@ -149,12 +154,22 @@ class ExploreViewModel @Inject constructor(
         val trimmed = query.trim()
         searchJob?.cancel()
         if (trimmed.isBlank()) return
-        _uiState.update { state ->
-            val updatedHistory = (listOf(trimmed) + state.recentSearches.filterNot { it.equals(trimmed, ignoreCase = true) }).take(8)
-            state.copy(query = trimmed, recentSearches = updatedHistory)
+        val updatedHistory = (listOf(trimmed) + _uiState.value.recentSearches.filterNot {
+            it.equals(trimmed, ignoreCase = true)
+        }).take(10)
+        _uiState.update { it.copy(query = trimmed, recentSearches = updatedHistory) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveExploreRecentSearches(updatedHistory)
         }
         searchJob = viewModelScope.launch {
             executeSearch(trimmed)
+        }
+    }
+
+    fun clearRecentSearches() {
+        _uiState.update { it.copy(recentSearches = emptyList()) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveExploreRecentSearches(emptyList())
         }
     }
 
@@ -238,6 +253,12 @@ class ExploreViewModel @Inject constructor(
     fun cancelDownload(downloadId: String) = downloader.cancelDownload(downloadId)
     fun retryDownload(downloadId: String) = downloader.retryDownload(downloadId)
     fun removeDownload(downloadId: String) = downloader.removeDownloadEntry(downloadId)
+    fun clearCompletedDownloads() = downloader.clearCompleted()
+
+    suspend fun resolvePlayableSong(song: ExploreSong): ExploreSong {
+        if (song.streamUrlsByQuality.isNotEmpty()) return song
+        return exploreRepository.resolveSong(song.id, includeLyrics = true).getOrElse { song }
+    }
 
     suspend fun resolvePlayableQueue(songs: List<ExploreSong>): List<ExploreSong> {
         val resolved = mutableListOf<ExploreSong>()
@@ -251,5 +272,5 @@ class ExploreViewModel @Inject constructor(
         return resolved
     }
 
-    suspend fun currentPreferredBitrateKbps(): Int = userPreferencesRepository.exploreDownloadQualityFlow.first()
+    suspend fun currentPreferredBitrateKbps(): Int = userPreferencesRepository.exploreStreamQualityFlow.first()
 }

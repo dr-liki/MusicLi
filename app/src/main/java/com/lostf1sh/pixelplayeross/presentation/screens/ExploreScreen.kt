@@ -35,9 +35,13 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -45,13 +49,18 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -60,13 +69,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -95,11 +109,12 @@ import java.util.Locale
 private val EXPLORE_LANGUAGES = listOf("All", "Hindi", "English", "Punjabi", "Tamil", "Telugu")
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ExploreScreen(
     paddingValuesParent: PaddingValues,
     onOpenDownloads: () -> Unit,
+    onOpenSettings: () -> Unit,
     playerViewModel: PlayerViewModel = sharedPlayerViewModel(),
     exploreViewModel: ExploreViewModel = hiltViewModel(),
 ) {
@@ -109,6 +124,7 @@ fun ExploreScreen(
     val downloadedIds by exploreViewModel.downloadedSongIds.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
 
     val activeDownloadCount = downloads.count {
         it.status == ExploreDownloadStatus.QUEUED || it.status == ExploreDownloadStatus.DOWNLOADING
@@ -119,9 +135,7 @@ fun ExploreScreen(
     val streamSongs: (List<ExploreSong>, ExploreSong, String) -> Unit = { queue, startSong, queueName ->
         scope.launch {
             val kbps = exploreViewModel.currentPreferredBitrateKbps()
-            val resolvedStart = if (startSong.streamUrlsByQuality.isEmpty()) {
-                exploreViewModel.resolvePlayableQueue(listOf(startSong)).firstOrNull() ?: startSong
-            } else startSong
+            val resolvedStart = exploreViewModel.resolvePlayableSong(startSong)
             val resolvedQueue = exploreViewModel.resolvePlayableQueue(queue)
             val playerSongs = (if (resolvedQueue.isNotEmpty()) resolvedQueue else listOf(resolvedStart))
                 .filter { it.selectStreamUrl(kbps) != null }
@@ -134,6 +148,23 @@ fun ExploreScreen(
                     contextSongs = if (playerSongs.isNotEmpty()) playerSongs else listOf(startPlayerSong),
                     queueName = queueName,
                 )
+            }
+        }
+    }
+
+    val enqueueSong: (ExploreSong, Boolean) -> Unit = { song, playNext ->
+        scope.launch {
+            val kbps = exploreViewModel.currentPreferredBitrateKbps()
+            val resolved = exploreViewModel.resolvePlayableSong(song)
+            val playerSong = resolved.toPlayerSong(kbps)
+            if (playerSong.contentUriString.isNotBlank()) {
+                if (playNext) {
+                    playerViewModel.addSongNextToQueue(playerSong)
+                    playerViewModel.sendToast(context.getString(R.string.toast_playing_next))
+                } else {
+                    playerViewModel.addSongToQueue(playerSong)
+                    playerViewModel.sendToast(context.getString(R.string.toast_added_to_queue))
+                }
             }
         }
     }
@@ -160,35 +191,45 @@ fun ExploreScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.explore_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Stream & download 320 kbps with metadata & synced lyrics",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    FilledTonalIconButton(
-                        onClick = onOpenDownloads,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
+                    Text(
+                        text = stringResource(R.string.explore_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        BadgedBox(
-                            badge = {
-                                if (activeDownloadCount > 0) {
-                                    Badge { Text("$activeDownloadCount") }
+                        FilledTonalIconButton(
+                            onClick = onOpenDownloads,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (activeDownloadCount > 0) {
+                                        Badge { Text("$activeDownloadCount") }
+                                    }
                                 }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DownloadDone,
+                                    contentDescription = stringResource(R.string.explore_downloads_title),
+                                )
                             }
+                        }
+                        FilledIconButton(
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                            onClick = onOpenSettings,
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.DownloadDone,
-                                contentDescription = stringResource(R.string.explore_downloads_title),
+                                painter = painterResource(R.drawable.rounded_settings_24),
+                                contentDescription = stringResource(R.string.presentation_batch_d_open_settings_cd),
                             )
                         }
                     }
@@ -256,6 +297,12 @@ fun ExploreScreen(
                                     label = { Text(recent) },
                                 )
                             }
+                            FilterChip(
+                                selected = false,
+                                onClick = exploreViewModel::clearRecentSearches,
+                                leadingIcon = { Icon(Icons.Rounded.Clear, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                label = { Text("Clear") },
+                            )
                         }
                     }
                 }
@@ -287,7 +334,7 @@ fun ExploreScreen(
                                 .padding(vertical = 48.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator()
+                            LoadingIndicator()
                         }
                     }
                 } else if (uiState.feedError != null) {
@@ -423,7 +470,7 @@ fun ExploreScreen(
                                 .padding(vertical = 48.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator()
+                            LoadingIndicator()
                         }
                     }
                 } else if (uiState.searchError != null) {
@@ -449,6 +496,8 @@ fun ExploreScreen(
                                 isDownloaded = downloadedIds.contains(song.id),
                                 onPlayClick = { streamSongs(res.songs, song, "Explore: ${uiState.query}") },
                                 onDownloadClick = { exploreViewModel.downloadSong(song) },
+                                onPlayNextClick = { enqueueSong(song, true) },
+                                onAddToQueueClick = { enqueueSong(song, false) },
                             )
                         }
                     }
@@ -549,6 +598,8 @@ fun ExploreScreen(
                 onDownloadSong = { song, folder -> exploreViewModel.downloadSong(song, folder) },
                 onDownloadAll = { name, songs -> exploreViewModel.downloadCollection(name, songs) },
                 onOpenAlbum = exploreViewModel::openAlbum,
+                onPlayNextSong = { enqueueSong(it, true) },
+                onAddToQueueSong = { enqueueSong(it, false) },
                 onClose = exploreViewModel::dismissDetail,
             )
         }
@@ -633,8 +684,12 @@ private fun ExploreSongRowItem(
     isDownloaded: Boolean,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onPlayNextClick: (() -> Unit)? = null,
+    onAddToQueueClick: (() -> Unit)? = null,
     subfolder: String? = null,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     Surface(
         onClick = onPlayClick,
         shape = RoundedCornerShape(16.dp),
@@ -696,6 +751,73 @@ private fun ExploreSongRowItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = "More options",
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Play now") },
+                        leadingIcon = { Icon(Icons.Rounded.PlayArrow, null) },
+                        onClick = {
+                            menuExpanded = false
+                            onPlayClick()
+                        },
+                    )
+                    if (onPlayNextClick != null) {
+                        DropdownMenuItem(
+                            text = { Text("Play next") },
+                            leadingIcon = { Icon(Icons.Rounded.PlaylistAdd, null) },
+                            onClick = {
+                                menuExpanded = false
+                                onPlayNextClick()
+                            },
+                        )
+                    }
+                    if (onAddToQueueClick != null) {
+                        DropdownMenuItem(
+                            text = { Text("Add to queue") },
+                            leadingIcon = { Icon(Icons.Rounded.QueueMusic, null) },
+                            onClick = {
+                                menuExpanded = false
+                                onAddToQueueClick()
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(if (isDownloaded) "Downloaded" else "Download") },
+                        leadingIcon = {
+                            Icon(if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download, null)
+                        },
+                        enabled = !isDownloaded,
+                        onClick = {
+                            menuExpanded = false
+                            onDownloadClick()
+                        },
+                    )
+                    song.saavnUrl?.takeIf { it.isNotBlank() }?.let { shareUrl ->
+                        DropdownMenuItem(
+                            text = { Text("Share link") },
+                            leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, song.title)
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "${song.title} — ${song.artist}\n$shareUrl")
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, song.title))
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -834,6 +956,7 @@ private fun ArtworkDownloadBadgeButton(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ExploreDetailSheetContent(
     detailState: ExploreDetailState,
@@ -843,6 +966,8 @@ private fun ExploreDetailSheetContent(
     onDownloadSong: (ExploreSong, String?) -> Unit,
     onDownloadAll: (String, List<ExploreSong>) -> Unit,
     onOpenAlbum: (ExploreAlbum) -> Unit,
+    onPlayNextSong: (ExploreSong) -> Unit,
+    onAddToQueueSong: (ExploreSong) -> Unit,
     onClose: () -> Unit,
 ) {
     Column(
@@ -870,7 +995,7 @@ private fun ExploreDetailSheetContent(
                         .height(160.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             }
             is ExploreDetailState.Error -> {
@@ -897,6 +1022,8 @@ private fun ExploreDetailSheetContent(
                             isDownloaded = downloadedIds.contains(song.id),
                             onPlayClick = { onStreamSong(album.songs, song, album.title) },
                             onDownloadClick = { onDownloadSong(song, album.title) },
+                            onPlayNextClick = { onPlayNextSong(song) },
+                            onAddToQueueClick = { onAddToQueueSong(song) },
                             subfolder = album.title,
                         )
                     }
@@ -923,6 +1050,8 @@ private fun ExploreDetailSheetContent(
                             isDownloaded = downloadedIds.contains(song.id),
                             onPlayClick = { onStreamSong(playlist.songs, song, playlist.title) },
                             onDownloadClick = { onDownloadSong(song, playlist.title) },
+                            onPlayNextClick = { onPlayNextSong(song) },
+                            onAddToQueueClick = { onAddToQueueSong(song) },
                             subfolder = playlist.title,
                         )
                     }
@@ -951,6 +1080,8 @@ private fun ExploreDetailSheetContent(
                                 isDownloaded = downloadedIds.contains(song.id),
                                 onPlayClick = { onStreamSong(artist.topSongs, song, artist.name) },
                                 onDownloadClick = { onDownloadSong(song, null) },
+                                onPlayNextClick = { onPlayNextSong(song) },
+                                onAddToQueueClick = { onAddToQueueSong(song) },
                             )
                         }
                     }

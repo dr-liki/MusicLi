@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Slider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -311,6 +312,39 @@ fun LyricsSettingsScreen(
                             )
                         },
                         modifier = Modifier.settingHighlight("item_lyrics_source_priority", highlightKey)
+                    )
+                    ThemeSelectorItem(
+                        label = stringResource(R.string.lyrics_translation_target_label),
+                        description = stringResource(R.string.lyrics_translation_target_desc),
+                        options = mapOf(
+                            "auto" to stringResource(R.string.lyrics_translation_auto),
+                            "en" to "English",
+                            "hi" to "Hindi",
+                            "es" to "Spanish",
+                            "fr" to "French",
+                            "de" to "German",
+                            "it" to "Italian",
+                            "pt" to "Portuguese",
+                            "ja" to "Japanese",
+                            "ko" to "Korean",
+                            "zh-CN" to "Chinese (Simplified)",
+                            "ar" to "Arabic",
+                            "ru" to "Russian",
+                            "tr" to "Turkish",
+                            "vi" to "Vietnamese"
+                        ),
+                        selectedKey = uiState.lyricsTranslationTargetLang,
+                        onSelectionChanged = { lang ->
+                            settingsViewModel.setLyricsTranslationTargetLang(lang)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.Translate,
+                                null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        modifier = Modifier.settingHighlight("item_lyrics_translation_target", highlightKey)
                     )
                     SettingsItem(
                         title = stringResource(R.string.setcat_reset_imported_lyrics_title),

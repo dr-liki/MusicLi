@@ -246,6 +246,7 @@ class PlayerViewModelTest {
             mockListeningStatsTracker,
             mockDailyMixStateHolder,
             mockLyricsStateHolder,
+            mockk(relaxed = true),
             mockQueueStateHolder,
             mockQueueUndoStateHolder,
             mockPlaylistDismissUndoStateHolder,

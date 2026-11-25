@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.ColorScheme
@@ -95,6 +96,13 @@ internal sealed interface MainSettingsEntry {
             iconTone = SettingsIconTone.PRIMARY,
             route = Screen.CloudDownloads.route
         ),
+        EXPLORE_DOWNLOADS(
+            titleRes = R.string.explore_downloads_title,
+            subtitleRes = R.string.explore_downloads_settings_subtitle,
+            icon = Icons.Rounded.DownloadDone,
+            iconTone = SettingsIconTone.SECONDARY,
+            route = Screen.ExploreDownloads.route
+        ),
         ACCOUNTS(
             titleRes = R.string.settings_accounts_row_title,
             subtitleRes = R.string.settings_accounts_row_subtitle,
@@ -124,6 +132,7 @@ internal val mainSettingsEntries: List<MainSettingsEntry> = buildList {
             if (category == SettingsCategory.PLAYBACK) add(MainSettingsEntry.Destination.LYRICS)
         }
     add(MainSettingsEntry.Destination.DOWNLOADS)
+    add(MainSettingsEntry.Destination.EXPLORE_DOWNLOADS)
     add(MainSettingsEntry.Category(SettingsCategory.DEVICE_CAPABILITIES))
     add(MainSettingsEntry.Destination.ACCOUNTS)
     add(MainSettingsEntry.Destination.UPDATES)

@@ -56,11 +56,13 @@ import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -288,7 +290,9 @@ fun LyricsSheet(
     swipeThreshold: Dp = 100.dp,
     highlightZoneFraction: Float = 0.08f,
     highlightOffsetDp: Dp = 32.dp,
-    autoscrollAnimationSpec: AnimationSpec<Float>? = null
+    autoscrollAnimationSpec: AnimationSpec<Float>? = null,
+    isTranslatingLyrics: Boolean = false,
+    onTranslateLyrics: () -> Unit = {}
 ) {
     var backProgress by remember { mutableFloatStateOf(1f) }
 
@@ -329,7 +333,8 @@ fun LyricsSheet(
     val currentSong by remember(stablePlayerState) { derivedStateOf { stablePlayerState.currentSong } }
 
     val hasTranslatedLyrics = remember(lyrics) {
-        lyrics?.synced?.any { !it.translation.isNullOrBlank() } == true
+        lyrics?.synced?.any { !it.translation.isNullOrBlank() } == true ||
+            lyrics?.plainTranslations?.any { !it.isNullOrBlank() } == true
     }
 
     val hasRomanizedLyrics = remember(lyrics) {
@@ -917,6 +922,7 @@ fun LyricsSheet(
                                         line = line,
                                         style = sizedLyricsTextStyle,
                                         romanization = plainLyricsRomanization?.getOrNull(index),
+                                        externalTranslation = lyrics?.plainTranslations?.getOrNull(index),
                                         lyricsAlignment = lyricsAlignment,
                                         showTranslation = if (hasTranslatedLyrics) showLyricsTranslation else true,
                                         showRomanization = if (hasRomanizedLyrics) showLyricsRomanization else true,
@@ -1063,6 +1069,101 @@ fun LyricsSheet(
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val currentLyrics = lyrics
+                    val hasAnyLines = currentLyrics != null && (!currentLyrics.synced.isNullOrEmpty() || !currentLyrics.plain.isNullOrEmpty())
+                    if (hasAnyLines) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (hasRomanizedLyrics) {
+                                val romanizeActive = showLyricsRomanization
+                                Surface(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            context.dataStore.edit { prefs ->
+                                                prefs[booleanPreferencesKey("show_lyrics_romanization")] = !romanizeActive
+                                            }
+                                        }
+                                    },
+                                    shape = CircleShape,
+                                    color = if (romanizeActive) sheetColors.accent else sheetColors.controlContainer,
+                                    contentColor = if (romanizeActive) sheetColors.accentContent else sheetColors.controlContent
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Abc,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "Romanize",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+
+                            val translateActive = hasTranslatedLyrics && showLyricsTranslation
+                            Surface(
+                                onClick = {
+                                    if (!isTranslatingLyrics) {
+                                        if (!hasTranslatedLyrics) {
+                                            onTranslateLyrics()
+                                        } else {
+                                            coroutineScope.launch {
+                                                context.dataStore.edit { prefs ->
+                                                    prefs[booleanPreferencesKey("show_lyrics_translation")] = !showLyricsTranslation
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                shape = CircleShape,
+                                color = if (translateActive) sheetColors.accent else sheetColors.controlContainer,
+                                contentColor = if (translateActive) sheetColors.accentContent else sheetColors.controlContent
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    if (isTranslatingLyrics) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                            color = if (translateActive) sheetColors.accentContent else sheetColors.controlContent
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Translate,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = when {
+                                            isTranslatingLyrics -> "Translating..."
+                                            translateActive -> "Translated"
+                                            else -> "Translate"
+                                        },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                 LyricsFloatingToolbar(
                     modifier = Modifier.padding(horizontal = 0.dp),
                     showSyncedLyrics = showSyncedLyrics,
@@ -1078,6 +1179,7 @@ fun LyricsSheet(
                     onAccentColor = onAccentColor,
                     backProgressProvider = { backProgressProvider.value },
                 )
+                }
              }
             }
         }
@@ -1777,6 +1879,7 @@ fun PlainLyricsLine(
     line: String,
     style: TextStyle,
     romanization: String? = null,
+    externalTranslation: String? = null,
     lyricsAlignment: String = "left",
     showTranslation: Boolean = true,
     showRomanization: Boolean = true,
@@ -1879,9 +1982,10 @@ fun PlainLyricsLine(
                 )
             }
 
-            if (showTranslation && translationText.isNotBlank()) {
+            val effectiveTranslationText = externalTranslation?.takeIf { it.isNotBlank() } ?: translationText
+            if (showTranslation && effectiveTranslationText.isNotBlank()) {
                 Text(
-                    text = translationText,
+                    text = effectiveTranslationText,
                     style = translationStyle,
                     color = translationColor,
                     textAlign = textAlign,
