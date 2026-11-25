@@ -27,6 +27,7 @@ import com.lostf1sh.pixelplayeross.data.preferences.DEFAULT_SHOW_LYRICS_BACKGROU
 import com.lostf1sh.pixelplayeross.data.preferences.LyricsWordHighlightStyle
 import com.lostf1sh.pixelplayeross.data.preferences.ThemePreference
 import com.lostf1sh.pixelplayeross.data.preferences.ThemePreset
+import com.lostf1sh.pixelplayeross.data.preferences.InterfaceAppearance
 import com.lostf1sh.pixelplayeross.data.preferences.UserPreferencesRepository
 import com.lostf1sh.pixelplayeross.utils.FolderArtworkSettingsCoordinator
 import com.lostf1sh.pixelplayeross.data.preferences.AlbumArtQuality
@@ -70,6 +71,7 @@ data class SettingsUiState(
     val appThemeMode: String = AppThemeMode.FOLLOW_SYSTEM,
     val globalNowPlayingThemeEnabled: Boolean = false,
     val themePreset: String = ThemePreset.DEFAULT,
+    val interfaceAppearance: InterfaceAppearance = InterfaceAppearance(),
     val playerThemePreference: String = ThemePreference.ALBUM_ART,
     val albumArtPaletteStyle: AlbumArtPaletteStyle = AlbumArtPaletteStyle.default,
     val albumArtColorAccuracy: Int = AlbumArtColorAccuracy.DEFAULT,
@@ -88,6 +90,7 @@ data class SettingsUiState(
     val smartCrossfadeEnabled: Boolean = false,
     val audioOutputMode: AudioOutputMode = AudioOutputMode.SYSTEM_DEFAULT,
     val pcmFloatOutputSupported: Boolean = true,
+    val bitPerfectUsbOutputSupported: Boolean = false,
     val crossfadeDuration: Int = 2000,
     val persistentShuffleEnabled: Boolean = false,
     val folderBackGestureNavigation: Boolean = true,
@@ -140,6 +143,8 @@ data class SettingsUiState(
     val discoverShowGradient: Boolean = true,
     val minSongDuration: Int = 10000,
     val minTracksPerAlbum: Int = 1,
+    val groupLocalAlbumsByTitle: Boolean = false,
+    val minTracksPerArtist: Int = 1,
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val syncedVideoEnabled: Boolean = true,
@@ -228,6 +233,8 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     private val pcmFloatOutputSupported = HiFiCapabilityChecker.isSupported()
+    private val bitPerfectUsbOutputSupported =
+        AudioOutputMode.isBitPerfectUsbAvailable(pcmFloatSupported = pcmFloatOutputSupported)
 
     private val fileExplorerStateHolder = FileExplorerStateHolder(userPreferencesRepository, viewModelScope, context)
 
@@ -352,6 +359,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(themePreset = preset) }
             }
         }
+        viewModelScope.launch {
+            themePreferencesRepository.interfaceAppearanceFlow.collect { appearance ->
+                _uiState.update { it.copy(interfaceAppearance = appearance) }
+            }
+        }
     }
 
     private val _dataTransferProgress = MutableStateFlow<BackupTransferProgressUpdate?>(null)
@@ -361,6 +373,7 @@ class SettingsViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 pcmFloatOutputSupported = pcmFloatOutputSupported,
+                bitPerfectUsbOutputSupported = bitPerfectUsbOutputSupported,
                 appLanguageTag = AppLocaleManager.currentLanguageTag(context)
             )
         }
@@ -445,14 +458,7 @@ class SettingsViewModel @Inject constructor(
                     resumeOnHeadsetReconnect = values[1] as Boolean,
                     showQueueHistory = values[2] as Boolean,
                     isCrossfadeEnabled = values[3] as Boolean,
-                    audioOutputMode = if (
-                        requestedAudioOutputMode == AudioOutputMode.PCM_FLOAT &&
-                        !pcmFloatOutputSupported
-                    ) {
-                        AudioOutputMode.SYSTEM_DEFAULT
-                    } else {
-                        requestedAudioOutputMode
-                    },
+                    audioOutputMode = supportedOrDefault(requestedAudioOutputMode),
                     crossfadeDuration = values[5] as Int,
                     persistentShuffleEnabled = values[6] as Boolean,
                     folderBackGestureNavigation = values[7] as Boolean,
@@ -616,6 +622,18 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.groupLocalAlbumsByTitleFlow.collect { enabled ->
+                _uiState.update { it.copy(groupLocalAlbumsByTitle = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.minTracksPerArtistFlow.collect { minTracks ->
+                _uiState.update { it.copy(minTracksPerArtist = minTracks) }
+            }
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.replayGainEnabledFlow.collect { enabled ->
                 _uiState.update { it.copy(replayGainEnabled = enabled) }
             }
@@ -762,6 +780,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             themePreferencesRepository.setThemePreset(preset)
         }
+    }
+
+    fun setUseSystemFont(enabled: Boolean) {
+        viewModelScope.launch { themePreferencesRepository.setUseSystemFont(enabled) }
+    }
+
+    fun setInterfaceScale(scalePercent: Int) {
+        viewModelScope.launch { themePreferencesRepository.setInterfaceScale(scalePercent) }
     }
 
     fun setAlbumArtPaletteStyle(style: AlbumArtPaletteStyle) {
@@ -943,15 +969,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setAudioOutputMode(mode: AudioOutputMode) {
         viewModelScope.launch {
-            val supportedMode = if (
-                mode == AudioOutputMode.PCM_FLOAT && !pcmFloatOutputSupported
-            ) {
-                AudioOutputMode.SYSTEM_DEFAULT
-            } else {
-                mode
-            }
-            userPreferencesRepository.setAudioOutputMode(supportedMode)
+            userPreferencesRepository.setAudioOutputMode(supportedOrDefault(mode))
         }
+    }
+
+    private fun supportedOrDefault(mode: AudioOutputMode): AudioOutputMode = when {
+        mode == AudioOutputMode.PCM_FLOAT && !pcmFloatOutputSupported -> AudioOutputMode.SYSTEM_DEFAULT
+        mode == AudioOutputMode.BIT_PERFECT_USB && !bitPerfectUsbOutputSupported -> AudioOutputMode.SYSTEM_DEFAULT
+        else -> mode
     }
 
     fun setShowQueueHistory(show: Boolean) {
@@ -1166,6 +1191,19 @@ class SettingsViewModel @Inject constructor(
     fun setMinTracksPerAlbum(minTracks: Int) {
         viewModelScope.launch {
             userPreferencesRepository.setMinTracksPerAlbum(minTracks)
+        }
+    }
+
+    fun setGroupLocalAlbumsByTitle(enabled: Boolean) {
+        appScope.launch(Dispatchers.Main.immediate) {
+            userPreferencesRepository.setGroupLocalAlbumsByTitle(enabled)
+            syncManager.forceRefresh()
+        }
+    }
+
+    fun setMinTracksPerArtist(minTracks: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setMinTracksPerArtist(minTracks)
         }
     }
 

@@ -83,6 +83,7 @@ import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.presentation.components.SmartImage
 import com.lostf1sh.pixelplayeross.presentation.components.SmartImageListTargetSize
 import com.lostf1sh.pixelplayeross.presentation.components.SongInfoBottomSheet
+import com.lostf1sh.pixelplayeross.presentation.components.albumTitleMarquee
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.sharedPlayerViewModel
 import com.lostf1sh.pixelplayeross.ui.theme.LocalPixelPlayerDarkTheme
@@ -554,6 +555,7 @@ fun SearchScreen(
                                     SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel)
                                     SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel)
                                     SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel)
+                                    SearchFilterChip(SearchFilterType.LYRICS, currentFilter, playerViewModel)
                                 }
                             }
                         ) {
@@ -1509,8 +1511,9 @@ fun SearchResultAlbumItem(
                         text = album.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        modifier = Modifier.albumTitleMarquee(),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = false
                     )
                     Text(
                         text = album.artist,
@@ -1854,4 +1857,5 @@ private fun searchFilterLabelRes(filterType: SearchFilterType): Int = when (filt
     SearchFilterType.ALBUMS -> R.string.library_tab_albums
     SearchFilterType.ARTISTS -> R.string.library_tab_artists
     SearchFilterType.PLAYLISTS -> R.string.library_tab_playlists
+    SearchFilterType.LYRICS -> R.string.lyrics
 }

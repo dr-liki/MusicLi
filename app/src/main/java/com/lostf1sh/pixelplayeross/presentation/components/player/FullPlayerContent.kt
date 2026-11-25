@@ -46,8 +46,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ColorScheme
@@ -264,8 +267,8 @@ fun FullPlayerContent(
 
     val song = currentSong ?: retainedSong ?: return
     var foldableRightPane by rememberSaveable { mutableStateOf<FoldableRightPane?>(null) }
-    var showSongInfoBottomSheet by remember { mutableStateOf(false) }
-    var showLyricsSheet by remember { mutableStateOf(false) }
+    var showSongInfoBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var showLyricsSheet by rememberSaveable { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
     var showSaveBookmarkDialog by rememberSaveable { mutableStateOf(false) }
     var showAudioOutputSheet by rememberSaveable { mutableStateOf(false) }
@@ -335,7 +338,7 @@ fun FullPlayerContent(
         queueGestureBottomExclusion.toPx()
     }
 
-    var showFetchLyricsDialog by remember { mutableStateOf(false) }
+    var showFetchLyricsDialog by rememberSaveable { mutableStateOf(false) }
     var totalDrag by remember { mutableStateOf(0f) }
 
     val context = LocalContext.current
@@ -634,10 +637,11 @@ fun FullPlayerContent(
                 placeholderColor = placeholderColor,
                 placeholderOnColor = placeholderOnColor,
                 albumArtQuality = albumArtQuality,
+                fitCarouselToHeight = isCompactLandscape,
                 requestedScrollIndex = pendingCarouselIndex,
                 onSongSelected = onAlbumSongSelected,
                 onAlbumClick = { albumSong ->
-                    playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
+                    playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId, albumSong.id)
                 },
                 modifier = modifier
             )
@@ -751,6 +755,7 @@ fun FullPlayerContent(
 
     Scaffold(
         containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets.safeDrawing,
         modifier = Modifier.pointerInput(currentSheetState, queueGestureBottomExclusionPx) {
             val queueDragActivationThresholdPx = 4.dp.toPx()
             val quickFlickVelocityThreshold = -520f
@@ -1171,6 +1176,7 @@ private fun FullPlayerAlbumCoverSection(
     placeholderColor: Color,
     placeholderOnColor: Color,
     albumArtQuality: AlbumArtQuality,
+    fitCarouselToHeight: Boolean,
     requestedScrollIndex: Int?,
     onSongSelected: (Song, Int) -> Unit,
     onAlbumClick: (Song) -> Unit,
@@ -1190,16 +1196,21 @@ private fun FullPlayerAlbumCoverSection(
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        val baseCarouselHeight = when (carouselStyle) {
-            CarouselStyle.NO_PEEK -> maxWidth
-            CarouselStyle.ONE_PEEK -> maxWidth * 0.8f
-            CarouselStyle.TWO_PEEK -> maxWidth * 0.6f
-            else -> maxWidth * 0.8f
+        val pageWidthFraction = when {
+            currentPlaybackQueue.size == 1 || carouselStyle == CarouselStyle.NO_PEEK -> 1f
+            carouselStyle == CarouselStyle.TWO_PEEK -> 0.6f
+            else -> 0.8f
         }
+        val baseCarouselHeight = maxWidth * pageWidthFraction
         val carouselHeight = if (maxHeight != Dp.Infinity && maxHeight > 0.dp) {
             minOf(baseCarouselHeight, maxHeight * 0.85f)
         } else {
             baseCarouselHeight
+        }
+        val carouselWidth = if (fitCarouselToHeight || carouselHeight < baseCarouselHeight) {
+            minOf(maxWidth, carouselHeight / pageWidthFraction)
+        } else {
+            maxWidth
         }
 
         DelayedContent(
@@ -1208,7 +1219,7 @@ private fun FullPlayerAlbumCoverSection(
             applyPlaceholderDelayOnClose = loadingTweaks.applyPlaceholdersOnClose,
             switchOnDragRelease = loadingTweaks.switchOnDragRelease,
             isSheetDragGestureActive = isSheetDragGestureActive,
-            sharedBoundsModifier = Modifier.fillMaxWidth().height(carouselHeight),
+            sharedBoundsModifier = Modifier.width(carouselWidth).height(carouselHeight),
             expansionFractionProvider = expansionFractionProvider,
             isExpandedOverride = currentSheetState == PlayerSheetState.EXPANDED,
             normalStartThreshold = 0.08f,
@@ -1732,21 +1743,22 @@ private fun FullPlayerLandscapeContent(
                 .fillMaxHeight()
                 .weight(1f)
         )
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(20.dp))
         Column(
             modifier = Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .verticalScroll(rememberScrollState())
                 .padding(
                     horizontal = 4.dp,
-                    vertical = 0.dp
+                    vertical = 8.dp
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 songMetadataSection()
                 playerProgressSection()

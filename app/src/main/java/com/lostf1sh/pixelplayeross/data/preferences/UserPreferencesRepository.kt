@@ -82,6 +82,12 @@ data class AdvancedPerformanceDiagnosticsSettings(
         enabled && expiresAtEpochMs?.let { nowEpochMs < it } == true
 }
 
+internal data class LocalAlbumGroupingSettings(
+    val byTitle: Boolean = false,
+    val indexVersion: String = "false:0",
+    val requiresReindex: Boolean = false
+)
+
 @Singleton
 class UserPreferencesRepository
 @Inject
@@ -98,6 +104,11 @@ constructor(
         // Describes which text repair this install's library database went through, not a user
         // choice — restoring another device's value could skip or repeat the repair here.
         PreferencesKeys.METADATA_CHARSET_REPAIR_VERSION.name,
+        PreferencesKeys.EMBEDDED_TAG_SCAN_VERSION.name,
+        PreferencesKeys.LOCAL_ALBUM_GROUPING_REVISION.name,
+        PreferencesKeys.APPLIED_LOCAL_ALBUM_GROUPING_VERSION.name,
+        "cloud_download_export_tree_uri",
+        "cloud_download_export_tree_name",
         "listenbrainz_token",
         "lastfm_session_key",
         // Update settings describe this install (F-Droid vs. GitHub signed), not user taste;
@@ -121,6 +132,7 @@ constructor(
         val PLAYLIST_SONG_ORDER_MODES = stringPreferencesKey("playlist_song_order_modes")
 
         val SONGS_SORT_OPTION = stringPreferencesKey("songs_sort_option")
+        val SONGS_SECONDARY_SORT_OPTION = stringPreferencesKey("songs_secondary_sort_option")
         val SONGS_SORT_OPTION_MIGRATED = booleanPreferencesKey("songs_sort_option_migrated_v2")
         val ALBUMS_SORT_OPTION = stringPreferencesKey("albums_sort_option")
         val ARTISTS_SORT_OPTION = stringPreferencesKey("artists_sort_option")
@@ -157,6 +169,7 @@ constructor(
                 stringSetPreferencesKey("navidrome_selected_music_folder_ids")
         val JELLYFIN_SELECTED_LIBRARY_IDS =
                 stringSetPreferencesKey("jellyfin_selected_library_ids")
+        val JELLYFIN_SYNC_FAVORITES = booleanPreferencesKey("jellyfin_sync_favorites")
         val FOLDER_BACK_GESTURE_NAVIGATION = booleanPreferencesKey("folder_back_gesture_navigation")
         val USE_SMOOTH_CORNERS = booleanPreferencesKey("use_smooth_corners")
         val KEEP_PLAYING_IN_BACKGROUND = booleanPreferencesKey("keep_playing_in_background")
@@ -194,6 +207,10 @@ constructor(
         val ARTIST_WORD_DELIMITERS = stringPreferencesKey("artist_word_delimiters")
         val EXTRACT_ARTISTS_FROM_TITLE = booleanPreferencesKey("extract_artists_from_title")
         val GROUP_BY_ALBUM_ARTIST = booleanPreferencesKey("group_by_album_artist")
+        val GROUP_LOCAL_ALBUMS_BY_TITLE = booleanPreferencesKey("group_local_albums_by_title")
+        val LOCAL_ALBUM_GROUPING_REVISION = longPreferencesKey("local_album_grouping_revision")
+        val APPLIED_LOCAL_ALBUM_GROUPING_VERSION =
+            stringPreferencesKey("applied_local_album_grouping_version")
         val ARTIST_ALBUMS_COLLAPSED_BY_DEFAULT =
                 booleanPreferencesKey("artist_albums_collapsed_by_default")
         val ARTIST_SETTINGS_RESCAN_REQUIRED =
@@ -224,6 +241,7 @@ constructor(
         val LAST_APPLIED_DIRECTORY_RULES_VERSION =
             intPreferencesKey("last_applied_directory_rules_version")
         val METADATA_CHARSET_REPAIR_VERSION = intPreferencesKey("metadata_charset_repair_version")
+        val EMBEDDED_TAG_SCAN_VERSION = intPreferencesKey("embedded_tag_scan_version")
 
         val LYRICS_SYNC_OFFSETS = stringPreferencesKey("lyrics_sync_offsets_json")
 
@@ -283,6 +301,7 @@ constructor(
         val MIN_SONG_DURATION = intPreferencesKey("min_song_duration_ms")
 
         val MIN_TRACKS_PER_ALBUM = intPreferencesKey("min_tracks_per_album")
+        val MIN_TRACKS_PER_ARTIST = intPreferencesKey("min_tracks_per_artist")
 
         val REPLAYGAIN_ENABLED = booleanPreferencesKey("replaygain_enabled")
         val REPLAYGAIN_USE_ALBUM_GAIN = booleanPreferencesKey("replaygain_use_album_gain")
@@ -655,6 +674,13 @@ constructor(
         dataStore.edit { it[PreferencesKeys.METADATA_CHARSET_REPAIR_VERSION] = version }
     }
 
+    suspend fun getEmbeddedTagScanVersion(): Int =
+        dataStore.data.first()[PreferencesKeys.EMBEDDED_TAG_SCAN_VERSION] ?: 0
+
+    suspend fun setEmbeddedTagScanVersion(version: Int) {
+        dataStore.edit { it[PreferencesKeys.EMBEDDED_TAG_SCAN_VERSION] = version }
+    }
+
     suspend fun setLastSyncTimestamp(timestamp: Long) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_SYNC_TIMESTAMP] = timestamp
@@ -947,6 +973,51 @@ constructor(
     suspend fun setMinTracksPerAlbum(minTracks: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.MIN_TRACKS_PER_ALBUM] = minTracks
+        }
+    }
+
+    val groupLocalAlbumsByTitleFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.GROUP_LOCAL_ALBUMS_BY_TITLE] ?: false
+    }.distinctUntilChanged()
+
+    suspend fun setGroupLocalAlbumsByTitle(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            if (enabled == (preferences[PreferencesKeys.GROUP_LOCAL_ALBUMS_BY_TITLE] ?: false)) {
+                return@edit
+            }
+            preferences[PreferencesKeys.GROUP_LOCAL_ALBUMS_BY_TITLE] = enabled
+            preferences[PreferencesKeys.LOCAL_ALBUM_GROUPING_REVISION] =
+                (preferences[PreferencesKeys.LOCAL_ALBUM_GROUPING_REVISION] ?: 0L) + 1L
+        }
+    }
+
+    internal suspend fun getLocalAlbumGroupingSettings(): LocalAlbumGroupingSettings =
+        dataStore.data.first().let { preferences ->
+            val byTitle = preferences[PreferencesKeys.GROUP_LOCAL_ALBUMS_BY_TITLE] ?: false
+            val revision = preferences[PreferencesKeys.LOCAL_ALBUM_GROUPING_REVISION] ?: 0L
+            val indexVersion = "$byTitle:$revision"
+            LocalAlbumGroupingSettings(
+                byTitle = byTitle,
+                indexVersion = indexVersion,
+                requiresReindex = indexVersion !=
+                    (preferences[PreferencesKeys.APPLIED_LOCAL_ALBUM_GROUPING_VERSION] ?: "false:0")
+            )
+        }
+
+    internal suspend fun markLocalAlbumGroupingApplied(indexVersion: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.APPLIED_LOCAL_ALBUM_GROUPING_VERSION] = indexVersion
+        }
+    }
+
+    val minTracksPerArtistFlow: Flow<Int> =
+        dataStore.data.map { preferences ->
+            (preferences[PreferencesKeys.MIN_TRACKS_PER_ARTIST] ?: 1).coerceIn(1, 5)
+        }.distinctUntilChanged()
+
+    suspend fun setMinTracksPerArtist(minTracks: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MIN_TRACKS_PER_ARTIST] = minTracks.coerceIn(1, 5)
         }
     }
 
@@ -1297,6 +1368,22 @@ constructor(
                         )
                         .storageKey
             }
+
+    val songsSecondarySortOptionFlow: Flow<SortOption?> =
+        dataStore.data.map { preferences ->
+            val key = preferences[PreferencesKeys.SONGS_SECONDARY_SORT_OPTION]
+            SortOption.SONG_SECONDARY.firstOrNull { it.storageKey == key }
+        }.distinctUntilChanged()
+
+    suspend fun setSongsSecondarySortOption(option: SortOption?) {
+        dataStore.edit { preferences ->
+            if (option == null) {
+                preferences.remove(PreferencesKeys.SONGS_SECONDARY_SORT_OPTION)
+            } else {
+                preferences[PreferencesKeys.SONGS_SECONDARY_SORT_OPTION] = option.storageKey
+            }
+        }
+    }
 
     val albumsSortOptionFlow: Flow<String> =
             dataStore.data.map { preferences ->
@@ -1921,6 +2008,12 @@ constructor(
         }
         .distinctUntilChanged()
 
+    val jellyfinSyncFavoritesFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.JELLYFIN_SYNC_FAVORITES] ?: false
+        }
+        .distinctUntilChanged()
+
     val folderBackGestureNavigationFlow: Flow<Boolean> = dataStore.data
         .map { preferences ->
             preferences[PreferencesKeys.FOLDER_BACK_GESTURE_NAVIGATION] ?: true
@@ -1987,6 +2080,18 @@ constructor(
         }
     }
 
+    suspend fun setJellyfinSyncFavorites(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.JELLYFIN_SYNC_FAVORITES] = enabled
+        }
+    }
+
+    suspend fun clearJellyfinSyncFavorites() {
+        dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.JELLYFIN_SYNC_FAVORITES)
+        }
+    }
+
     suspend fun setFolderBackGestureNavigation(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.FOLDER_BACK_GESTURE_NAVIGATION] = enabled
@@ -2003,9 +2108,9 @@ constructor(
             preferences[PreferencesKeys.ALBUM_ART_QUALITY]
                 ?.let {
                     try { AlbumArtQuality.valueOf(it) }
-                    catch (e: Exception) { AlbumArtQuality.MEDIUM }
+                    catch (e: Exception) { AlbumArtQuality.HIGH }
                 }
-                ?: AlbumArtQuality.MEDIUM
+                ?: AlbumArtQuality.HIGH
         }
 
     suspend fun setAlbumArtQuality(quality: AlbumArtQuality) {

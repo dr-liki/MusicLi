@@ -46,6 +46,8 @@
     <string name="setcat_excluded_directories_subtitle">Quản lý danh sách thư mục bị bỏ qua khi quét</string>
     <string name="setcat_artists_title">Nghệ sĩ</string>
     <string name="setcat_artists_subtitle">Cách phân tách và hiển thị nghệ sĩ</string>
+    <string name="setcat_group_local_albums_by_title">Nhóm album cục bộ theo tên</string>
+    <string name="setcat_group_local_albums_by_title_subtitle">Gộp các bản nhạc cục bộ có cùng tên album, kể cả khi nghệ sĩ album khác nhau. Điều này cũng có thể gộp các album không liên quan có cùng tên.</string>
     <string name="setcat_filtering">Bộ lọc thư viện</string>
     <string name="setcat_min_song_duration">Thời lượng bài hát tối thiểu</string>
     <string name="setcat_min_tracks_per_album">Số bài hát tối thiểu cho mỗi album</string>
@@ -143,6 +145,7 @@
     <string name="setcat_default_tab_label">Thẻ mặc định khi mở app</string>
     <string name="setcat_default_tab_desc">Màn hình xuất hiện đầu tiên khi khởi động ứng dụng</string>
     <string name="tab_home">Trang chủ</string>
+    <string name="tab_explore">Khám phá</string>
     <string name="setcat_library_navigation_label">Điều hướng thư viện</string>
     <string name="setcat_library_navigation_desc">Cách sắp xếp các thẻ trong mục Thư viện</string>
     <string name="setcat_library_nav_tab_row">Hàng thẻ trượt ngang</string>
@@ -181,6 +184,9 @@
     <string name="setcat_audio_output_mode_pcm_float">PCM số thực 32-bit</string>
     <string name="setcat_audio_output_mode_pcm_float_description">Tăng khoảng xử lý cho PCM độ nét cao. Không đảm bảo bit-perfect.</string>
     <string name="setcat_audio_output_mode_pcm_float_unsupported">Thiết bị không hỗ trợ AudioTrack PCM_FLOAT.</string>
+    <string name="setcat_audio_output_mode_bit_perfect_usb">USB bit-perfect (thử nghiệm)</string>
+    <string name="setcat_audio_output_mode_bit_perfect_usb_description">Gửi từng bản nhạc đến DAC USB mà không thay đổi, ở đúng tần số lấy mẫu của bản nhạc. Cần điện thoại và DAC hỗ trợ đầu ra USB bit-perfect, nếu không sẽ dùng đường phát thông thường. Khi đó âm lượng do DAC điều chỉnh và bật bộ cân bằng sẽ làm thay đổi tín hiệu.</string>
+    <string name="setcat_audio_output_mode_bit_perfect_usb_unsupported">Yêu cầu Android 14 trở lên và hỗ trợ đầu ra PCM_FLOAT.</string>
     <string name="setcat_persistent_shuffle_title">Giữ trạng thái xáo trộn</string>
     <string name="setcat_persistent_shuffle_subtitle">Duy trì chế độ phát ngẫu nhiên khi bắt đầu danh sách mới</string>
     <string name="setcat_show_queue_history_title">Hiện lịch sử hàng đợi</string>
