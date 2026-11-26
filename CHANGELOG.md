@@ -4,6 +4,17 @@ All notable changes to PixelPlayerOSS will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-27
+
+### Added
+- Endless circular wrap-around scrolling in the Home Discover carousel on both phone and tablet layouts.
+- Pull-to-refresh and header refresh button in Explore with automatic page rotation for fresh recommendations.
+- Clicking a streaming song's artist now opens the artist's JioSaavn Explore page directly (with picker support for multi-artist tracks).
+- Updated the Found Matches lyrics dialog with pre-filled Title and Artist/Album fields at the top, side-by-side Search and Cancel buttons, and results listed below.
+
+### Changed
+- Removed the Storage Sense icon shortcut from the Explore Downloads header.
+
 ## [1.0.0] - 2026-11-27
 
 Initial independent release of **MusicLi** (`com.drliki.MusicLi`), forked from PixelPlayerOSS `0.4.0`.

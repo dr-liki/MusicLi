@@ -244,7 +244,12 @@ class LyricsStateHolder @Inject constructor(
             if (forcePickResults) {
                 musicRepository.searchRemoteLyrics(song)
                     .onSuccess { (query, results) ->
-                        _searchUiState.value = LyricsSearchUiState.PickResult(query, results.toImmutableList())
+                        _searchUiState.value = LyricsSearchUiState.PickResult(
+                            query = query,
+                            results = results.toImmutableList(),
+                            queryTitle = song.title,
+                            queryArtist = defaultLyricsArtistOrAlbum(song),
+                        )
                     }
                     .onFailure { error ->
                         handleError(error)
@@ -261,7 +266,12 @@ class LyricsStateHolder @Inject constructor(
                         if (error is NoLyricsFoundException) {
                             musicRepository.searchRemoteLyrics(song)
                                 .onSuccess { (query, results) ->
-                                    _searchUiState.value = LyricsSearchUiState.PickResult(query, results.toImmutableList())
+                                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                                        query = query,
+                                        results = results.toImmutableList(),
+                                        queryTitle = song.title,
+                                        queryArtist = defaultLyricsArtistOrAlbum(song),
+                                    )
                                 }
                                 .onFailure { searchError -> handleError(searchError) }
                         } else {
@@ -277,17 +287,31 @@ class LyricsStateHolder @Inject constructor(
      */
     fun searchLyricsManually(title: String, artist: String?) {
         if (title.isBlank()) return
+        val cleanTitle = title.trim()
+        val cleanArtist = artist?.trim()?.takeIf { it.isNotBlank() }
         loadingJob?.cancel()
         pendingLoad = null
         loadingScope = scope
         loadingJob = scope?.launch {
             _searchUiState.value = LyricsSearchUiState.Loading
-            musicRepository.searchRemoteLyricsByQuery(title, artist)
+            musicRepository.searchRemoteLyricsByQuery(cleanTitle, cleanArtist)
                 .onSuccess { (q, results) ->
-                    _searchUiState.value = LyricsSearchUiState.PickResult(q, results.toImmutableList())
+                    _searchUiState.value = LyricsSearchUiState.PickResult(
+                        query = q,
+                        results = results.toImmutableList(),
+                        queryTitle = cleanTitle,
+                        queryArtist = cleanArtist,
+                    )
                 }
                 .onFailure { error -> handleError(error) }
         }
+    }
+
+    private fun defaultLyricsArtistOrAlbum(song: Song): String? {
+        val artist = song.displayArtist
+            .takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+        if (artist != null) return artist
+        return song.album.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
     }
 
     /**

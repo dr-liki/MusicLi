@@ -14,9 +14,11 @@ class ExploreRepository @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
 ) {
     private val feedCache = ConcurrentHashMap<String, ExploreHomeFeed>()
+    private val feedPageOffsets = ConcurrentHashMap<String, Int>()
 
     fun clearFeedCache() {
         feedCache.clear()
+        feedPageOffsets.clear()
     }
 
     private suspend fun baseUrl(): String = userPreferencesRepository.exploreApiBaseUrlFlow.first()
@@ -26,6 +28,11 @@ class ExploreRepository @Inject constructor(
             val langKey = language.lowercase().trim()
             if (!forceRefresh) {
                 feedCache[langKey]?.let { return@runCatching it }
+            }
+            val nextPage = if (forceRefresh) {
+                feedPageOffsets.compute(langKey) { _, prev -> ((prev ?: 0) + 1) % 5 } ?: 0
+            } else {
+                feedPageOffsets[langKey] ?: 0
             }
             val url = baseUrl()
             val langQuery = when (langKey) {
@@ -45,11 +52,11 @@ class ExploreRepository @Inject constructor(
                 else -> "$language singer"
             }
 
-            val feed = coroutineScope {
-                val songsDeferred = async { runCatching { api.searchSongs(url, langQuery, 0, 20) } }
-                val albumsDeferred = async { runCatching { api.searchAlbums(url, albumQuery, 0, 15) } }
-                val playlistsDeferred = async { runCatching { api.searchPlaylists(url, playlistQuery, 0, 15) } }
-                val artistsDeferred = async { runCatching { api.searchArtists(url, artistQuery, 0, 12) } }
+            suspend fun fetchFeedPage(page: Int): ExploreHomeFeed = coroutineScope {
+                val songsDeferred = async { runCatching { api.searchSongs(url, langQuery, page, 20) } }
+                val albumsDeferred = async { runCatching { api.searchAlbums(url, albumQuery, page, 15) } }
+                val playlistsDeferred = async { runCatching { api.searchPlaylists(url, playlistQuery, page, 15) } }
+                val artistsDeferred = async { runCatching { api.searchArtists(url, artistQuery, page, 12) } }
 
                 val songsResult = songsDeferred.await()
                 val albumsResult = albumsDeferred.await()
@@ -77,6 +84,17 @@ class ExploreRepository @Inject constructor(
                     if (failure != null) throw failure
                 }
                 resultFeed
+            }
+
+            var feed = fetchFeedPage(nextPage)
+            if (nextPage > 0 &&
+                feed.trendingSongs.isEmpty() &&
+                feed.topAlbums.isEmpty() &&
+                feed.featuredPlaylists.isEmpty() &&
+                feed.topArtists.isEmpty()
+            ) {
+                feedPageOffsets[langKey] = 0
+                feed = fetchFeedPage(0)
             }
             if (feed.trendingSongs.isNotEmpty() ||
                 feed.topAlbums.isNotEmpty() ||
@@ -187,6 +205,48 @@ class ExploreRepository @Inject constructor(
             topSongs = data.topSongs.orEmpty().mapNotNull { it.toExploreSong() },
             topAlbums = data.topAlbums.orEmpty().mapNotNull { it.toExploreAlbum() },
         )
+    }
+
+    /**
+     * Resolves a JioSaavn artist detail page from a streaming track's Saavn ID and/or artist name.
+     * Prefers structured artist IDs embedded on the song response, falling back to artist search.
+     */
+    suspend fun resolveArtistDetailForStream(
+        saavnSongId: String?,
+        artistName: String,
+    ): Result<ExploreArtist> = runCatching {
+        val url = baseUrl()
+        val cleanName = artistName.trim()
+
+        val idFromSong = if (!saavnSongId.isNullOrBlank()) {
+            runCatching {
+                val songDto = api.getSongById(url, saavnSongId, includeLyrics = false).data?.firstOrNull()
+                val candidates = (songDto?.artists?.primary.orEmpty() + songDto?.artists?.all.orEmpty())
+                    .filter { !it.id.isNullOrBlank() && !it.name.isNullOrBlank() }
+                val exact = candidates.firstOrNull {
+                    cleanName.isNotBlank() && decodeSaavnHtml(it.name).equals(cleanName, ignoreCase = true)
+                }
+                val partial = candidates.firstOrNull {
+                    cleanName.isNotBlank() && decodeSaavnHtml(it.name).contains(cleanName, ignoreCase = true)
+                }
+                (exact ?: partial ?: candidates.firstOrNull())?.id
+            }.getOrNull()
+        } else {
+            null
+        }
+
+        val resolvedId = idFromSong ?: run {
+            require(cleanName.isNotBlank()) { "Artist name unavailable" }
+            val artists = api.searchArtists(url, cleanName, 0, 5).data?.results
+                .orEmpty()
+                .mapNotNull { it.toExploreArtist() }
+            val exact = artists.firstOrNull { it.name.equals(cleanName, ignoreCase = true) }
+            val partial = artists.firstOrNull { it.name.contains(cleanName, ignoreCase = true) }
+            (exact ?: partial ?: artists.firstOrNull())?.id
+                ?: throw IllegalStateException("No JioSaavn artist found for \"$cleanName\"")
+        }
+
+        getArtistDetail(resolvedId).getOrThrow()
     }
 
     private fun SaavnSongDto.toExploreSong(trackNumber: Int = 0): ExploreSong? {

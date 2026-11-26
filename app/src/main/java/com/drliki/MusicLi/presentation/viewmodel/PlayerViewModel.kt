@@ -619,10 +619,18 @@ class PlayerViewModel @Inject constructor(
     private var pendingDeleteSong: Song? = null
     private var pendingDeleteCallback: ((Boolean) -> Unit)? = null
 
+    data class ExploreArtistNavigationRequest(
+        val saavnSongId: String?,
+        val artistName: String,
+    )
+
     private val _albumNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val albumNavigationRequests = _albumNavigationRequests.asSharedFlow()
     private val _artistNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val artistNavigationRequests = _artistNavigationRequests.asSharedFlow()
+    private val _exploreArtistNavigationRequests = MutableStateFlow<ExploreArtistNavigationRequest?>(null)
+    val exploreArtistNavigationRequests: StateFlow<ExploreArtistNavigationRequest?> =
+        _exploreArtistNavigationRequests.asStateFlow()
     private val _searchNavDoubleTapEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val searchNavDoubleTapEvents = _searchNavDoubleTapEvents.asSharedFlow()
     
@@ -2428,6 +2436,13 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun triggerArtistNavigationFromPlayer(artistId: Long) {
+        val initialSong = playbackStateHolder.stablePlayerState.value.currentSong
+        if (initialSong != null && initialSong.id.startsWith("saavn_")) {
+            val saavnId = initialSong.id.removePrefix("saavn_").takeIf { it.isNotBlank() }
+            triggerExploreArtistNavigation(saavnId, initialSong.displayArtist)
+            return
+        }
+
         if (artistId == 0L) {
             Timber.tag("ArtistDebug").d("triggerArtistNavigationFromPlayer ignored invalid artistId=$artistId")
             return
@@ -2468,6 +2483,32 @@ class PlayerViewModel @Inject constructor(
 
             _artistNavigationRequests.emit(resolvedId)
         }
+    }
+
+    /**
+     * Collapses the player sheet and opens the matching artist page in JioSaavn Explore
+     * when the user taps an artist on a streaming track.
+     */
+    fun triggerExploreArtistNavigation(saavnSongId: String?, artistName: String) {
+        val cleanName = artistName.trim()
+        if (saavnSongId.isNullOrBlank() && cleanName.isBlank()) return
+
+        artistNavigationJob?.cancel()
+        artistNavigationJob = viewModelScope.launch {
+            collapsePlayerSheet()
+            withTimeoutOrNull(900) {
+                awaitSheetState(PlayerSheetState.COLLAPSED)
+                awaitPlayerCollapse()
+            }
+            _exploreArtistNavigationRequests.value = ExploreArtistNavigationRequest(
+                saavnSongId = saavnSongId,
+                artistName = cleanName,
+            )
+        }
+    }
+
+    fun consumeExploreArtistNavigation() {
+        _exploreArtistNavigationRequests.value = null
     }
 
     suspend fun awaitSheetState(target: PlayerSheetState) {

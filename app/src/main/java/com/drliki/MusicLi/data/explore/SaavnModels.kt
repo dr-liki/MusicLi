@@ -17,8 +17,8 @@ val Song.saavnId: String?
 
 fun decodeSaavnHtml(raw: String?): String {
     if (raw.isNullOrBlank()) return ""
-    return HtmlCompat.fromHtml(raw, HtmlCompat.FROM_HTML_MODE_LEGACY)
-        .toString()
+    val decoded = HtmlCompat.fromHtml(raw, HtmlCompat.FROM_HTML_MODE_LEGACY)?.toString() ?: raw
+    return decoded
         .replace('\u00A0', ' ')
         .trim()
 }

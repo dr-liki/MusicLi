@@ -67,7 +67,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -115,6 +119,8 @@ fun ExploreScreen(
     paddingValuesParent: PaddingValues,
     onOpenDownloads: () -> Unit,
     onOpenSettings: () -> Unit,
+    pendingArtistRequest: PlayerViewModel.ExploreArtistNavigationRequest? = null,
+    onConsumeArtistRequest: () -> Unit = {},
     playerViewModel: PlayerViewModel = sharedPlayerViewModel(),
     exploreViewModel: ExploreViewModel = hiltViewModel(),
 ) {
@@ -125,6 +131,12 @@ fun ExploreScreen(
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
+
+    LaunchedEffect(pendingArtistRequest) {
+        val req = pendingArtistRequest ?: return@LaunchedEffect
+        exploreViewModel.openArtistFromStream(req.saavnSongId, req.artistName)
+        onConsumeArtistRequest()
+    }
 
     val activeDownloadCount = downloads.count {
         it.status == ExploreDownloadStatus.QUEUED || it.status == ExploreDownloadStatus.DOWNLOADING
@@ -169,10 +181,25 @@ fun ExploreScreen(
         }
     }
 
-    Box(
+    val pullToRefreshState = rememberPullToRefreshState()
+    val isRefreshing = uiState.isRefreshingFeed
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = exploreViewModel::refreshExplore,
+        state = pullToRefreshState,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = statusBarTop + 8.dp),
+            )
+        },
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -201,6 +228,18 @@ fun ExploreScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        FilledTonalIconButton(
+                            onClick = exploreViewModel::refreshExplore,
+                            enabled = !uiState.isLoadingFeed && !uiState.isRefreshingFeed,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = stringResource(R.string.home_empty_placeholder_refresh),
+                            )
+                        }
                         FilledTonalIconButton(
                             onClick = onOpenDownloads,
                             colors = IconButtonDefaults.filledTonalIconButtonColors(

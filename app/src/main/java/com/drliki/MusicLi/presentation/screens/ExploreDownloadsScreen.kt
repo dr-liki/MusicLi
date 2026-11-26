@@ -139,12 +139,6 @@ fun ExploreDownloadsScreen(
                             Text("Clear completed")
                         }
                     }
-                    IconButton(onClick = onOpenStorageSense) {
-                        Icon(
-                            imageVector = Icons.Rounded.Storage,
-                            contentDescription = "Storage Sense",
-                        )
-                    }
                     IconButton(onClick = { showOptionsSheet = true }) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,

@@ -8,6 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
+import com.drliki.MusicLi.data.explore.isExploreStream
+import com.drliki.MusicLi.data.explore.saavnId
 import com.drliki.MusicLi.data.model.Song
 import com.drliki.MusicLi.presentation.navigation.Screen
 import com.drliki.MusicLi.presentation.navigation.navigateSafelyReplacing
@@ -101,7 +103,12 @@ internal fun rememberSheetActionHandlers(
             playerViewModelState.value.collapsePlayerSheet()
             queueSheetControllerState.value.animate(false)
             sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
-            if (song.artistId != -1L) {
+            if (song.isExploreStream) {
+                playerViewModelState.value.triggerExploreArtistNavigation(
+                    saavnSongId = song.saavnId,
+                    artistName = song.displayArtist
+                )
+            } else if (song.artistId != -1L) {
                 navController.navigateSafelyReplacing(
                     route = Screen.ArtistDetail.createRoute(song.artistId),
                     patternToPop = Screen.ArtistDetail.route

@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import com.drliki.MusicLi.R
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -175,6 +176,7 @@ fun AppNavigation(
                 },
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel) {
+                    val pendingArtistRequest by playerViewModel.exploreArtistNavigationRequests.collectAsStateWithLifecycle()
                     ExploreScreen(
                         paddingValuesParent = paddingValues,
                         onOpenDownloads = {
@@ -183,6 +185,8 @@ fun AppNavigation(
                         onOpenSettings = {
                             navController.navigateSafely(Screen.Settings.route)
                         },
+                        pendingArtistRequest = pendingArtistRequest,
+                        onConsumeArtistRequest = playerViewModel::consumeExploreArtistNavigation,
                         playerViewModel = playerViewModel,
                     )
                 }

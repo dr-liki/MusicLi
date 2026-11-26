@@ -443,6 +443,24 @@ class PlayerViewModelTest {
     }
 
     @Test
+    fun `tapping artist on Explore stream song emits JioSaavn Explore artist request`() = runTest {
+        playerViewModel.triggerExploreArtistNavigation("song_77", "Pritam")
+        advanceUntilIdle()
+
+        val request = playerViewModel.exploreArtistNavigationRequests.value
+        assertEquals(
+            PlayerViewModel.ExploreArtistNavigationRequest(
+                saavnSongId = "song_77",
+                artistName = "Pritam"
+            ),
+            request
+        )
+
+        playerViewModel.consumeExploreArtistNavigation()
+        assertEquals(null, playerViewModel.exploreArtistNavigationRequests.value)
+    }
+
+    @Test
     fun `album navigation from player uses the reindexed album for a queued local track`() = runTest {
         val queuedSong = Song.emptySong().copy(id = "10", albumId = 201L)
         coEvery { mockMusicRepository.getSongsByIdsOnce(listOf(queuedSong.id)) } returns

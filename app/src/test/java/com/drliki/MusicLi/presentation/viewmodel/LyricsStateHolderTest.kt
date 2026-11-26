@@ -84,6 +84,65 @@ class LyricsStateHolderTest {
         coVerify(exactly = 0) { musicRepository.searchRemoteLyrics(any()) }
     }
 
+    @Test
+    fun fetchLyrics_pickResultPrefillsAlbumWhenArtistUnknownAndRetainsManualQuery() = runTest {
+        val musicRepository = mockk<MusicRepository>(relaxed = true)
+        val userPreferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
+        val songMetadataEditor = mockk<SongMetadataEditor>(relaxed = true)
+        val holder = LyricsStateHolder(
+            musicRepository = musicRepository,
+            userPreferencesRepository = userPreferencesRepository,
+            songMetadataEditor = songMetadataEditor
+        )
+        val callback = RecordingLyricsLoadCallback()
+        val state = MutableStateFlow(StablePlayerState())
+        val song = testSong(albumArtUriString = null).copy(
+            artist = "<unknown>",
+            album = "After Hours"
+        )
+        val sampleResult = com.drliki.MusicLi.data.repository.LyricsSearchResult(
+            id = "res_1",
+            providerId = com.drliki.MusicLi.data.network.lyrics.providers.LyricsProviderId.LRCLIB,
+            providerLabel = "LRCLIB",
+            title = "Indian Summer",
+            artistName = "Blood Cultures",
+            albumName = "After Hours",
+            durationSec = 295.0,
+            hasSyncedContent = false,
+            lyrics = Lyrics(plain = listOf("line"), areFromRemote = true),
+            rawLyrics = "line",
+        )
+
+        holder.initialize(backgroundScope, callback, state)
+        coEvery { musicRepository.searchRemoteLyrics(song) } returns Result.success("Indian Summer" to listOf(sampleResult))
+        coEvery {
+            musicRepository.searchRemoteLyricsByQuery("Custom Title", "Custom Album")
+        } returns Result.success("Custom Title Custom Album" to listOf(sampleResult))
+
+        holder.searchUiState.test {
+            assertThat(awaitItem()).isEqualTo(LyricsSearchUiState.Idle)
+
+            holder.fetchLyricsForSong(
+                song = song,
+                forcePickResults = true,
+                sourcePreference = com.drliki.MusicLi.data.model.LyricsSourcePreference.API_FIRST
+            ) { "" }
+
+            assertThat(awaitItem()).isEqualTo(LyricsSearchUiState.Loading)
+            val initialPick = awaitItem() as LyricsSearchUiState.PickResult
+            assertThat(initialPick.queryTitle).isEqualTo("Indian Summer")
+            assertThat(initialPick.queryArtist).isEqualTo("After Hours")
+
+            holder.searchLyricsManually("  Custom Title  ", "  Custom Album  ")
+
+            assertThat(awaitItem()).isEqualTo(LyricsSearchUiState.Loading)
+            val updatedPick = awaitItem() as LyricsSearchUiState.PickResult
+            assertThat(updatedPick.queryTitle).isEqualTo("Custom Title")
+            assertThat(updatedPick.queryArtist).isEqualTo("Custom Album")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private fun testSong(albumArtUriString: String?): Song {
         return Song(
             id = "1",

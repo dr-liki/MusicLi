@@ -1,5 +1,6 @@
 package com.drliki.MusicLi.presentation.components.scoped
 
+import com.drliki.MusicLi.presentation.navigation.navigateSafely
 import com.drliki.MusicLi.presentation.navigation.navigateSafelyReplacing
 
 import androidx.compose.runtime.Composable
@@ -28,6 +29,15 @@ internal fun PlayerArtistNavigationEffect(
                 route = Screen.ArtistDetail.createRoute(artistId),
                 patternToPop = Screen.ArtistDetail.route
             )
+        }
+    }
+    LaunchedEffect(navController) {
+        playerViewModel.exploreArtistNavigationRequests.collectLatest { request ->
+            if (request != null) {
+                sheetMotionController.snapCollapsed(latestSheetCollapsedTargetY)
+                playerViewModel.collapsePlayerSheet()
+                navController.navigateSafely(Screen.Explore.route)
+            }
         }
     }
 }

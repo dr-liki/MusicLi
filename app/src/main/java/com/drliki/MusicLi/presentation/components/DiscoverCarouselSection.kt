@@ -1,6 +1,5 @@
 package com.drliki.MusicLi.presentation.components
 
-import android.content.res.Configuration
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,13 +38,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.carousel.CarouselDefaults
-import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
-import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +69,23 @@ import com.drliki.MusicLi.data.model.Album
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val CIRCULAR_LOOP_MULTIPLIER = 1_000
+
+internal fun circularCarouselPageCount(itemCount: Int): Int =
+    if (itemCount <= 1) itemCount.coerceAtLeast(0) else itemCount * CIRCULAR_LOOP_MULTIPLIER
+
+internal fun circularCarouselInitialPage(itemCount: Int): Int {
+    if (itemCount <= 1) return 0
+    val total = circularCarouselPageCount(itemCount)
+    val mid = total / 2
+    return mid - (mid % itemCount)
+}
+
+internal fun circularCarouselItemIndex(page: Int, itemCount: Int): Int {
+    if (itemCount <= 0) return 0
+    return Math.floorMod(page, itemCount)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -111,302 +127,159 @@ fun DiscoverCarouselSection(
         Size(wPx, hPx)
     }
 
+    val totalPages = circularCarouselPageCount(albums.size)
+    val pagerState = rememberPagerState(
+        initialPage = circularCarouselInitialPage(albums.size),
+        pageCount = { totalPages }
+    )
+
+    // Re-center into the middle of the virtual loop if the user ever reaches near either end.
+    LaunchedEffect(pagerState.settledPage, albums.size) {
+        if (albums.size > 1 && totalPages > 0) {
+            val page = pagerState.settledPage
+            if (page < albums.size || page >= totalPages - albums.size) {
+                val recentered = circularCarouselInitialPage(albums.size) +
+                    circularCarouselItemIndex(page, albums.size)
+                pagerState.scrollToPage(recentered)
+            }
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, albums.size) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && albums.isNotEmpty() && !pagerState.isScrollInProgress) {
+                coroutineScope.launch {
+                    val safePage = pagerState.currentPage.coerceIn(0, (totalPages - 1).coerceAtLeast(0))
+                    pagerState.scrollToPage(safePage)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(albums.size, autoScroll) {
+        if (autoScroll && albums.size > 1) {
+            while (true) {
+                delay(4500)
+                if (!pagerState.isScrollInProgress) {
+                    val nextPage = (pagerState.currentPage + 1).coerceAtMost(totalPages - 1)
+                    pagerState.animateScrollToPage(
+                        page = nextPage,
+                        animationSpec = tween(durationMillis = 850)
+                    )
+                }
+            }
+        }
+    }
+
+    val singlePageFling = PagerDefaults.flingBehavior(
+        state = pagerState,
+        pagerSnapDistance = PagerSnapDistance.atMost(1)
+    )
+
     if (useNavigationRail) {
-        // Wide screen / Tablet layout: multi-browse card carousel
-        val carouselState = rememberCarouselState { albums.size }
-
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
-                        coroutineScope.launch {
-                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                        }
-                    }
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-        }
-
-        LaunchedEffect(albums.size, autoScroll) {
-            if (autoScroll && albums.size > 1) {
-                while (true) {
-                    delay(4500)
-                    if (!carouselState.isScrollInProgress) {
-                        val nextItem = (carouselState.currentItem + 1) % albums.size
-                        carouselState.animateScrollToItem(
-                            nextItem,
-                            animationSpec = tween(durationMillis = 850)
-                        )
-                    }
-                }
-            }
-        }
-
-        val preferredItemWidth = if (configuration.screenWidthDp >= 840) 360.dp else 300.dp
         val horizontalPadding = if (configuration.screenWidthDp >= 840) 24.dp else 16.dp
-
-        Column(
+        HorizontalPager(
+            state = pagerState,
+            pageSize = PageSize.Fixed(preferredItemWidth),
+            pageSpacing = 16.dp,
+            contentPadding = PaddingValues(horizontal = horizontalPadding),
+            beyondViewportPageCount = 2,
+            flingBehavior = singlePageFling,
+            key = { page -> "rail_${page}_${albums[circularCarouselItemIndex(page, albums.size)].id}" },
             modifier = modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp, bottom = 8.dp)
-        ) {
-            HorizontalMultiBrowseCarousel(
-                state = carouselState,
-                preferredItemWidth = preferredItemWidth,
-                itemSpacing = 16.dp,
-                contentPadding = PaddingValues(horizontal = horizontalPadding),
-                minSmallItemWidth = 48.dp,
-                maxSmallItemWidth = 140.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(290.dp)
-            ) { page ->
-                val album = albums.getOrNull(page) ?: return@HorizontalMultiBrowseCarousel
-                Card(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAlbumClick(album)
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .maskClip(MaterialTheme.shapes.extraLarge),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                .height(290.dp)
+        ) { page ->
+            val album = albums[circularCarouselItemIndex(page, albums.size)]
+            Card(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onAlbumClick(album)
+                },
+                modifier = Modifier.fillMaxSize(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SmartImage(
+                        model = album.albumArtUriString,
+                        contentDescription = stringResource(R.string.cd_album_art_for_title, album.title),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        targetSize = tabletTargetSize,
+                        allowHardware = true
                     )
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        SmartImage(
-                            model = album.albumArtUriString,
-                            contentDescription = stringResource(R.string.cd_album_art_for_title, album.title),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            targetSize = tabletTargetSize,
-                            allowHardware = true
-                        )
 
-                        if (showGradient) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Transparent,
-                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
-                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                                            )
+                    if (showGradient) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                                         )
                                     )
-                            )
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            if (showAlbumName) {
-                                Text(
-                                    text = album.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
                                 )
-                            }
-
-                            if (showArtistName) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = album.artist,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    if (showPlayButton) {
-                                        Button(
-                                            onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                onPlayAlbum(album)
-                                            },
-                                            shape = RoundedCornerShape(percent = 50),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                            modifier = Modifier.height(38.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = stringResource(R.string.home_discover_action_play),
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    if (showNextButton) {
-                                        FilledTonalButton(
-                                            onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                onPlayAlbumNext(album)
-                                            },
-                                            shape = RoundedCornerShape(percent = 50),
-                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
-                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                            modifier = Modifier.height(38.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.SkipNext,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = stringResource(R.string.home_discover_action_next),
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    if (showQueueButton) {
-                                        FilledTonalButton(
-                                            onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                onAddAlbumToQueue(album)
-                                            },
-                                            shape = RoundedCornerShape(percent = 50),
-                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
-                                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                            modifier = Modifier.height(38.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = stringResource(R.string.home_discover_action_queue),
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    if (showYear && album.year > 0) {
-                                        Text(
-                                            text = album.year.toString(),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                    if (album.songCount > 0) {
-                                        Text(
-                                            text = stringResource(R.string.home_discover_tracks_count, album.songCount),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        )
                     }
+
+                    DiscoverCardOverlayContent(
+                        album = album,
+                        isTablet = true,
+                        showAlbumName = showAlbumName,
+                        showArtistName = showArtistName,
+                        showYear = showYear,
+                        showPlayButton = showPlayButton,
+                        showNextButton = showNextButton,
+                        showQueueButton = showQueueButton,
+                        onPlay = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayAlbum(album)
+                        },
+                        onPlayNext = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayAlbumNext(album)
+                        },
+                        onAddToQueue = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAddAlbumToQueue(album)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    )
                 }
             }
         }
     } else {
-        // Phone / Compact layout: uncontained hero carousel
-        val carouselState = rememberCarouselState { albums.size }
-
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
-                        coroutineScope.launch {
-                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                        }
-                    }
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-        }
-
-        LaunchedEffect(albums.size, autoScroll) {
-            if (autoScroll && albums.size > 1) {
-                if (!carouselState.isScrollInProgress) {
-                    carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                }
-                while (true) {
-                    delay(4500)
-                    if (!carouselState.isScrollInProgress) {
-                        val currentItem = carouselState.currentItem
-                        val nextItem = (currentItem + 1) % albums.size
-                        carouselState.animateScrollToItem(
-                            nextItem,
-                            animationSpec = tween(durationMillis = 850)
-                        )
-                    }
-                }
-            }
-        }
-
         val headerHeight = if (isCompactHeight) 280.dp else screenWidth
-
         Box(
             modifier = modifier
                 .fillMaxWidth()
                 .height(headerHeight)
         ) {
-            HorizontalUncontainedCarousel(
-                state = carouselState,
-                itemWidth = screenWidth,
-                itemSpacing = 0.dp,
+            HorizontalPager(
+                state = pagerState,
+                pageSize = PageSize.Fill,
+                pageSpacing = 0.dp,
                 contentPadding = PaddingValues(0.dp),
-                flingBehavior = CarouselDefaults.singleAdvanceFlingBehavior(state = carouselState),
+                beyondViewportPageCount = 1,
+                flingBehavior = singlePageFling,
+                key = { page -> "phone_${page}_${albums[circularCarouselItemIndex(page, albums.size)].id}" },
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                val album = albums.getOrNull(page) ?: return@HorizontalUncontainedCarousel
-
+                val album = albums[circularCarouselItemIndex(page, albums.size)]
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -445,156 +318,205 @@ fun DiscoverCarouselSection(
                         )
                     }
 
-                    Column(
+                    DiscoverCardOverlayContent(
+                        album = album,
+                        isTablet = false,
+                        showAlbumName = showAlbumName,
+                        showArtistName = showArtistName,
+                        showYear = showYear,
+                        showPlayButton = showPlayButton,
+                        showNextButton = showNextButton,
+                        showQueueButton = showQueueButton,
+                        onPlay = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayAlbum(album)
+                        },
+                        onPlayNext = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayAlbumNext(album)
+                        },
+                        onAddToQueue = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAddAlbumToQueue(album)
+                        },
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DiscoverCardOverlayContent(
+    album: Album,
+    isTablet: Boolean,
+    showAlbumName: Boolean,
+    showArtistName: Boolean,
+    showYear: Boolean,
+    showPlayButton: Boolean,
+    showNextButton: Boolean,
+    showQueueButton: Boolean,
+    onPlay: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonHeight = if (isTablet) 38.dp else 40.dp
+    val iconSize = if (isTablet) 16.dp else 18.dp
+    val labelStyle = if (isTablet) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge
+    val hPad = if (isTablet) 12.dp else 12.dp
+    val vPad = if (isTablet) 6.dp else 8.dp
+
+    Column(modifier = modifier) {
+        if (showAlbumName) {
+            Text(
+                text = album.title,
+                style = if (isTablet) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isTablet) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (showArtistName) {
+            Spacer(modifier = Modifier.height(if (isTablet) 2.dp else 4.dp))
+            Text(
+                text = album.artist,
+                style = if (isTablet) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(modifier = Modifier.height(if (isTablet) 12.dp else 16.dp))
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (isTablet) 8.dp else 6.dp)
+            ) {
+                if (showPlayButton) {
+                    Button(
+                        onClick = onPlay,
+                        shape = RoundedCornerShape(percent = 50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = vPad),
+                        modifier = Modifier.height(buttonHeight)
                     ) {
-                        if (showAlbumName) {
-                            Text(
-                                text = album.title,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(iconSize)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.home_discover_action_play),
+                            style = labelStyle,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (showNextButton) {
+                    FilledTonalButton(
+                        onClick = onPlayNext,
+                        shape = RoundedCornerShape(percent = 50),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        contentPadding = PaddingValues(horizontal = hPad, vertical = vPad),
+                        modifier = Modifier.height(buttonHeight)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = null,
+                            modifier = Modifier.size(iconSize)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.home_discover_action_next),
+                            style = labelStyle,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (showQueueButton) {
+                    FilledTonalButton(
+                        onClick = onAddToQueue,
+                        shape = RoundedCornerShape(percent = 50),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ),
+                        contentPadding = PaddingValues(horizontal = hPad, vertical = vPad),
+                        modifier = Modifier.height(buttonHeight)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(iconSize)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.home_discover_action_queue),
+                            style = labelStyle,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (isTablet) 6.dp else 8.dp)
+            ) {
+                if (showYear && album.year > 0) {
+                    Text(
+                        text = album.year.toString(),
+                        style = if (isTablet) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
+                        fontWeight = if (isTablet) FontWeight.Bold else FontWeight.Black,
+                        color = if (isTablet) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        } else {
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
                         }
-
-                        if (showArtistName) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = album.artist,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            itemVerticalAlignment = Alignment.CenterVertically
+                    )
+                }
+                if (album.songCount > 0) {
+                    val countText = stringResource(R.string.home_discover_tracks_count, album.songCount)
+                    if (isTablet) {
+                        Text(
+                            text = countText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                if (showPlayButton) {
-                                    Button(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onPlayAlbum(album)
-                                        },
-                                        shape = RoundedCornerShape(percent = 50),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(40.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PlayArrow,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.home_discover_action_play),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                                if (showNextButton) {
-                                    FilledTonalButton(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onPlayAlbumNext(album)
-                                        },
-                                        shape = RoundedCornerShape(percent = 50),
-                                        colors = ButtonDefaults.filledTonalButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
-                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(40.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.SkipNext,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.home_discover_action_next),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                                if (showQueueButton) {
-                                    FilledTonalButton(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onAddAlbumToQueue(album)
-                                        },
-                                        shape = RoundedCornerShape(percent = 50),
-                                        colors = ButtonDefaults.filledTonalButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
-                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                        modifier = Modifier.height(40.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.home_discover_action_queue),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (showYear && album.year > 0) {
-                                    Text(
-                                        text = album.year.toString(),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
-                                    )
-                                }
-                                if (album.songCount > 0) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.home_discover_tracks_count, album.songCount),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
+                            Text(
+                                text = countText,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }

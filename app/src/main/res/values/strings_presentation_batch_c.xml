@@ -27,6 +27,7 @@
 
     <string name="lyrics_synced_badge">SYNCED</string>
     <string name="song_field_artist_optional">Artist (optional)</string>
+    <string name="song_field_artist_or_album_optional">Artist or album (optional)</string>
 
     <string name="song_picker_title">Add songs</string>
     <string name="cd_confirm_add_songs">Add selected songs</string>

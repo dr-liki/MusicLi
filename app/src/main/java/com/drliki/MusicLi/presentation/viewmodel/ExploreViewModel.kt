@@ -49,6 +49,7 @@ data class ExploreUiState(
     val selectedLanguage: String = "All",
     val selectedFilter: ExploreFilterTab = ExploreFilterTab.ALL,
     val isLoadingFeed: Boolean = true,
+    val isRefreshingFeed: Boolean = false,
     val feed: ExploreHomeFeed = ExploreHomeFeed(),
     val feedError: String? = null,
     val isSearching: Boolean = false,
@@ -175,19 +176,55 @@ class ExploreViewModel @Inject constructor(
 
     fun loadFeed(language: String = _uiState.value.selectedLanguage, forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingFeed = true, feedError = null) }
+            val hasExistingContent = !_uiState.value.feed.let {
+                it.trendingSongs.isEmpty() && it.topAlbums.isEmpty() &&
+                    it.featuredPlaylists.isEmpty() && it.topArtists.isEmpty()
+            }
+            _uiState.update {
+                if (forceRefresh && hasExistingContent) {
+                    it.copy(isRefreshingFeed = true, feedError = null)
+                } else {
+                    it.copy(isLoadingFeed = true, isRefreshingFeed = false, feedError = null)
+                }
+            }
             exploreRepository.getHomeFeed(language, forceRefresh)
                 .onSuccess { feed ->
-                    _uiState.update { it.copy(isLoadingFeed = false, feed = feed, feedError = null) }
+                    _uiState.update {
+                        it.copy(
+                            isLoadingFeed = false,
+                            isRefreshingFeed = false,
+                            feed = feed,
+                            feedError = null,
+                        )
+                    }
                 }
                 .onFailure { err ->
                     _uiState.update {
                         it.copy(
                             isLoadingFeed = false,
+                            isRefreshingFeed = false,
                             feedError = err.message ?: "Unable to load Explore feed",
                         )
                     }
                 }
+        }
+    }
+
+    /**
+     * Refreshes the active Explore content: re-runs the current search if a query is active,
+     * otherwise fetches a fresh page of feed content bypassing the in-memory feed cache.
+     */
+    fun refreshExplore() {
+        val currentQuery = _uiState.value.query.trim()
+        if (currentQuery.isNotBlank()) {
+            searchJob?.cancel()
+            searchJob = viewModelScope.launch {
+                _uiState.update { it.copy(isRefreshingFeed = true) }
+                executeSearch(currentQuery)
+                _uiState.update { it.copy(isRefreshingFeed = false) }
+            }
+        } else {
+            loadFeed(language = _uiState.value.selectedLanguage, forceRefresh = true)
         }
     }
 
@@ -280,6 +317,23 @@ class ExploreViewModel @Inject constructor(
                 .onSuccess { detail -> _detailState.value = ExploreDetailState.ArtistDetail(detail) }
                 .onFailure { err ->
                     _detailState.value = ExploreDetailState.Error(artist.name, err.message ?: "Failed to load artist")
+                }
+        }
+    }
+
+    /**
+     * Opens the JioSaavn artist detail sheet for a streaming track by resolving the artist ID
+     * from its Saavn track metadata or falling back to artist search by name.
+     */
+    fun openArtistFromStream(saavnSongId: String?, artistName: String) {
+        val label = artistName.trim().ifBlank { "Artist" }
+        detailJob?.cancel()
+        _detailState.value = ExploreDetailState.Loading(label)
+        detailJob = viewModelScope.launch {
+            exploreRepository.resolveArtistDetailForStream(saavnSongId, artistName)
+                .onSuccess { detail -> _detailState.value = ExploreDetailState.ArtistDetail(detail) }
+                .onFailure { err ->
+                    _detailState.value = ExploreDetailState.Error(label, err.message ?: "Failed to load artist")
                 }
         }
     }

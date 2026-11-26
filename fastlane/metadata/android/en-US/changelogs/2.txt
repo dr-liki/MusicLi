@@ -1,0 +1,5 @@
+- Circular endless wrap-around scrolling in the Home Discover carousel on phone and tablet layouts.
+- Pull-to-refresh and header refresh button in Explore with page rotation for fresh recommendations.
+- Removed the Storage Sense icon shortcut from the Explore Downloads header.
+- Pressing an artist while playing a streaming song now opens that artist in JioSaavn Explore.
+- Updated the Found Matches lyrics dialog with pre-filled Title and Artist/Album fields above side-by-side Search and Cancel buttons.

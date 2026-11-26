@@ -162,6 +162,8 @@ import com.drliki.MusicLi.utils.LyricsImportValidationResult
 import com.drliki.MusicLi.utils.ValidatedLyricsImport
 import com.drliki.MusicLi.utils.formatDuration
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -513,12 +515,44 @@ fun FullPlayerContent(
         onShowQueueClicked()
     }
 
-    val onSongMetadataArtistClick = {
-        val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: song.artistId
-        if (currentSongArtists.size > 1) {
-            showArtistPicker = true
+    val streamingArtists: ImmutableList<Artist> = remember(isExploreStreamSong, song.id, song.displayArtist) {
+        if (!isExploreStreamSong) {
+            persistentListOf()
         } else {
-            playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+            song.displayArtist
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+                .distinct()
+                .mapIndexed { idx, name ->
+                    Artist(
+                        id = -(idx + 1L),
+                        name = name,
+                        songCount = 0
+                    )
+                }
+                .toImmutableList()
+        }
+    }
+    val pickerArtists = remember(isExploreStreamSong, currentSongArtists, streamingArtists) {
+        if (isExploreStreamSong && currentSongArtists.isEmpty()) streamingArtists else currentSongArtists
+    }
+
+    val onSongMetadataArtistClick = {
+        if (isExploreStreamSong) {
+            if (pickerArtists.size > 1) {
+                showArtistPicker = true
+            } else {
+                val targetName = pickerArtists.firstOrNull()?.name ?: song.displayArtist
+                playerViewModel.triggerExploreArtistNavigation(exploreSaavnId, targetName)
+            }
+        } else {
+            val resolvedArtistId = currentSongArtists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: song.artistId
+            if (currentSongArtists.size > 1) {
+                showArtistPicker = true
+            } else {
+                playerViewModel.triggerArtistNavigationFromPlayer(resolvedArtistId)
+            }
         }
     }
 
@@ -1127,14 +1161,18 @@ fun FullPlayerContent(
     }
 
     val artistPickerSheetState = rememberModalSheetState(skipPartiallyExpanded = true)
-    if (showArtistPicker && currentSongArtists.isNotEmpty()) {
+    if (showArtistPicker && pickerArtists.isNotEmpty()) {
         PlayerArtistPickerBottomSheet(
             song = song,
-            artists = currentSongArtists,
+            artists = pickerArtists,
             sheetState = artistPickerSheetState,
             onDismiss = { showArtistPicker = false },
             onArtistClick = { artist ->
-                playerViewModel.triggerArtistNavigationFromPlayer(artist.id)
+                if (isExploreStreamSong) {
+                    playerViewModel.triggerExploreArtistNavigation(exploreSaavnId, artist.name)
+                } else {
+                    playerViewModel.triggerArtistNavigationFromPlayer(artist.id)
+                }
                 showArtistPicker = false
             }
         )

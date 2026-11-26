@@ -19,7 +19,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.MusicNote
@@ -31,7 +34,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -49,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -115,7 +121,12 @@ fun FetchLyricsDialog(
                         PickResultContent(
                             currentSong = currentSong,
                             results = uiState.results,
+                            initialTitle = uiState.queryTitle.ifBlank { currentSong?.title.orEmpty() },
+                            initialArtist = uiState.queryArtist ?: defaultArtistOrAlbum(currentSong),
                             onPickResult = onPickResult,
+                            onManualSearch = { title, artist ->
+                                onManualSearch(title, artist)
+                            },
                             onCancel = onDismiss
                         )
                     }
@@ -123,7 +134,7 @@ fun FetchLyricsDialog(
                         NotFoundContent(
                             message = uiState.message,
                             initialTitle = currentSong?.title.orEmpty(),
-                            initialArtist = currentSong?.displayArtist,
+                            initialArtist = defaultArtistOrAlbum(currentSong),
                             onManualSearch = { title, artist ->
                                 onManualSearch(title, artist)
                             },
@@ -301,13 +312,103 @@ private fun LoadingContent() {
     }
 }
 
+private fun defaultArtistOrAlbum(song: Song?): String? {
+    if (song == null) return null
+    val artist = song.displayArtist
+        .takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+    if (artist != null) return artist
+    return song.album.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
+}
+
+private fun normalizeLyricsField(value: String?): String =
+    value?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }.orEmpty()
+
+@Composable
+private fun LyricsQueryFields(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    artist: String,
+    onArtistChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(R.string.song_field_title),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge
+        )
+        OutlinedTextField(
+            value = title,
+            onValueChange = onTitleChange,
+            placeholder = { Text(stringResource(R.string.song_field_title)) },
+            trailingIcon = if (title.isNotEmpty()) {
+                {
+                    IconButton(onClick = { onTitleChange("") }) {
+                        Icon(Icons.Rounded.Clear, contentDescription = null)
+                    }
+                }
+            } else {
+                null
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(R.string.song_field_artist_or_album_optional),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge
+        )
+        OutlinedTextField(
+            value = artist,
+            onValueChange = onArtistChange,
+            placeholder = { Text(stringResource(R.string.song_field_artist_or_album_optional)) },
+            trailingIcon = if (artist.isNotEmpty()) {
+                {
+                    IconButton(onClick = { onArtistChange("") }) {
+                        Icon(Icons.Rounded.Clear, contentDescription = null)
+                    }
+                }
+            } else {
+                null
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    if (title.isNotBlank()) onSearch()
+                }
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+    }
+}
+
 @Composable
 private fun PickResultContent(
     currentSong: Song?,
     results: ImmutableList<LyricsSearchResult>,
+    initialTitle: String,
+    initialArtist: String?,
     onPickResult: (LyricsSearchResult) -> Unit,
+    onManualSearch: (String, String?) -> Unit,
     onCancel: () -> Unit
 ) {
+    var title by rememberSaveable(currentSong?.id, initialTitle) {
+        mutableStateOf(initialTitle)
+    }
+    var artist by rememberSaveable(currentSong?.id, initialArtist) {
+        mutableStateOf(normalizeLyricsField(initialArtist))
+    }
+    val submitSearch = {
+        onManualSearch(title, artist.takeIf { it.isNotBlank() })
+    }
+
     Text(
         text = stringResource(R.string.found_n_matches_format).format(results.size),
         style = MaterialTheme.typography.headlineSmall,
@@ -333,12 +434,51 @@ private fun PickResultContent(
         }
     }
 
-    Spacer(modifier = Modifier.height(20.dp))
+    Spacer(modifier = Modifier.height(14.dp))
+
+    LyricsQueryFields(
+        title = title,
+        onTitleChange = { title = it },
+        artist = artist,
+        onArtistChange = { artist = it },
+        onSearch = submitSearch,
+    )
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Button(
+            onClick = submitSearch,
+            enabled = title.isNotBlank(),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.search), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        OutlinedButton(
+            onClick = onCancel,
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+
+    Spacer(modifier = Modifier.height(14.dp))
 
     LazyColumn(
-        modifier = Modifier.heightIn(max = 360.dp),
+        modifier = Modifier.heightIn(max = 280.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 8.dp)
+        contentPadding = PaddingValues(bottom = 4.dp)
     ) {
         items(results, key = { it.id }) { result ->
             ResultItemCard(
@@ -347,16 +487,6 @@ private fun PickResultContent(
                 onClick = { onPickResult(result) }
             )
         }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    TextButton(
-        onClick = onCancel,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-    ) {
-        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -487,15 +617,11 @@ fun NotFoundContent(
     onManualSearch: (String, String?) -> Unit,
     onCancel: () -> Unit
 ) {
-    val normalizedArtist = rememberSaveable(initialArtist) {
-        initialArtist
-            ?.takeIf { it.isNotBlank() }
-            ?.takeUnless { it.equals("<unknown>", ignoreCase = true) }
-            .orEmpty()
+    var title by rememberSaveable(initialTitle) { mutableStateOf(initialTitle) }
+    var artist by rememberSaveable(initialArtist) { mutableStateOf(normalizeLyricsField(initialArtist)) }
+    val submitSearch = {
+        onManualSearch(title, artist.takeIf { it.isNotBlank() })
     }
-
-    var title by rememberSaveable { mutableStateOf(initialTitle) }
-    var artist by rememberSaveable { mutableStateOf(normalizedArtist) }
 
     Box(
         modifier = Modifier
@@ -530,70 +656,39 @@ fun NotFoundContent(
 
     Spacer(Modifier.height(16.dp))
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.song_field_title),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelLarge
-        )
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = { Text(stringResource(R.string.song_field_title)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-    }
-
-    Spacer(Modifier.height(8.dp))
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.song_field_artist_optional),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelLarge
-        )
-        OutlinedTextField(
-            value = artist,
-            onValueChange = { artist = it },
-            placeholder = { Text(stringResource(R.string.song_field_artist_optional)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-    }
+    LyricsQueryFields(
+        title = title,
+        onTitleChange = { title = it },
+        artist = artist,
+        onArtistChange = { artist = it },
+        onSearch = submitSearch,
+    )
 
     Spacer(Modifier.height(24.dp))
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Button(
-            onClick = {
-                onManualSearch(
-                    title,
-                    artist.takeIf { it.isNotBlank() }
-                )
-            },
+            onClick = submitSearch,
             enabled = title.isNotBlank(),
             modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(18.dp)
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Icon(Icons.Rounded.Search, null)
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.search))
         }
 
-        TextButton(
+        OutlinedButton(
             onClick = onCancel,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(18.dp)
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
