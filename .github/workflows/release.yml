@@ -76,14 +76,7 @@ jobs:
           -PAPP_VERSION_NAME=${{ steps.version.outputs.name }}
           -PAPP_VERSION_CODE=${{ steps.version.outputs.code }}
 
-      - name: Build universal release APK
-        run: >
-          ./gradlew :app:assembleRelease
-          -Ppixelplayer.enableAbiSplits=false
-          -PAPP_VERSION_NAME=${{ steps.version.outputs.name }}
-          -PAPP_VERSION_CODE=${{ steps.version.outputs.code }}
-
-      - name: Verify and stage APKs
+      - name: Verify and stage split APKs
         run: |
           BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
           mkdir -p release-apks
@@ -93,12 +86,21 @@ jobs:
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
             cp "$apk" "release-apks/MusicLi-${{ steps.version.outputs.name }}-$abi.apk"
           done
+
+      - name: Build universal release APK
+        run: >
+          ./gradlew :app:assembleRelease
+          -Ppixelplayer.enableAbiSplits=false
+          -PAPP_VERSION_NAME=${{ steps.version.outputs.name }}
+          -PAPP_VERSION_CODE=${{ steps.version.outputs.code }}
+
+      - name: Verify and stage universal APK
+        run: |
+          BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
           uni="app/build/outputs/apk/release/app-release.apk"
-          if [ -f "$uni" ]; then
-            "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt2" dump badging "$uni" >/dev/null
-            "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$uni"
-            cp "$uni" "release-apks/MusicLi-${{ steps.version.outputs.name }}.apk"
-          fi
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt2" dump badging "$uni" >/dev/null
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$uni"
+          cp "$uni" "release-apks/MusicLi-${{ steps.version.outputs.name }}.apk"
 
       - name: Compress R8 mapping
         run: |
