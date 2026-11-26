@@ -24,22 +24,22 @@
 -dontwarn com.jsyn.**
 -dontwarn com.softsynth.**
 
--keepclassmembers class com.lostf1sh.pixelplayeross.data.model.** { *; }
--keep class com.lostf1sh.pixelplayeross.data.explore.** { *; }
--keepclassmembers class com.lostf1sh.pixelplayeross.data.explore.** { *; }
+-keepclassmembers class com.drliki.MusicLi.data.model.** { *; }
+-keep class com.drliki.MusicLi.data.explore.** { *; }
+-keepclassmembers class com.drliki.MusicLi.data.explore.** { *; }
 
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken
 
--keep class com.lostf1sh.pixelplayeross.data.preferences.PreferenceBackupEntry { *; }
--keep class com.lostf1sh.pixelplayeross.data.backup.model.** { *; }
--keep class com.lostf1sh.pixelplayeross.data.backup.module.** { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.FavoritesEntity { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.SongEngagementEntity { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.LyricsEntity { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.SearchHistoryEntity { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.TransitionRuleEntity { *; }
--keep class com.lostf1sh.pixelplayeross.data.database.AudioBookmarkEntity { *; }
+-keep class com.drliki.MusicLi.data.preferences.PreferenceBackupEntry { *; }
+-keep class com.drliki.MusicLi.data.backup.model.** { *; }
+-keep class com.drliki.MusicLi.data.backup.module.** { *; }
+-keep class com.drliki.MusicLi.data.database.FavoritesEntity { *; }
+-keep class com.drliki.MusicLi.data.database.SongEngagementEntity { *; }
+-keep class com.drliki.MusicLi.data.database.LyricsEntity { *; }
+-keep class com.drliki.MusicLi.data.database.SearchHistoryEntity { *; }
+-keep class com.drliki.MusicLi.data.database.TransitionRuleEntity { *; }
+-keep class com.drliki.MusicLi.data.database.AudioBookmarkEntity { *; }
 
 -keep class io.ktor.server.engine.** { *; }
 -keep class io.ktor.server.cio.** { *; }

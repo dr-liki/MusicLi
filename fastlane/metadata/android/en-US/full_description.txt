@@ -1,16 +1,18 @@
-PixelPlayerOSS is a FOSS Android music player focused on local playback, self-hosted music libraries, and user-controlled online lookups.
+MusicLi is an independent FOSS Android music player built with Jetpack Compose, Material 3 Expressive, and AndroidX Media3, focused on local playback, self-hosted libraries, synced lyrics, and user-controlled online features.
 
-The app works offline by default. Network features are optional and must be enabled by the user.
+The app works 100% offline by default. Optional online services stay off unless enabled or triggered by you.
 
 Features:
 
-* Local music scanning and playback for common audio formats
-* Gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, and sleep timer
-* Albums, artists, genres, folders, favorites, playlists, lyrics, and listening stats
-* Smart playlists generated from local listening history and favorites
-* Self-hosted Navidrome/Subsonic and Jellyfin library sync and streaming
-* Optional LRCLIB lyric lookup and Deezer artist artwork lookup
-* Material 3 UI, dynamic color, light/dark themes, and Glance widgets
-* Backup and restore for preferences, playlists, favorites, lyrics, stats, and app state
+* Local music scanning and playback with Media3 + FFmpeg (MP3, FLAC, AAC, OGG, WAV, M4A)
+* Gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, sleep timer, and 0.25x–3x playback speed
+* Albums, artists, genres, folders, favorites, playlists, stats, metadata editing, and Storage Sense cache manager
+* Synced & plain lyrics across 9 providers with priority-ordered bulk auto-embedding, live translation, and Urdu / Indic romanization
+* Synced YouTube cover-video playback with fullscreen lock, quality persistence, and SponsorBlock offsets
+* Optional Explore discovery, streaming, and persistent offline M4A + LRC downloads
+* Self-hosted Navidrome/Subsonic and Jellyfin sync, streaming, and app-private offline downloads
+* Material 3 Expressive UI, dynamic color, AMOLED/light/dark themes, Discover Carousel, Glance widgets, and Android Auto
+* Full .pxpl backup/restore and .m3u8 sync compatibility with PixelPlayerOSS
+* GitHub Releases-only updates across Stable and Alpha channels
 
-PixelPlayerOSS does not include analytics, ads, Firebase, Crashlytics, Play Store billing, or Google Play Services runtime dependencies.
+MusicLi contains no ads, analytics, telemetry, Firebase, Crashlytics, Play Store billing, or Google Play Services runtime dependencies.

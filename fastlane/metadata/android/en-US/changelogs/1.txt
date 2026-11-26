@@ -1,6 +1,4 @@
-PixelPlayerOSS 0.1.0:
-
-* First public FOSS release of PixelPlayerOSS.
-* Local playback, playlists, favorites, lyrics, listening stats, dynamic Material 3 theming, widgets, and backup/restore.
-* Self-hosted Navidrome/Subsonic and Jellyfin library support, plus optional LRCLIB lyrics and Deezer artist artwork lookup.
-* No Firebase, no Google Play Services, no proprietary integrations.
+- Initial independent release of MusicLi (com.drliki.MusicLi) v1.0.0 with new 'M' Material 3 icon and animated splash.
+- GitHub Releases-only updater for Stable and Alpha channels.
+- Includes Explore streaming/downloads, synced cover videos, 9-provider lyrics + bulk embed, live translation, Urdu/Indic romanization, and Storage Sense.
+- Full .pxpl backup and .m3u8 sync compatibility with PixelPlayerOSS.

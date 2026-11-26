@@ -64,17 +64,19 @@ jobs:
         run: |
           if [ -n "$CI_KEYSTORE_B64" ] && [ -n "$CI_KEYSTORE_PASSWORD" ]; then
             KEYSTORE_PASSWORD="$CI_KEYSTORE_PASSWORD"
-            printf '%s' "$CI_KEYSTORE_B64" | base64 -d > pixelplayeross-ci.jks
+            printf '%s' "$CI_KEYSTORE_B64" | base64 -d > musicli-ci.jks
+            KEY_ALIAS="$(keytool -list -keystore musicli-ci.jks -storepass "$KEYSTORE_PASSWORD" | awk -F',' '/PrivateKeyEntry/{print $1; exit}')"
           else
+            KEY_ALIAS="musicli-ci-key"
             KEYSTORE_PASSWORD="$(openssl rand -hex 24)"
-            keytool -genkey -v -keystore pixelplayeross-ci.jks -alias pixelplayeross-ci-key -keyalg RSA -keysize 4096 -validity 10000 \
+            keytool -genkey -v -keystore musicli-ci.jks -alias "$KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 \
               -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" \
-              -dname "CN=PixelPlayerOSS CI Throwaway, OU=Dev, O=PixelPlayerOSS, L=World, S=World, C=US"
+              -dname "CN=MusicLi CI Throwaway, OU=Dev, O=MusicLi, L=World, S=World, C=US"
           fi
           {
-            echo "storeFile=pixelplayeross-ci.jks"
+            echo "storeFile=musicli-ci.jks"
             echo "storePassword=$KEYSTORE_PASSWORD"
-            echo "keyAlias=pixelplayeross-ci-key"
+            echo "keyAlias=$KEY_ALIAS"
             echo "keyPassword=$KEYSTORE_PASSWORD"
           } > keystore.properties
 
@@ -93,7 +95,7 @@ jobs:
             apk="app/build/outputs/apk/release/app-$abi-release.apk"
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt2" dump badging "$apk" >/dev/null
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose "$apk"
-            cp "$apk" "release-apks/PixelPlayerOSS-${{ steps.version.outputs.name }}-$abi.apk"
+            cp "$apk" "release-apks/MusicLi-${{ steps.version.outputs.name }}-$abi.apk"
           done
 
       # The R8 mapping is the only way to retrace crash reports from this build,
@@ -107,7 +109,7 @@ jobs:
             exit 1
           fi
           mkdir -p release-mapping
-          gzip -9 -c "$mapping" > "release-mapping/PixelPlayerOSS-${{ steps.version.outputs.name }}-mapping.txt.gz"
+          gzip -9 -c "$mapping" > "release-mapping/MusicLi-${{ steps.version.outputs.name }}-mapping.txt.gz"
 
       - name: Create GitHub prerelease
         env:
@@ -116,6 +118,6 @@ jobs:
           gh release create "${{ steps.version.outputs.tag }}"
           --prerelease
           --generate-notes
-          --title "PixelPlayerOSS ${{ steps.version.outputs.name }}"
+          --title "MusicLi ${{ steps.version.outputs.name }}"
           release-apks/*.apk
           release-mapping/*.txt.gz

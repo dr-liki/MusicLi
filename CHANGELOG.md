@@ -4,8 +4,19 @@ All notable changes to PixelPlayerOSS will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-- Navidrome/Subsonic (including Gonic) and Jellyfin covers no longer hold up other artwork while a slow server answers. A cover download kept one of the threads that decode every image in the app until the server replied, even after its list item had scrolled away, so a burst of slow covers left the rest of the library on placeholders. Downloads now run off those threads and stop as soon as their cover leaves the screen, and a cover shown in several places at once is downloaded once instead of once per place ([#118](https://github.com/PixelPlayerHQ/PixelPlayerOSS/issues/118)).
+## [1.0.0] - 2026-11-27
+
+Initial independent release of **MusicLi** (`com.drliki.MusicLi`), forked from PixelPlayerOSS `0.4.0`.
+
+### Added
+- Independent app identity (`MusicLi`, `com.drliki.MusicLi`), Material 3 `'M'` launcher/adaptive/monochrome icons, and matching animated splash icon.
+- GitHub Releases-only in-app updater supporting both Stable and Alpha channels from `dr-liki/MusicLi`.
+- Explore discovery, streaming, and persistent offline M4A + LRC downloading (JioSaavn).
+- Synced YouTube cover-video player with fullscreen orientation lock, quality persistence, SponsorBlock intro offset lookup, and Room/backup persistence.
+- Multi-provider synced/plain lyrics search across 9 providers (`LRCLIB`, `BetterLyrics`, `lrc.red`, `Paxsenix`, `KuGou`, `JioSaavn`, `YouTube`, `NetEase`, `Lyrics.ovh`), priority-ordered bulk synced lyrics auto-embedding with rate-limit pause/resume, live lyrics translation, and Urdu + 7-language Indic romanization.
+- Storage Sense cache breakdown/cleanup, Discover Carousel, Home horizontal Play Queue, blur & high-refresh-rate settings, and Android Auto browse tree.
+- Upstream fix: Navidrome/Subsonic and Jellyfin covers no longer stall other artwork loads ([#118](https://github.com/PixelPlayerHQ/PixelPlayerOSS/issues/118)).
+- Full backward compatibility for importing `.pxpl` backups and `.m3u8` sync folders from PixelPlayerOSS.
 
 ## [0.4.0] - 2026-10-17
 

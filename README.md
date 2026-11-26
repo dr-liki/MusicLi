@@ -1,164 +1,125 @@
+<p align="center">
+  <img src="assets/MusicLi.svg" alt="MusicLi Icon" height="220"/>
+</p>
+
+<h1 align="center">MusicLi</h1>
 
 <p align="center">
-  <img src="assets/PixelPlayerOSS.svg" alt="App Icon" height="250"/>
+  Local-first Material 3 Expressive Android music player with self-hosted streaming, 9-provider synced lyrics, cover videos, and offline downloads.
 </p>
 
 <p align="center">
-  <a href="https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases/latest">
-    <img src="https://img.shields.io/github/v/release/PixelPlayerHQ/PixelPlayerOSS?include_prereleases&logo=github&style=for-the-badge&label=Latest%20Release" alt="Latest release">
+  <a href="https://github.com/dr-liki/MusicLi/releases/latest">
+    <img src="https://img.shields.io/github/v/release/dr-liki/MusicLi?include_prereleases&logo=github&style=for-the-badge&label=Latest%20Release" alt="Latest release">
   </a>
-  <a href="https://f-droid.org/packages/com.lostf1sh.pixelplayeross/">
-    <img src="https://img.shields.io/f-droid/v/com.lostf1sh.pixelplayeross?logo=fdroid&style=for-the-badge&label=F-Droid" alt="F-Droid version">
-  </a>
-  <a href="https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases">
-    <img src="https://img.shields.io/github/downloads/PixelPlayerHQ/PixelPlayerOSS/total?logo=github&style=for-the-badge" alt="Total downloads">
-  </a>
-  <a href="https://github.com/sponsors/lostf1sh">
-    <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub Sponsors">
+  <a href="https://github.com/dr-liki/MusicLi/releases">
+    <img src="https://img.shields.io/github/downloads/dr-liki/MusicLi/total?logo=github&style=for-the-badge" alt="Total downloads">
   </a>
   <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 11+">
   <img src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge" alt="GPLv3 license">
 </p>
 
-<p align="center">
-  <img src="assets/screenshot1.jpeg" alt="PixelPlayerOSS home screen" width="205"/>
-  <img src="assets/screenshot2.jpeg" alt="PixelPlayerOSS now playing screen" width="205"/>
-  <img src="assets/screenshot3.jpeg" alt="PixelPlayerOSS library screen" width="205"/>
-  <img src="assets/screenshot4.jpeg" alt="PixelPlayerOSS lyrics screen" width="205"/>
-</p>
-
 ## What It Is
 
-PixelPlayerOSS is an Android music player maintained by [@lostf1sh](https://github.com/lostf1sh). It focuses on local playback, self-hosted music libraries, expressive Material 3 UI, and user-controlled online lookups.
+MusicLi (`com.drliki.MusicLi`) is an independent, free and open-source Android music player forked from [PixelPlayerOSS](https://github.com/PixelPlayerHQ/PixelPlayerOSS) and maintained by [@dr-liki](https://github.com/dr-liki). Built with Kotlin, Jetpack Compose, Material 3 Expressive, and AndroidX Media3 + FFmpeg, it keeps your local music library first while giving you full control over optional self-hosted servers and online enrichment.
 
-The app works offline by default. Optional online services are disabled until you enable them in setup or settings.
+The app works **100% offline by default**. No ads, no analytics, no telemetry, and no Google Play Services runtime dependencies—optional network features stay dormant until you enable or trigger them.
 
-Package name: `com.lostf1sh.pixelplayeross`
+## Highlights in v1.0.0
 
-## Why This Exists
-
-PixelPlayerOSS keeps the player FOSS-oriented and removes integrations that are not part of that direction.
-
-Removed integrations include Telegram, NetEase, QQ Music, Google Drive, Gemini, Cast, Wear OS, Play Store billing, Firebase, Crashlytics, and Google Play Services runtime dependencies.
-
-Cloud playback is limited to self-hosted sources: Navidrome/Subsonic and Jellyfin.
+- **Independent Identity**: Dedicated `MusicLi` branding, `com.drliki.MusicLi` application ID (installable alongside PixelPlayerOSS), Material 3 `'M'` adaptive icon, and animated splash screen.
+- **Bulk Auto Synced Lyrics & Multi-Provider Lookup**: Search across 9 providers (`LRCLIB`, `BetterLyrics`, `lrc.red`, `Paxsenix`, `KuGou`, `JioSaavn`, `YouTube`, `NetEase`, `Lyrics.ovh`) or batch-embed synced lyrics across your library with provider priority ordering and rate-limit pause/resume.
+- **Translation & Phonetic Romanization**: On-demand live translation of lyric lines plus offline Urdu and 7-script Indic romanization.
+- **Synced Cover Videos & Explore Downloads**: Watch synced YouTube cover videos (with fullscreen orientation lock, quality persistence, and SponsorBlock intro offsets) and browse/stream/download M4A + LRC tracks offline in Explore.
+- **Self-Hosted Streaming & Offline Cache**: Connect **Navidrome / Subsonic** and **Jellyfin** servers for library sync, streaming, artwork, and app-private offline downloads.
+- **Storage Sense & Power Utilities**: Clear cache breakdown by category, smart offline playlists, animated Home Discover Carousel & Play Queue strip, blur/high-refresh-rate controls, Android Auto support, and direct GitHub Releases updates (`Stable` + `Alpha`).
+- **Seamless Migration**: Full backward compatibility with `.pxpl` encrypted/unencrypted backups and `.m3u8` playlist sync tags (`#PIXELPLAYER-PLAYLIST-ID:`) exported from PixelPlayerOSS.
 
 ## Features
 
 | Area | Highlights |
 | --- | --- |
-| Playback | Media3 playback engine, FFmpeg support, gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, sleep timer, external file playback |
-| Library | Local scanning for MP3, FLAC, AAC, OGG, WAV, M4A, albums, artists, genres, folders, favorites, playlists, stats, metadata editing |
-| Self-hosted | Navidrome/Subsonic and Jellyfin login, sync, streaming, artwork, and app-private offline downloads |
-| Lyrics | Embedded lyrics, local `.lrc` files, lyrics import/editing, optional LRCLIB lookup |
-| Artwork | Local artwork, album-art palette extraction, optional Deezer artist image lookup |
-| Metadata | On-demand MusicBrainz matching for recording, release, and artist identifiers |
-| UI | Jetpack Compose, Material 3, dynamic color, light/dark themes, Glance widgets, animated player surfaces |
-| Backup | Preferences, playlists, favorites, lyrics, stats, and app state backup/restore |
+| Playback | Media3 + Jellyfin FFmpeg decoder, gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, sleep timer, playback speed (`0.25×`–`3×`), external audio opener |
+| Library | Local MediaStore scanning (`MP3`, `FLAC`, `AAC`, `OGG`, `WAV`, `M4A`), albums, artists, genres, folders, favorites, playlists, stats, metadata tag editor, Storage Sense |
+| Self-Hosted | Navidrome/Subsonic and Jellyfin login, multi-library sync, streaming, resilient cover loading, and app-private offline downloads |
+| Lyrics | Embedded tags, local `.lrc`/TTML files, 9-provider search, priority-ordered bulk auto-embed, live translation, Urdu & Indic romanization |
+| Video & Explore | Synced YouTube cover-video playback (with SponsorBlock offsets) and Explore discovery/streaming/offline M4A + LRC downloads |
+| Metadata & UI | Album-art dynamic palette, AMOLED/light/dark Material 3 Expressive themes, Glance home widgets, Android Auto browse tree, optional Deezer & MusicBrainz enrichment |
+| Backup & Sync | Encrypted (AES-256-GCM) and plain `.pxpl` backup/restore plus `.m3u8` folder sync (compatible with PixelPlayerOSS archives) |
 
-## Online Services
+## Migrating from PixelPlayerOSS
 
-PixelPlayerOSS separates offline playback from network lookups.
+Because MusicLi uses its own package name (`com.drliki.MusicLi`) and signing key, Android installs it as a separate app:
+
+1. In PixelPlayerOSS, export a `.pxpl` backup (`Settings → Backup & Restore`).
+2. Install **MusicLi** from [GitHub Releases](https://github.com/dr-liki/MusicLi/releases).
+3. Restore your `.pxpl` backup in MusicLi (during onboarding or in Settings) — playlists, stats, bookmarks, preferences, and `.m3u8` sync links carry right over.
+
+## Download
+
+Both **Stable** (`v*`) and **Alpha** (`v*-alpha.*`) builds are distributed exclusively on GitHub Releases and checked automatically in-app under **Settings → Updates**:
+
+```text
+https://github.com/dr-liki/MusicLi/releases
+```
+
+Package ID (for Obtainium / Android):
+
+```text
+com.drliki.MusicLi
+```
+
+## Online Services & Privacy
+
+MusicLi separates offline playback from optional network lookups:
 
 | Service | Purpose | Default |
 | --- | --- | --- |
-| Navidrome/Subsonic | Self-hosted library sync, streaming, and offline downloads | User login required |
+| Navidrome / Subsonic | Self-hosted library sync, streaming, and offline downloads | User login required |
 | Jellyfin | Self-hosted library sync, streaming, and offline downloads | User login required |
+| ListenBrainz | Optional scrobbling & now-playing reporting | Off (token required) |
 | MusicBrainz | On-demand metadata matching and identifier enrichment | Only when requested |
-| LRCLIB | Search online lyrics when local or embedded lyrics are missing | Off |
-| Deezer | Fetch missing artist artwork and cache it locally | Off |
-
-LRCLIB and Deezer can be enabled during first-run setup or later from `Settings > Music Management > Optional online services`. MusicBrainz searches run only when you choose the lookup action for a track.
+| Lyrics Providers | 9-provider synced/plain lyrics search & bulk auto-embed | Off / on demand |
+| Google Translate | On-demand live translation of lyric lines | Only when requested |
+| Deezer | Optional missing artist portrait lookup and local caching | Off |
+| Explore (JioSaavn) | Optional Explore discovery, streaming, and offline M4A downloads | Only when opened |
+| YouTube / SponsorBlock | Synced cover-video playback and intro-offset matching | Only when enabled |
+| GitHub Releases | In-app Stable & Alpha update checks from `dr-liki/MusicLi` | User-controlled |
 
 ## Requirements
 
 | Requirement | Version |
 | --- | --- |
-| Android | 11 or newer, API 30+ |
+| Android | 11 or newer (`minSdk = 30`) |
 | JDK | 21 |
-| Android SDK | compile/target 37 |
+| Android SDK | `compileSdk = 37` / `targetSdk = 37` |
 
 ## Build From Source
 
-Clone the repository:
-
 ```sh
-git clone https://github.com/PixelPlayerHQ/PixelPlayerOSS.git
-cd PixelPlayerOSS
-```
-
-Build the debug APK:
-
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleDebug
-```
-
-Build one universal debug APK for local installation:
-
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleDebug -Ppixelplayer.enableAbiSplits=false
-```
-
-Build a universal unsigned release APK suitable for F-Droid verification:
-
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleRelease -Ppixelplayer.enableAbiSplits=false -Ppixelplayer.disableReleaseSigning=true
+git clone https://github.com/dr-liki/MusicLi.git
+cd MusicLi
+./gradlew :app:assembleDebug -Ppixelplayer.enableAbiSplits=false
 ```
 
 Run unit tests:
 
 ```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest
+./gradlew :app:testDebugUnitTest
 ```
 
-Generate the baseline profile with a connected device or emulator:
+Build a universal unsigned release APK:
 
 ```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :baselineprofile:generateBaselineProfile
+./gradlew :app:assembleRelease -Ppixelplayer.enableAbiSplits=false -Ppixelplayer.disableReleaseSigning=true
 ```
 
-## Download
+## System Overview
 
-PixelPlayerOSS is available on F-Droid:
-
-<a href="https://f-droid.org/packages/com.lostf1sh.pixelplayeross/">
-  <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">
-</a>
-
-GitHub releases are available at:
+MusicLi is a multi-module Android Kotlin + Jetpack Compose application (`:app` and `:baselineprofile`) built around Hilt dependency injection, Room SQLite persistence (`PixelPlayerDatabase` v7), AndroidX Media3 playback (`MusicService` + `DualPlayerEngine`), WorkManager background synchronization, and Material 3 Expressive UI.
 
 ```text
-https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases
-```
-
-Obtainium app id:
-
-```text
-com.lostf1sh.pixelplayeross
-```
-
-Public releases are planned on a regular weekly cadence when `main` passes the release checklist.
-
-F-Droid listing metadata lives in `fastlane/metadata/android/en-US`; build/release notes for F-Droid are in [docs/FDROID.md](docs/FDROID.md).
-
-> Note: F-Droid builds and signs its own APKs from source, so they may lag behind GitHub releases while the new version works through the F-Droid build cycle. F-Droid and GitHub APK signatures differ — switching between the two requires an uninstall/reinstall.
-
-### Alpha builds
-
-Every merge into `main` automatically publishes a pre-release tagged like `v0.3.0-alpha.N` on the [releases page](https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases). These are cutting-edge builds for testing new changes before they reach a stable release — expect rough edges.
-
-To install one, download the APK for your device from the release assets and sideload it: `arm64-v8a` fits most modern devices, `armeabi-v7a` is for older 32-bit ones.
-
-Alpha builds are signed with a dedicated CI key, so they update over each other, but switching between alpha and a stable or F-Droid install requires an uninstall/reinstall. In Obtainium, enable "Include prereleases" to get alphas automatically.
-
-## Support
-
-If PixelPlayerOSS is useful to you, you can support ongoing development through [GitHub Sponsors](https://github.com/sponsors/lostf1sh).
-
-## Project Structure
-
-```text
-app/src/main/java/com/lostf1sh/pixelplayeross/
+app/src/main/java/com/drliki/MusicLi/
 - data/             Room, repositories, preferences, services, workers
 - di/               Hilt modules and qualifiers
 - presentation/     Compose screens, components, navigation, ViewModels
@@ -168,13 +129,35 @@ app/src/main/java/com/lostf1sh/pixelplayeross/
 baselineprofile/      Macrobenchmark and baseline profile generation
 ```
 
+## Subdirectories & System Boundaries
+
+- **app**: [`./app/README.md`](./app/README.md) — Main Android application module (`com.drliki.MusicLi`) housing [`data`](./app/src/main/java/com/drliki/MusicLi/data/README.md), [`di`](./app/src/main/java/com/drliki/MusicLi/di/README.md), [`presentation`](./app/src/main/java/com/drliki/MusicLi/presentation/README.md), [`ui`](./app/src/main/java/com/drliki/MusicLi/ui/README.md), [`utils`](./app/src/main/java/com/drliki/MusicLi/utils/README.md), and [`assets`](./app/src/main/assets/README.md).
+- **baselineprofile**: [`./baselineprofile/README.md`](./baselineprofile/README.md) — AndroidX Macrobenchmark and Baseline Profile instrumentation module (`:baselineprofile`) targeting `:app` for ART profile generation and startup/gesture benchmarks.
+
+## Global Invariants
+
+- **Offline-First Network Gating**: Local playback and MediaStore/Room browsing operate offline by default; optional remote services remain gated behind explicit user preferences, actions, or credentials.
+- **Single-Source Persistence & Concurrency**: Room (`pixelplayer_database`, WAL mode, schema v7) and DataStore preferences serve as the single source of truth; long-lived `@Singleton` state holders coordinate across ViewModel lifecycles via `OwnerStack` and serialize critical disk/database writes (library sync commits, `.pxpl` backup/restore, M3U folder sync, and crash-safe metadata write-back).
+- **Media3 & Audio Pipeline Isolation**: `MusicService` wraps playback through `FadingPlayer -> MappingPlayer -> PreviousButtonPlayer`, restricts privileged custom commands, and isolates external `ACTION_VIEW`/`ACTION_SEND` playback through `ExternalPlayerActivity` and `DualPlayerEngine`.
+
+## Global Side Effects
+
+- **Local Storage & MediaStore**: Reads/writes Android `MediaStore`, SAF document trees, Room SQLite (`pixelplayer_database`), DataStore preferences, audio file metadata/cover art, and app-private cache/files directories (`image_cache`, `explore_stream_cache`, `metadata_recovery`, `artist_art_*.jpg`, `lyrics/*.json`).
+- **System Services & Background Execution**: Runs foreground `MusicService` media playback and notifications, `WorkManager` sync/download/scrobble/update workers, `AlarmManager` sleep timer alarms, Glance widget broadcasts, and `ProcessLifecycleOwner` / `MediaStore` observers.
+- **External Network Integrations**: When enabled or authenticated by the user, executes OkHttp/Retrofit requests against configured Navidrome/Subsonic, Jellyfin, ListenBrainz, LRCLIB/multi-provider lyrics, Google Translate, Deezer, MusicBrainz, JioSaavn/YouTube/SponsorBlock, and GitHub Releases endpoints.
+
+## System Verification
+
+- Run: `./gradlew :app:testDebugUnitTest`
+- Baseline Profile (connected device/emulator): `./gradlew :baselineprofile:generateBaselineProfile`
+
 ## Tech Stack
 
 | Area | Technology |
 | --- | --- |
 | Language | Kotlin |
 | UI | Jetpack Compose |
-| Design | Material 3 |
+| Design | Material 3 Expressive |
 | Playback | AndroidX Media3, ExoPlayer, FFmpeg |
 | Database | Room |
 | Dependency Injection | Hilt |
@@ -182,55 +165,29 @@ baselineprofile/      Macrobenchmark and baseline profile generation
 | Background Work | WorkManager |
 | Networking | Retrofit, OkHttp |
 | Images | Coil |
-| Metadata | TagLib |
+| Metadata | TagLib, JAudioTagger |
 
 ## Contributing
 
-Contributions are welcome. Open an issue or pull request with a focused change and include test/build results when possible.
-
-Useful local checks:
-
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:compileDebugKotlin
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:lintDebug
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest
-```
-
-Release process: [docs/RELEASE.md](docs/RELEASE.md)
-
-F-Droid notes: [docs/FDROID.md](docs/FDROID.md)
-
-Privacy policy: [PRIVACY.md](PRIVACY.md)
-
-Security policy: [SECURITY.md](SECURITY.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/RELEASE.md](docs/RELEASE.md), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
 ## License
 
-PixelPlayerOSS is licensed under the [GNU General Public License v3.0](LICENSE) (`SPDX-License-Identifier: GPL-3.0-or-later`).
+MusicLi is licensed under the [GNU General Public License v3.0](LICENSE) (`SPDX-License-Identifier: GPL-3.0-or-later`).
 
-```
-PixelPlayerOSS
+```text
+MusicLi (forked from PixelPlayerOSS)
 Copyright (C) 2026 Theo Vilardo
+Copyright (C) 2026 MusicLi Contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
 
-Distributed APKs include third-party components under their own licenses. In particular, the optional FFmpeg decoder dependency `org.jellyfin.media3:media3-ffmpeg-decoder` is GPL-3.0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Distributed APKs include third-party components under their own licenses (including `org.jellyfin.media3:media3-ffmpeg-decoder` under GPL-3.0); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 <p align="center">
-  Maintained by <a href="https://github.com/lostf1sh">lostf1sh</a>
-</p>
-<p align="center">
-  Logo designed by <a href="https://github.com/NPSummers">Aureal</a>.
+  Maintained by <a href="https://github.com/dr-liki">dr-liki</a>
 </p>
