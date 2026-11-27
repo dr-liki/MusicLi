@@ -8,6 +8,13 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+enum class ExploreBrowseCategory {
+    NEW_RELEASES,
+    CHARTS,
+    PLAYLISTS,
+    ARTISTS,
+}
+
 @Singleton
 class ExploreRepository @Inject constructor(
     private val api: JioSaavnApiClient,
@@ -35,24 +42,115 @@ class ExploreRepository @Inject constructor(
                 feedPageOffsets[langKey] ?: 0
             }
             val url = baseUrl()
-            val langQuery = when (langKey) {
-                "all", "" -> "trending"
-                else -> "$language hits"
-            }
-            val albumQuery = when (langKey) {
-                "all", "" -> "top albums"
-                else -> "$language album"
-            }
-            val playlistQuery = when (langKey) {
-                "all", "" -> "top charts"
-                else -> "$language hits"
-            }
+            val isAllLanguages = langKey == "all" || langKey.isEmpty()
+            val langQuery = if (isAllLanguages) "trending" else "$language hits"
+            val albumQuery = if (isAllLanguages) "top albums" else "$language album"
+            val playlistQuery = if (isAllLanguages) "top charts" else "$language hits"
             val artistQuery = when (langKey) {
-                "all", "" -> "arijit"
-                else -> "$language singer"
+                "english" -> listOf("The Weeknd", "Taylor Swift", "Coldplay", "Ed Sheeran", "Imagine Dragons")[nextPage % 5]
+                "kannada" -> listOf("Sanjith Hegde", "Vijay Prakash", "Sonu Nigam", "Raghu Dixit", "Armaan Malik")[nextPage % 5]
+                "tamil" -> listOf("Anirudh Ravichander", "A.R. Rahman", "Yuvan Shankar Raja", "Sid Sriram", "Harris Jayaraj")[nextPage % 5]
+                "telugu" -> listOf("Devi Sri Prasad", "Thaman S", "Sid Sriram", "Anirudh Ravichander", "M.M. Keeravani")[nextPage % 5]
+                "punjabi" -> listOf("Diljit Dosanjh", "AP Dhillon", "Karan Aujla", "Sidhu Moose Wala", "Shubh")[nextPage % 5]
+                "hindi" -> listOf("Arijit Singh", "Pritam", "Shreya Ghoshal", "A.R. Rahman", "Atif Aslam")[nextPage % 5]
+                else -> listOf("Arijit Singh", "The Weeknd", "Pritam", "Taylor Swift", "A.R. Rahman")[nextPage % 5]
             }
 
             suspend fun fetchFeedPage(page: Int): ExploreHomeFeed = coroutineScope {
+                val useNativeLaunch = isNativeSaavnApiUrl(url)
+                if (useNativeLaunch) {
+                    val launchLangCookie = if (isAllLanguages) "english,hindi" else langKey
+                    val launchDeferred = async { runCatching { api.getLaunchData(url, launchLangCookie) } }
+                    val newReleasesDeferred = async {
+                        runCatching { api.getNewReleases(url, launchLangCookie, page = page, limit = 24) }
+                    }
+                    val trendingSongsDeferred = async {
+                        runCatching {
+                            if (isAllLanguages) {
+                                val engDeferred = async { runCatching { api.getTrendingSongs(url, "english", "english hits", page, 12) } }
+                                val hinDeferred = async { runCatching { api.getTrendingSongs(url, "hindi", "hindi hits", page, 12) } }
+                                val eng = engDeferred.await().getOrNull()?.data?.results.orEmpty()
+                                val hin = hinDeferred.await().getOrNull()?.data?.results.orEmpty()
+                                val mixed = interleave(eng, hin).take(20)
+                                if (mixed.isNotEmpty()) {
+                                    SaavnSongSearchResponse(success = true, data = SaavnSongSearchResponse.Data(total = mixed.size, results = mixed))
+                                } else {
+                                    api.searchSongs(url, langQuery, page, 20)
+                                }
+                            } else {
+                                api.getTrendingSongs(url, langKey, langQuery, page, 20)
+                            }
+                        }
+                    }
+                    val artistSearchDeferred = async { runCatching { api.searchArtists(url, artistQuery, page, 12) } }
+
+                    val launchResult = launchDeferred.await()
+                    val newReleasesResult = newReleasesDeferred.await()
+                    val trendingResult = trendingSongsDeferred.await()
+                    val artistSearchResult = artistSearchDeferred.await()
+
+                    val launch = launchResult.getOrNull() ?: SaavnLaunchData()
+                    val releases = newReleasesResult.getOrNull() ?: SaavnNewReleasesResult()
+
+                    val combinedSongs = (
+                        trendingResult.getOrNull()?.data?.results.orEmpty() +
+                            launch.trendingSongs +
+                            releases.songs
+                        ).distinctBy { it.id }
+                        .take(20)
+                        .mapNotNull { it.toExploreSong() }
+
+                    val rawAlbums = (
+                        if (page > 0 && releases.albums.isNotEmpty()) {
+                            releases.albums + launch.newAlbums
+                        } else {
+                            launch.newAlbums + releases.albums
+                        }
+                        ).distinctBy { it.id }
+                    val combinedAlbums = rotateList(
+                        rawAlbums.ifEmpty {
+                            runCatching { api.getTrendingAlbums(url, if (isAllLanguages) "english" else langKey, albumQuery, page, 15).data?.results.orEmpty() }.getOrDefault(emptyList())
+                        },
+                        page = page,
+                        limit = 15,
+                    ).mapNotNull { it.toExploreAlbum() }
+
+                    val rawPlaylists = (launch.charts + launch.topPlaylists).distinctBy { it.id }
+                    val combinedPlaylists = rotateList(
+                        rawPlaylists.ifEmpty {
+                            runCatching { api.getTrendingPlaylists(url, if (isAllLanguages) "english" else langKey, playlistQuery, page, 15).data?.results.orEmpty() }.getOrDefault(emptyList())
+                        },
+                        page = page,
+                        limit = 15,
+                    ).mapNotNull { it.toExplorePlaylist() }
+
+                    val searchedArtists = artistSearchResult.getOrNull()?.data?.results.orEmpty()
+                    val rawArtists = if (langKey == "all" || langKey == "hindi" || langKey.isEmpty()) {
+                        (launch.artistRecos + searchedArtists).distinctBy { it.id }
+                    } else {
+                        (searchedArtists + launch.artistRecos).distinctBy { it.id }
+                    }
+                    val combinedArtists = rotateList(rawArtists, page = page, limit = 12)
+                        .mapNotNull { it.toExploreArtist() }
+
+                    val resultFeed = ExploreHomeFeed(
+                        trendingSongs = combinedSongs,
+                        topAlbums = combinedAlbums,
+                        featuredPlaylists = combinedPlaylists,
+                        topArtists = combinedArtists,
+                    )
+                    if (combinedSongs.isEmpty() && combinedAlbums.isEmpty() && combinedPlaylists.isEmpty() && combinedArtists.isEmpty()) {
+                        val failure = listOfNotNull(
+                            launchResult.exceptionOrNull(),
+                            trendingResult.exceptionOrNull(),
+                            newReleasesResult.exceptionOrNull(),
+                            artistSearchResult.exceptionOrNull(),
+                        ).firstOrNull()
+                        if (failure != null) throw failure
+                    }
+                    return@coroutineScope resultFeed
+                }
+
                 val songsDeferred = async { runCatching { api.searchSongs(url, langQuery, page, 20) } }
                 val albumsDeferred = async { runCatching { api.searchAlbums(url, albumQuery, page, 15) } }
                 val playlistsDeferred = async { runCatching { api.searchPlaylists(url, playlistQuery, page, 15) } }
@@ -143,6 +241,112 @@ class ExploreRepository @Inject constructor(
                 artists = artists,
                 playlists = playlists,
             )
+        }
+    }
+
+    suspend fun browseCategoryFeed(
+        category: ExploreBrowseCategory,
+        language: String = "All",
+        fallbackQuery: String = "",
+    ): Result<ExploreSearchResults> = runCatching {
+        val url = baseUrl()
+        val langKey = language.lowercase().trim()
+        val isAll = langKey.isEmpty() || langKey == "all"
+        if (!isNativeSaavnApiUrl(url)) {
+            return searchAll(fallbackQuery.ifBlank { category.name.lowercase().replace('_', ' ') })
+        }
+
+        val launchLangCookie = if (isAll) "english,hindi" else langKey
+        coroutineScope {
+            when (category) {
+                ExploreBrowseCategory.NEW_RELEASES -> {
+                    val releasesDeferred = async { runCatching { api.getNewReleases(url, launchLangCookie, page = 0, limit = 30) } }
+                    val launchDeferred = async { runCatching { api.getLaunchData(url, launchLangCookie) } }
+                    val releasesRes = releasesDeferred.await()
+                    val launchRes = launchDeferred.await()
+                    val releases = releasesRes.getOrNull() ?: SaavnNewReleasesResult()
+                    val launch = launchRes.getOrNull() ?: SaavnLaunchData()
+                    val songs = (releases.songs + launch.trendingSongs).distinctBy { it.id }.mapNotNull { it.toExploreSong() }
+                    val albums = (releases.albums + launch.newAlbums).distinctBy { it.id }.mapNotNull { it.toExploreAlbum() }
+                    if (songs.isEmpty() && albums.isEmpty()) {
+                        (releasesRes.exceptionOrNull() ?: launchRes.exceptionOrNull())?.let { throw it }
+                    }
+                    ExploreSearchResults(songs = songs, albums = albums)
+                }
+
+                ExploreBrowseCategory.CHARTS -> {
+                    val launchDeferred = async { runCatching { api.getLaunchData(url, launchLangCookie) } }
+                    val trendingDeferred = async {
+                        runCatching {
+                            if (isAll) {
+                                val eng = async { runCatching { api.getTrendingSongs(url, "english", "english hits", 0, 15) } }
+                                val hin = async { runCatching { api.getTrendingSongs(url, "hindi", "hindi hits", 0, 15) } }
+                                interleave(
+                                    eng.await().getOrNull()?.data?.results.orEmpty(),
+                                    hin.await().getOrNull()?.data?.results.orEmpty(),
+                                ).take(24)
+                            } else {
+                                api.getTrendingSongs(url, langKey, "$language hits", 0, 24).data?.results.orEmpty()
+                            }
+                        }
+                    }
+                    val launchRes = launchDeferred.await()
+                    val trendingRes = trendingDeferred.await()
+                    val launch = launchRes.getOrNull() ?: SaavnLaunchData()
+                    val songs = (trendingRes.getOrNull().orEmpty() + launch.trendingSongs)
+                        .distinctBy { it.id }
+                        .mapNotNull { it.toExploreSong() }
+                    val playlists = (launch.charts + launch.topPlaylists)
+                        .distinctBy { it.id }
+                        .mapNotNull { it.toExplorePlaylist() }
+                    val albums = launch.newAlbums.mapNotNull { it.toExploreAlbum() }
+                    if (songs.isEmpty() && playlists.isEmpty() && albums.isEmpty()) {
+                        (launchRes.exceptionOrNull() ?: trendingRes.exceptionOrNull())?.let { throw it }
+                    }
+                    ExploreSearchResults(songs = songs, albums = albums, playlists = playlists)
+                }
+
+                ExploreBrowseCategory.PLAYLISTS -> {
+                    val launchDeferred = async { runCatching { api.getLaunchData(url, launchLangCookie) } }
+                    val launchRes = launchDeferred.await()
+                    val launch = launchRes.getOrNull() ?: SaavnLaunchData()
+                    val playlistsRaw = (launch.topPlaylists + launch.charts).distinctBy { it.id }
+                        .ifEmpty {
+                            api.getTrendingPlaylists(
+                                url,
+                                if (isAll) "english" else langKey,
+                                fallbackQuery.ifBlank { "top playlists" },
+                                0,
+                                20,
+                            ).data?.results.orEmpty()
+                        }
+                    val playlists = playlistsRaw.mapNotNull { it.toExplorePlaylist() }
+                    if (playlists.isEmpty()) {
+                        launchRes.exceptionOrNull()?.let { throw it }
+                    }
+                    ExploreSearchResults(playlists = playlists)
+                }
+
+                ExploreBrowseCategory.ARTISTS -> {
+                    val searchQuery = fallbackQuery.ifBlank { "Arijit Singh" }
+                    val searchDeferred = async { runCatching { api.searchArtists(url, searchQuery, 0, 15) } }
+                    val launchDeferred = async { runCatching { api.getLaunchData(url, launchLangCookie) } }
+                    val searchRes = searchDeferred.await()
+                    val launchRes = launchDeferred.await()
+                    val searched = searchRes.getOrNull()?.data?.results.orEmpty()
+                    val recos = launchRes.getOrNull()?.artistRecos.orEmpty()
+                    val combined = if (isAll || langKey == "hindi") {
+                        (recos + searched).distinctBy { it.id }
+                    } else {
+                        (searched + recos).distinctBy { it.id }
+                    }
+                    val artists = combined.mapNotNull { it.toExploreArtist() }
+                    if (artists.isEmpty()) {
+                        (searchRes.exceptionOrNull() ?: launchRes.exceptionOrNull())?.let { throw it }
+                    }
+                    ExploreSearchResults(artists = artists)
+                }
+            }
         }
     }
 
@@ -335,6 +539,23 @@ class ExploreRepository @Inject constructor(
     private fun pickBestImageUrl(images: List<SaavnImageDto>?): String? {
         if (images.isNullOrEmpty()) return null
         return images.lastOrNull { !it.url.isNullOrBlank() }?.url
+    }
+
+    private fun <T> interleave(first: List<T>, second: List<T>): List<T> {
+        val result = ArrayList<T>(first.size + second.size)
+        val maxLen = maxOf(first.size, second.size)
+        for (i in 0 until maxLen) {
+            if (i < first.size) result.add(first[i])
+            if (i < second.size) result.add(second[i])
+        }
+        return result
+    }
+
+    private fun <T> rotateList(items: List<T>, page: Int, limit: Int): List<T> {
+        if (items.isEmpty() || limit <= 0) return emptyList()
+        if (items.size <= limit || page <= 0) return items.take(limit)
+        val offset = ((page * 4) % items.size).coerceAtLeast(0)
+        return (items.drop(offset) + items.take(offset)).take(limit)
     }
 
     private fun pickThumbnailUrl(images: List<SaavnImageDto>?): String? {

@@ -504,6 +504,14 @@ Backslash (\) can be used to escape character delimiters.</string>
         <item>Backup, restore, and setup events can no longer be lost during screen rotation.</item>
         <item>Spring cleaning: dead code removed, deprecated APIs migrated, and dependencies updated.</item>
     </string-array>
+    <string-array name="presentation_batch_g_changelog_v130_whats_new">
+        <item>Fixed Explore missing English songs by switching the default source to direct JioSaavn with automatic fallback to the melotune mirror.</item>
+        <item>Added Kannada to the Explore language selector bar.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v130_improvements">
+        <item>Updated Explore home trending feeds and Browse &amp; Discover bento queries for accurate per-language results.</item>
+        <item>Preserved custom mirror URL configuration in Explore Options for both .php and REST wrapper endpoints.</item>
+    </string-array>
     <string-array name="presentation_batch_g_changelog_v120_whats_new">
         <item>Upgraded Explore UI with a 2x2 Browse &amp; Discover bento grid, Play FAB and menu overlays on cards, section subtitles with Shuffle All, and vertical recent searches with individual remove controls.</item>
         <item>Unified edge-to-edge-width popup dialogs (MusicLiDialog) across the app with consistent margins, tonal icon badges, and 50/50 side-by-side action buttons.</item>

@@ -1,0 +1,4 @@
+- Fixed Explore missing English songs on queries by defaulting to direct JioSaavn with India geo/language cookies and automatic fallback to https://melotune.harshbits.com/api/.
+- Upgraded Explore home feeds and Browse & Discover cards to pull curated LaunchData charts, editorial playlists, artist picks, and New Releases per language.
+- Preserved custom Explore mirror URL configuration in Explore Options.
+- Added Kannada to the Explore language filter bar.

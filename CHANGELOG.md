@@ -4,6 +4,16 @@ All notable changes to PixelPlayerOSS will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-27
+
+### Fixed
+- Fixed Explore not showing English songs on search queries and browse sections by switching the default endpoint to direct JioSaavn (`https://www.jiosaavn.com/api.php`) with Mumbai geo/language cookies, client-side DES media URL decryption, and automatic fallback to `https://melotune.harshbits.com/api/`.
+- Upgraded Explore home feeds and Browse & Discover categories (`New Releases`, `Charts`, `Playlists`, `Artists`) to use JioSaavn native `webapi.getLaunchData` and `content.getAlbums` feeds per selected language.
+- Preserved `.php` endpoint URLs in Explore API normalization while keeping custom mirror URLs configurable in Explore Options.
+
+### Added
+- Added `Kannada` to the Explore language selector bar.
+
 ## [1.2.0] - 2026-11-27
 
 ### Added

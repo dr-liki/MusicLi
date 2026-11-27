@@ -105,6 +105,7 @@ import coil.compose.AsyncImage
 import com.drliki.MusicLi.R
 import com.drliki.MusicLi.data.explore.ExploreAlbum
 import com.drliki.MusicLi.data.explore.ExploreArtist
+import com.drliki.MusicLi.data.explore.ExploreBrowseCategory
 import com.drliki.MusicLi.data.explore.ExploreDownloadItem
 import com.drliki.MusicLi.data.explore.ExploreDownloadStatus
 import com.drliki.MusicLi.data.explore.ExplorePlaylist
@@ -119,7 +120,7 @@ import com.drliki.MusicLi.presentation.viewmodel.sharedPlayerViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val EXPLORE_LANGUAGES = listOf("All", "Hindi", "English", "Punjabi", "Tamil", "Telugu")
+private val EXPLORE_LANGUAGES = listOf("All", "Hindi", "English", "Punjabi", "Tamil", "Telugu", "Kannada")
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -349,13 +350,12 @@ fun ExploreScreen(
 
                 // 2x2 Browse & Discover bento grid
                 item {
-                    val langPrefix = uiState.selectedLanguage
+                    val selectedLang = uiState.selectedLanguage
                         .takeUnless { it.equals("All", ignoreCase = true) }
-                        ?.let { "$it " }
-                        .orEmpty()
                     ExploreBrowseDiscoverGrid(
-                        onCategoryClick = { querySuffix, filter ->
-                            exploreViewModel.browseCategory("$langPrefix$querySuffix", filter)
+                        selectedLanguage = selectedLang,
+                        onCategoryClick = { category, query, filter ->
+                            exploreViewModel.browseCategory(category, query, filter)
                         },
                     )
                 }
@@ -742,8 +742,22 @@ private fun ExploreSectionHeader(
 
 @Composable
 private fun ExploreBrowseDiscoverGrid(
-    onCategoryClick: (querySuffix: String, filter: ExploreFilterTab) -> Unit,
+    selectedLanguage: String?,
+    onCategoryClick: (category: ExploreBrowseCategory, query: String, filter: ExploreFilterTab) -> Unit,
 ) {
+    val langLower = selectedLanguage?.lowercase().orEmpty()
+    val newReleasesQuery = if (selectedLanguage != null) "$selectedLanguage New Releases" else "New Releases"
+    val chartsQuery = if (selectedLanguage != null) "$selectedLanguage Charts" else "Top Charts"
+    val playlistsQuery = if (selectedLanguage != null) "$selectedLanguage Playlists" else "Featured Playlists"
+    val artistsQuery = when (langLower) {
+        "english" -> "The Weeknd"
+        "kannada" -> "Sanjith Hegde"
+        "tamil" -> "Anirudh"
+        "telugu" -> "Sid Sriram"
+        "punjabi" -> "Diljit Dosanjh"
+        else -> "Arijit Singh"
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExploreSectionHeader(
             title = "Browse & Discover",
@@ -765,7 +779,7 @@ private fun ExploreBrowseDiscoverGrid(
                     icon = Icons.Rounded.NewReleases,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    onClick = { onCategoryClick("new releases", ExploreFilterTab.ALBUMS) },
+                    onClick = { onCategoryClick(ExploreBrowseCategory.NEW_RELEASES, newReleasesQuery, ExploreFilterTab.ALBUMS) },
                     modifier = Modifier.weight(1f),
                 )
                 ExploreBrowseCategoryTile(
@@ -774,7 +788,7 @@ private fun ExploreBrowseDiscoverGrid(
                     icon = Icons.Rounded.Whatshot,
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    onClick = { onCategoryClick("top charts", ExploreFilterTab.ALL) },
+                    onClick = { onCategoryClick(ExploreBrowseCategory.CHARTS, chartsQuery, ExploreFilterTab.ALL) },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -788,7 +802,7 @@ private fun ExploreBrowseDiscoverGrid(
                     icon = Icons.Rounded.QueueMusic,
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    onClick = { onCategoryClick("best playlists", ExploreFilterTab.PLAYLISTS) },
+                    onClick = { onCategoryClick(ExploreBrowseCategory.PLAYLISTS, playlistsQuery, ExploreFilterTab.PLAYLISTS) },
                     modifier = Modifier.weight(1f),
                 )
                 ExploreBrowseCategoryTile(
@@ -797,7 +811,7 @@ private fun ExploreBrowseDiscoverGrid(
                     icon = Icons.Rounded.Person,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    onClick = { onCategoryClick("top artists", ExploreFilterTab.ARTISTS) },
+                    onClick = { onCategoryClick(ExploreBrowseCategory.ARTISTS, artistsQuery, ExploreFilterTab.ARTISTS) },
                     modifier = Modifier.weight(1f),
                 )
             }

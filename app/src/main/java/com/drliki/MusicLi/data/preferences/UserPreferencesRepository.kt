@@ -1099,8 +1099,7 @@ constructor(
 
     val exploreApiBaseUrlFlow: Flow<String> = dataStore.data.map { preferences ->
         val raw = preferences[PreferencesKeys.EXPLORE_API_BASE_URL]?.trim().orEmpty()
-        val normalized = if (raw.isBlank()) DEFAULT_EXPLORE_API_BASE_URL else raw
-        if (normalized.endsWith("/")) normalized else "$normalized/"
+        normalizeExploreApiBaseUrl(raw.ifBlank { DEFAULT_EXPLORE_API_BASE_URL })
     }
 
     suspend fun setExploreApiBaseUrl(url: String?) {
@@ -1110,7 +1109,7 @@ constructor(
                 preferences.remove(PreferencesKeys.EXPLORE_API_BASE_URL)
             } else {
                 preferences[PreferencesKeys.EXPLORE_API_BASE_URL] =
-                    if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+                    normalizeExploreApiBaseUrl(trimmed)
             }
         }
     }
@@ -1784,7 +1783,19 @@ constructor(
     }
 
     companion object {
-        const val DEFAULT_EXPLORE_API_BASE_URL = "https://melotune.harshbits.com/api/"
+        const val DEFAULT_EXPLORE_API_BASE_URL = "https://www.jiosaavn.com/api.php"
+        const val FALLBACK_EXPLORE_API_BASE_URL = "https://melotune.harshbits.com/api/"
+
+        internal fun normalizeExploreApiBaseUrl(raw: String): String {
+            val trimmed = raw.trim()
+            if (trimmed.isBlank()) return DEFAULT_EXPLORE_API_BASE_URL
+            val withoutTrailingSlash = trimmed.trimEnd('/')
+            return if (withoutTrailingSlash.endsWith(".php", ignoreCase = true)) {
+                withoutTrailingSlash
+            } else {
+                "$withoutTrailingSlash/"
+            }
+        }
         /** Default character delimiters for splitting multi-artist tags */
         val DEFAULT_ARTIST_DELIMITERS = listOf("/", ";", ",", "+", "&")
         /** Default word-based delimiters (matched case-insensitively with whitespace boundaries) */

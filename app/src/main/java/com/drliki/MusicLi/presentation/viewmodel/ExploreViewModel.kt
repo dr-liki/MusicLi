@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drliki.MusicLi.data.explore.ExploreAlbum
 import com.drliki.MusicLi.data.explore.ExploreArtist
+import com.drliki.MusicLi.data.explore.ExploreBrowseCategory
 import com.drliki.MusicLi.data.explore.ExploreDownloadItem
 import com.drliki.MusicLi.data.explore.ExploreDownloadStatus
 import com.drliki.MusicLi.data.explore.ExploreHomeFeed
@@ -154,6 +155,7 @@ class ExploreViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private var detailJob: Job? = null
+    private var activeBrowseCategory: ExploreBrowseCategory? = null
 
     init {
         loadFeed(language = "All")
@@ -216,11 +218,16 @@ class ExploreViewModel @Inject constructor(
      */
     fun refreshExplore() {
         val currentQuery = _uiState.value.query.trim()
+        val browseCat = activeBrowseCategory
         if (currentQuery.isNotBlank()) {
             searchJob?.cancel()
             searchJob = viewModelScope.launch {
                 _uiState.update { it.copy(isRefreshingFeed = true) }
-                executeSearch(currentQuery)
+                if (browseCat != null) {
+                    executeBrowseCategory(browseCat, currentQuery)
+                } else {
+                    executeSearch(currentQuery)
+                }
                 _uiState.update { it.copy(isRefreshingFeed = false) }
             }
         } else {
@@ -229,6 +236,7 @@ class ExploreViewModel @Inject constructor(
     }
 
     fun onQueryChange(newQuery: String) {
+        activeBrowseCategory = null
         _uiState.update { it.copy(query = newQuery) }
         searchJob?.cancel()
         val trimmed = newQuery.trim()
@@ -246,6 +254,7 @@ class ExploreViewModel @Inject constructor(
         val trimmed = query.trim()
         searchJob?.cancel()
         if (trimmed.isBlank()) return
+        activeBrowseCategory = null
         val updatedHistory = (listOf(trimmed) + _uiState.value.recentSearches.filterNot {
             it.equals(trimmed, ignoreCase = true)
         }).take(10)
@@ -279,14 +288,31 @@ class ExploreViewModel @Inject constructor(
         val trimmed = query.trim()
         searchJob?.cancel()
         if (trimmed.isBlank()) return
+        activeBrowseCategory = null
         _uiState.update { it.copy(query = trimmed, selectedFilter = filter) }
         searchJob = viewModelScope.launch {
             executeSearch(trimmed)
         }
     }
 
+    fun browseCategory(
+        category: ExploreBrowseCategory,
+        displayQuery: String,
+        filter: ExploreFilterTab,
+    ) {
+        val trimmed = displayQuery.trim()
+        searchJob?.cancel()
+        if (trimmed.isBlank()) return
+        activeBrowseCategory = category
+        _uiState.update { it.copy(query = trimmed, selectedFilter = filter) }
+        searchJob = viewModelScope.launch {
+            executeBrowseCategory(category, trimmed)
+        }
+    }
+
     fun clearSearch() {
         searchJob?.cancel()
+        activeBrowseCategory = null
         _uiState.update {
             it.copy(query = "", isSearching = false, searchResults = ExploreSearchResults(), searchError = null)
         }
@@ -301,6 +327,26 @@ class ExploreViewModel @Inject constructor(
             .onFailure { err ->
                 _uiState.update {
                     it.copy(isSearching = false, searchError = err.message ?: "Search failed")
+                }
+            }
+    }
+
+    private suspend fun executeBrowseCategory(
+        category: ExploreBrowseCategory,
+        fallbackQuery: String,
+    ) {
+        _uiState.update { it.copy(isSearching = true, searchError = null) }
+        exploreRepository.browseCategoryFeed(
+            category = category,
+            language = _uiState.value.selectedLanguage,
+            fallbackQuery = fallbackQuery,
+        )
+            .onSuccess { results ->
+                _uiState.update { it.copy(isSearching = false, searchResults = results, searchError = null) }
+            }
+            .onFailure { err ->
+                _uiState.update {
+                    it.copy(isSearching = false, searchError = err.message ?: "Unable to load category")
                 }
             }
     }
