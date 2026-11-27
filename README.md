@@ -25,35 +25,43 @@ MusicLi (`com.drliki.MusicLi`) is an independent, free and open-source Android m
 
 The app works **100% offline by default**. No ads, no analytics, no telemetry, and no Google Play Services runtime dependencies—optional network features stay dormant until you enable or trigger them.
 
-## What's New in v1.2.0
-
-- **Upgraded Explore Experience**: Added a 2×2 **Browse & Discover** bento grid (`New Releases`, `Charts`, `Playlists`, `Artists`), Play FAB + `⋮` More menu + `NEW`/`E`/`MIX` badge overlays on cards, section subtitles with Shuffle All buttons, refined outlined circular Artist Spotlight cards, and a vertical Recent Searches list with per-item removal and `Clear all`.
-- **Unified Edge-to-Edge Dialogs (`MusicLiDialog`)**: Standardized popup dialogs across the app onto a shared edge-to-edge-width Material 3 Expressive container (`12.dp` horizontal margins, tonal top icon badges, and 50/50 side-by-side Outlined/Filled action buttons).
-- **Relocated Release Info & Updates Changelog**: Moved the Release & Build Info sheet from the Home top bar pill into an interactive card inside **Settings → About**, and added an interactive **Changelog** card inside **Settings → Updates** featuring MusicLi `1.2.0`, `1.1.0`, and `1.0.0` release notes.
-
-## Highlights in v1.1.0 & v1.0.0
-
-- **v1.1.0 Highlights**: Continuous wrap-around circular scrolling in the Home Discover carousel, pull-to-refresh + Refresh action in Explore, direct JioSaavn artist page navigation from streaming tracks, and pre-filled Title/Artist manual search inside the Found Matches lyrics picker.
-
-- **Independent Identity**: Dedicated `MusicLi` branding, `com.drliki.MusicLi` application ID (installable alongside PixelPlayerOSS), Material 3 `'M'` adaptive icon, and animated splash screen.
-- **Bulk Auto Synced Lyrics & Multi-Provider Lookup**: Search across 9 providers (`LRCLIB`, `BetterLyrics`, `lrc.red`, `Paxsenix`, `KuGou`, `JioSaavn`, `YouTube`, `NetEase`, `Lyrics.ovh`) or batch-embed synced lyrics across your library with provider priority ordering and rate-limit pause/resume.
-- **Translation & Phonetic Romanization**: On-demand live translation of lyric lines plus offline Urdu and 7-script Indic romanization.
-- **Synced Cover Videos & Explore Downloads**: Watch synced YouTube cover videos (with fullscreen orientation lock, quality persistence, and SponsorBlock intro offsets) and browse/stream/download M4A + LRC tracks offline in Explore.
-- **Self-Hosted Streaming & Offline Cache**: Connect **Navidrome / Subsonic** and **Jellyfin** servers for library sync, streaming, artwork, and app-private offline downloads.
-- **Storage Sense & Power Utilities**: Clear cache breakdown by category, smart offline playlists, animated Home Discover Carousel & Play Queue strip, blur/high-refresh-rate controls, Android Auto support, and direct GitHub Releases updates (`Stable` + `Alpha`).
-- **Seamless Migration**: Full backward compatibility with `.pxpl` encrypted/unencrypted backups and `.m3u8` playlist sync tags (`#PIXELPLAYER-PLAYLIST-ID:`) exported from PixelPlayerOSS.
-
 ## Features
+
+### Material 3 Expressive UI & Personalization
+- **Dynamic Design System**: Adaptive Material 3 Expressive interface with album-art dynamic palettes, AMOLED, light, and dark themes, custom display/interface typography, blur effects, and high-refresh-rate controls.
+- **Home & Discovery Surfaces**: Endless circular Home Discover carousel, horizontal Home Play Queue strip, adaptive phone/tablet navigation rail, and Glance home widgets.
+- **Consistent Dialogs & In-App Release Info**: Unified edge-to-edge-width popup dialogs (`MusicLiDialog`), interactive **Release & Build Info** sheet under **Settings → About**, and a built-in **Changelog** sheet under **Settings → Updates**.
+
+### Playback & Audio Engine
+- **Media3 + FFmpeg Pipeline**: Hardware and Jellyfin FFmpeg decoding for `MP3`, `FLAC`, `AAC`, `OGG`, `WAV`, `M4A`, plus gapless playback, crossfade, custom track transitions, and external audio file opening.
+- **Playback Controls & Effects**: Reorderable queue with swipe-to-dismiss undo, sleep timer, variable playback speed (`0.25×`–`3×`), Equalizer with custom/pinned presets and DSP effects, dual-deck DJ Mashup, and timestamped Audio Bookmarks.
+- **Android Auto**: Built-in Android Auto media browse tree and playback controls.
+
+### Local Library & Management
+- **Structured Browsing & Smart Mixes**: Fast-scrolling Songs, Albums, Artists, Genres, Folders, Favorites, Recently Played, Daily Mix, and offline Smart Mix generation.
+- **Metadata & Maintenance**: Single and batch ID3/Vorbis/MP4 tag + crop-ready cover-art editor, duplicate song scanner, delimiter configuration, directory include/exclude manager, Storage Sense cache analyzer, listening statistics, and annual Recap.
+
+### Lyrics, Translation & Romanization
+- **Multi-Format & 9-Provider Lookup**: Reads embedded audio tags and local `.lrc` / TTML files, and searches across `LRCLIB`, `BetterLyrics`, `lrc.red`, `Paxsenix`, `KuGou`, `JioSaavn`, `YouTube`, `NetEase`, and `Lyrics.ovh` with pre-filled Title & Artist search controls.
+- **Bulk Auto-Embed**: Priority-ordered library-wide synced lyrics fetcher with rate-limit pause/resume and MediaStore permission handling.
+- **Translation & Phonetic Romanization**: On-demand live line translation plus offline Urdu and 7-script Indic phonetic romanization alongside synced word/line highlighting.
+
+### Explore, Synced Video & Self-Hosted Cloud
+- **Explore Catalog & Offline Downloads**: Browse & Discover 2×2 categories (*New Releases*, *Charts*, *Playlists*, *Artists*), pull-to-refresh rotating feeds, section Shuffle All, vertical recent searches with individual removal, streaming playback with direct artist navigation, and persistent offline M4A + `.lrc` downloads.
+- **Synced Cover Videos**: Synced YouTube cover-video player with SponsorBlock intro-offset alignment, selectable stream quality, and fullscreen orientation lock.
+- **Self-Hosted Servers & Enrichment**: **Navidrome / Subsonic** and **Jellyfin** account login, multi-library sync, streaming, and offline downloads; optional **ListenBrainz** scrobbling, **MusicBrainz** metadata matching, and **Deezer** artist portrait caching.
+
+### Overview Matrix
 
 | Area | Highlights |
 | --- | --- |
-| Playback | Media3 + Jellyfin FFmpeg decoder, gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, sleep timer, playback speed (`0.25×`–`3×`), external audio opener |
-| Library | Local MediaStore scanning (`MP3`, `FLAC`, `AAC`, `OGG`, `WAV`, `M4A`), albums, artists, genres, folders, favorites, playlists, stats, metadata tag editor, Storage Sense |
-| Self-Hosted | Navidrome/Subsonic and Jellyfin login, multi-library sync, streaming, resilient cover loading, and app-private offline downloads |
-| Lyrics | Embedded tags, local `.lrc`/TTML files, 9-provider search, priority-ordered bulk auto-embed, live translation, Urdu & Indic romanization |
-| Video & Explore | Synced YouTube cover-video playback (with SponsorBlock offsets) and Explore discovery/streaming/offline M4A + LRC downloads |
-| Metadata & UI | Album-art dynamic palette, AMOLED/light/dark Material 3 Expressive themes, Glance home widgets, Android Auto browse tree, optional Deezer & MusicBrainz enrichment |
-| Backup & Sync | Encrypted (AES-256-GCM) and plain `.pxpl` backup/restore plus `.m3u8` folder sync (compatible with PixelPlayerOSS archives) |
+| Playback | Media3 + Jellyfin FFmpeg decoder, gapless playback, crossfade, custom transitions, equalizer, mashup, audio bookmarks, sleep timer, speed (`0.25×`–`3×`) |
+| Library | Local MediaStore scanning (`MP3`, `FLAC`, `AAC`, `OGG`, `WAV`, `M4A`), smart mixes, tag/cover-art editor, duplicate scanner, Storage Sense, listening stats |
+| Self-Hosted | Navidrome/Subsonic and Jellyfin multi-library sync, streaming, resilient cover loading, and app-private offline downloads |
+| Lyrics | Embedded tags, `.lrc`/TTML sidecars, 9-provider lookup, priority-ordered bulk auto-embed, live translation, Urdu & 7-script Indic romanization |
+| Explore & Video | Browse & Discover categories, JioSaavn streaming & offline M4A + LRC downloads, synced YouTube cover videos with SponsorBlock offsets |
+| UI & Platform | Album-art dynamic palette, circular Home carousel, unified `MusicLiDialog` popups, AMOLED theme, Glance widgets, Android Auto, GitHub Releases updater |
+| Backup & Sync | Encrypted (`AES-256-GCM`) and plain `.pxpl` backup/restore plus `.m3u8` folder sync (compatible with PixelPlayerOSS archives) |
 
 ## Migrating from PixelPlayerOSS
 
