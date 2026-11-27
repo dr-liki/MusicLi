@@ -19,6 +19,16 @@
   <img src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge" alt="GPLv3 license">
 </p>
 
+<p align="center">
+  <img src="assets/screenshot1.jpg" alt="MusicLi Home screen" width="195"/>
+  <img src="assets/screenshot2.jpg" alt="MusicLi Now Playing with synced cover video" width="195"/>
+  <img src="assets/screenshot3.jpg" alt="MusicLi Romanized and translated synced lyrics" width="195"/>
+  <img src="assets/screenshot4.jpg" alt="MusicLi Lyrics provider priority settings" width="195"/>
+  <img src="assets/screenshot5.jpg" alt="MusicLi Bulk auto-embed synced lyrics" width="195"/>
+  <img src="assets/screenshot6.jpg" alt="MusicLi Explore discovery hub" width="195"/>
+  <img src="assets/screenshot7.jpg" alt="MusicLi Streaming Now Playing screen" width="195"/>
+</p>
+
 ## What It Is
 
 MusicLi (`com.drliki.MusicLi`) is an independent, free and open-source Android music player forked from [PixelPlayerOSS](https://github.com/PixelPlayerHQ/PixelPlayerOSS) and maintained by [@dr-liki](https://github.com/dr-liki). Built with Kotlin, Jetpack Compose, Material 3 Expressive, and AndroidX Media3 + FFmpeg, it keeps your local music library first while giving you full control over optional self-hosted servers and online enrichment.
@@ -185,6 +195,30 @@ baselineprofile/      Macrobenchmark and baseline profile generation
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/RELEASE.md](docs/RELEASE.md), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
+
+## Acknowledgements
+
+MusicLi builds on the work of the open-source Android audio community and is inspired by several projects:
+
+### Upstream & Original Authors
+- **[PixelPlayerOSS](https://github.com/PixelPlayerHQ/PixelPlayerOSS)** by **[@lostf1sh](https://github.com/lostf1sh)** — FOSS upstream base and architecture that MusicLi is forked from.
+- **PixelPlayer** by **[@theovilardo](https://github.com/theovilardo)** — Original author of PixelPlayer and its Material 3 Expressive player design.
+
+### Inspiration & Related Projects
+- **[PixelMusic](https://github.com/ianshulyadav/PixelMusic)** by **[@ianshulyadav](https://github.com/ianshulyadav)** — Explore UI and discovery card design inspiration.
+- **[Rhythm](https://github.com/cromaguy/Rhythm)** by **[@cromaguy](https://github.com/cromaguy)** — Privacy-first Material 3 Expressive Android music player inspiration.
+- **[LastWave-Native](https://github.com/Clash-Projects/LastWave-native)** by **[Clash-Projects](https://github.com/Clash-Projects)** — Audiophile playback and modern Material UI feature inspiration.
+
+### Open-Source Libraries & Assets
+- **Media & Audio Engine**: AndroidX Media3 / ExoPlayer, Jellyfin FFmpeg Decoder (`media3-ffmpeg-decoder`), TagLib (`Kyant0/taglib`), JAudioTagger, and JSyn.
+- **UI & Graphics**: Jetpack Compose, Material 3 Expressive, `smooth-corner-rect-android-compose`, Coil, Wavy Slider, Capturable, Reorderable, and AndroidX Glance.
+- **Architecture & Data**: Kotlin, Hilt, Room, DataStore, WorkManager, Retrofit, OkHttp, and Ktor.
+- **Lyrics, Phonetics & Typography**: Kuromoji, `pinyin4j`, Wikidata CC0 artist-genre mappings, Google Sans Flex, and Roboto Flex (`SIL OFL 1.1`).
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete license details.
+
+### Self-Hosted & Community Services
+- Navidrome / Subsonic, Jellyfin, ListenBrainz, MusicBrainz, LRCLIB & community lyrics providers, SponsorBlock, and Deezer.
 
 ## License
 
