@@ -23,14 +23,13 @@
 
 MusicLi (`com.drliki.MusicLi`) is an independent, free and open-source Android music player forked from [PixelPlayerOSS](https://github.com/PixelPlayerHQ/PixelPlayerOSS) and maintained by [@dr-liki](https://github.com/dr-liki). Built with Kotlin, Jetpack Compose, Material 3 Expressive, and AndroidX Media3 + FFmpeg, it keeps your local music library first while giving you full control over optional self-hosted servers and online enrichment.
 
-The app works **100% offline by default**. No ads, no analytics, no telemetry, and no Google Play Services runtime dependencies—optional network features stay dormant until you enable or trigger them.
+The app works **100% offline by default**. No ads, no analytics, no telemetry, and no Google Play Services runtime dependencies.
 
 ## Features
 
 ### Material 3 Expressive UI & Personalization
 - **Dynamic Design System**: Adaptive Material 3 Expressive interface with album-art dynamic palettes, AMOLED, light, and dark themes, custom display/interface typography, blur effects, and high-refresh-rate controls.
 - **Home & Discovery Surfaces**: Endless circular Home Discover carousel, horizontal Home Play Queue strip, adaptive phone/tablet navigation rail, and Glance home widgets.
-- **Consistent Dialogs & In-App Release Info**: Unified edge-to-edge-width popup dialogs (`MusicLiDialog`), interactive **Release & Build Info** sheet under **Settings → About**, and a built-in **Changelog** sheet under **Settings → Updates**.
 
 ### Playback & Audio Engine
 - **Media3 + FFmpeg Pipeline**: Hardware and Jellyfin FFmpeg decoding for `MP3`, `FLAC`, `AAC`, `OGG`, `WAV`, `M4A`, plus gapless playback, crossfade, custom track transitions, and external audio file opening.
@@ -47,8 +46,8 @@ The app works **100% offline by default**. No ads, no analytics, no telemetry, a
 - **Translation & Phonetic Romanization**: On-demand live line translation plus offline Urdu and 7-script Indic phonetic romanization alongside synced word/line highlighting.
 
 ### Explore, Synced Video & Self-Hosted Cloud
-- **Explore Catalog & Offline Downloads**: Browse & Discover 2×2 categories (*New Releases*, *Charts*, *Playlists*, *Artists*), pull-to-refresh rotating feeds, section Shuffle All, vertical recent searches with individual removal, streaming playback with direct artist navigation, and persistent offline M4A + `.lrc` downloads.
-- **Synced Cover Videos**: Synced YouTube cover-video player with SponsorBlock intro-offset alignment, selectable stream quality, and fullscreen orientation lock.
+- **Explore Catalog & Offline Downloads**: Browse & Discover 2×2 categories (*New Releases*, *Charts*, *Playlists*, *Artists*), pull-to-refresh rotating feeds, streaming playback with direct artist navigation, and offline M4A + `.lrc` downloads.
+- **Synced Cover Videos**: Synced YouTube cover-video player with SponsorBlock intro-offset alignment, selectable stream quality and automatic and manual stream link/ direct youtube ID fetch , and fullscreen orientation lock.
 - **Self-Hosted Servers & Enrichment**: **Navidrome / Subsonic** and **Jellyfin** account login, multi-library sync, streaming, and offline downloads; optional **ListenBrainz** scrobbling, **MusicBrainz** metadata matching, and **Deezer** artist portrait caching.
 
 ### Overview Matrix
