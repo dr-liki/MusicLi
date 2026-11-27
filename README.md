@@ -5,7 +5,7 @@
 <h1 align="center">MusicLi</h1>
 
 <p align="center">
-  Local-first Material 3 Expressive Android music player with self-hosted streaming, 9-provider synced lyrics, cover videos, and offline downloads.
+  A Local-first beautiful Material 3 Expressive Android music player with self-hosted and HQ song streaming and downloads, home discover carousel and horizontal play queue, in-player music video playback, multi-provider synced lyrics lookup and bulk auto lyrics embed and download support.
 </p>
 
 <p align="center">
