@@ -400,10 +400,11 @@ object AppModule {
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
-                val requestWithUserAgent = originalRequest.newBuilder()
-                    .header("User-Agent", "MusicLi/1.0 (Android; Music Player)")
-                    .build()
-                chain.proceed(requestWithUserAgent)
+                val requestBuilder = originalRequest.newBuilder()
+                if (originalRequest.header("User-Agent") == null) {
+                    requestBuilder.header("User-Agent", "MusicLi/1.0 (Android; Music Player)")
+                }
+                chain.proceed(requestBuilder.build())
             }
             .addInterceptor(loggingInterceptor)
             .build()
@@ -460,11 +461,14 @@ object AppModule {
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
-                val requestWithHeaders = originalRequest.newBuilder()
-                    .header("User-Agent", "MusicLi/1.0 (Android; Music Player)")
-                    .header("Accept", "application/json")
-                    .build()
-                chain.proceed(requestWithHeaders)
+                val requestBuilder = originalRequest.newBuilder()
+                if (originalRequest.header("User-Agent") == null) {
+                    requestBuilder.header("User-Agent", "MusicLi/1.0 (Android; Music Player)")
+                }
+                if (originalRequest.header("Accept") == null) {
+                    requestBuilder.header("Accept", "application/json")
+                }
+                chain.proceed(requestBuilder.build())
             }
             .addInterceptor(loggingInterceptor)
             .build()

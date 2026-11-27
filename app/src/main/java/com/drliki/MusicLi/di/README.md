@@ -32,7 +32,7 @@ Hilt dependency injection modules and qualifier annotations (`com.drliki.MusicLi
 - `[AppModule.kt:provideWorkManager]` initializes/fetches the process `WorkManager` singleton via `WorkManager.getInstance(context)`.
 - `[AppModule.kt:providePixelPlayerDatabase]` builds the Room SQLite database `"pixelplayer_database"` on disk and attaches `PixelPlayerDatabase.createRuntimeArtifactsCallback()`.
 - `[AppModule.kt:provideImageLoader]` creates Coil `DiskCache` under `context.cacheDir.resolve("image_cache")` (100 MB max) and `MemoryCache` (40 MB max) with `respectCacheHeaders(false)`.
-- `[AppModule.kt:provideOkHttpClient]` and `[AppModule.kt:provideFastOkHttpClient]` mutate outgoing HTTP request headers (`User-Agent`, and `Accept: application/json` in `provideFastOkHttpClient`) and emit header logs in `BuildConfig.DEBUG`.
+- `[AppModule.kt:provideOkHttpClient]` and `[AppModule.kt:provideFastOkHttpClient]` only supply default `User-Agent` (and `Accept: application/json` in `provideFastOkHttpClient`) when those headers are absent on the outgoing request, preserving caller-supplied headers while emitting header logs in `BuildConfig.DEBUG`.
 - `[NetworkModule.kt:provideListenBrainzRetrofit]` intercepts outgoing requests and rewrites URLs when `endpoint.rewrite(request.url)` differs from `request.url`.
 
 ## Verification

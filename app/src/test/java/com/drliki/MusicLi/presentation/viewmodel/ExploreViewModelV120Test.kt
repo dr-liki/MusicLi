@@ -36,6 +36,7 @@ class ExploreViewModelV120Test {
         every { userPreferencesRepository.exploreDownloadSubfoldersFlow } returns flowOf(true)
         every { userPreferencesRepository.exploreDownloadLyricsFlow } returns flowOf(true)
         every { userPreferencesRepository.exploreApiBaseUrlFlow } returns flowOf("https://saavn.example/api")
+        every { userPreferencesRepository.exploreAllowMirrorFallbackFlow } returns flowOf(true)
 
         coEvery { exploreRepository.getHomeFeed(any(), any()) } returns Result.success(ExploreHomeFeed())
         coEvery { exploreRepository.searchAll(any()) } returns Result.success(

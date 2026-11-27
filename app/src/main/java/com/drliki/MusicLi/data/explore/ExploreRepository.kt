@@ -3,8 +3,10 @@ package com.drliki.MusicLi.data.explore
 import com.drliki.MusicLi.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,13 +24,27 @@ class ExploreRepository @Inject constructor(
 ) {
     private val feedCache = ConcurrentHashMap<String, ExploreHomeFeed>()
     private val feedPageOffsets = ConcurrentHashMap<String, Int>()
+    private val legacyUrlMigrated = AtomicBoolean(false)
+
+    val connectionDiagnostics: StateFlow<ExploreConnectionDiagnostics>
+        get() = api.diagnostics
 
     fun clearFeedCache() {
         feedCache.clear()
         feedPageOffsets.clear()
     }
 
-    private suspend fun baseUrl(): String = userPreferencesRepository.exploreApiBaseUrlFlow.first()
+    suspend fun testApiConnection(): ExploreConnectionTestResult = api.testConnection(baseUrl())
+
+    private suspend fun baseUrl(): String {
+        if (legacyUrlMigrated.compareAndSet(false, true)) {
+            runCatching { userPreferencesRepository.migrateLegacyExploreUrlIfNeeded() }
+        }
+        runCatching {
+            api.setAllowMirrorFallback(userPreferencesRepository.exploreAllowMirrorFallbackFlow.first())
+        }
+        return userPreferencesRepository.exploreApiBaseUrlFlow.first()
+    }
 
     suspend fun getHomeFeed(language: String = "All", forceRefresh: Boolean = false): Result<ExploreHomeFeed> =
         runCatching {
@@ -92,11 +108,32 @@ class ExploreRepository @Inject constructor(
                     val launch = launchResult.getOrNull() ?: SaavnLaunchData()
                     val releases = newReleasesResult.getOrNull() ?: SaavnNewReleasesResult()
 
-                    val combinedSongs = (
-                        trendingResult.getOrNull()?.data?.results.orEmpty() +
-                            launch.trendingSongs +
-                            releases.songs
-                        ).distinctBy { it.id }
+                    val trendingRaw = trendingResult.getOrNull()?.data?.results.orEmpty()
+                    val hydratedEnglishChartSongs = if (langKey == "english" || trendingRaw.size < 6) {
+                        val chartTarget = if (langKey == "english") {
+                            launch.charts.firstOrNull {
+                                val title = decodeSaavnHtml(it.name).lowercase()
+                                title.contains("english") || title.contains("international")
+                            } ?: launch.charts.firstOrNull()
+                        } else {
+                            launch.charts.firstOrNull()
+                        }
+                        chartTarget?.id?.let { plId ->
+                            runCatching { api.getPlaylistById(url, plId, 0, 20).data?.songs.orEmpty() }
+                                .getOrDefault(emptyList())
+                        }.orEmpty()
+                    } else {
+                        emptyList()
+                    }
+
+                    val songPool = if (langKey == "english") {
+                        hydratedEnglishChartSongs + trendingRaw + launch.trendingSongs + releases.songs
+                    } else {
+                        trendingRaw + launch.trendingSongs + releases.songs + hydratedEnglishChartSongs
+                    }
+
+                    val combinedSongs = songPool
+                        .distinctBy { it.id }
                         .take(20)
                         .mapNotNull { it.toExploreSong() }
 

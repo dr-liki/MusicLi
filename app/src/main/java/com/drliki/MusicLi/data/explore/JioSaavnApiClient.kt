@@ -2,22 +2,129 @@ package com.drliki.MusicLi.data.explore
 
 import com.drliki.MusicLi.data.preferences.UserPreferencesRepository
 import com.google.gson.Gson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
+import java.io.IOException
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+
+enum class ExploreEndpointKind {
+    DIRECT_JIOSAAVN,
+    FALLBACK_MIRROR,
+    CUSTOM_MIRROR,
+}
+
+data class ExploreConnectionDiagnostics(
+    val configuredUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+    val lastUsedUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+    val endpointKind: ExploreEndpointKind = ExploreEndpointKind.DIRECT_JIOSAAVN,
+    val usedFallback: Boolean = false,
+    val lastFallbackReason: String? = null,
+    val lastSuccessAtEpochMs: Long = 0L,
+)
+
+data class ExploreConnectionTestResult(
+    val testedUrl: String,
+    val reachable: Boolean,
+    val latencyMs: Long,
+    val resultCount: Int,
+    val realEnglishTrackCount: Int,
+    val karaokeOnly: Boolean,
+    val sampleTitles: List<String>,
+    val errorMessage: String? = null,
+)
 
 @Singleton
 class JioSaavnApiClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val gson: Gson,
 ) {
+    private val _diagnostics = MutableStateFlow(ExploreConnectionDiagnostics())
+    val diagnostics: StateFlow<ExploreConnectionDiagnostics> = _diagnostics.asStateFlow()
+
+    @Volatile
+    private var allowMirrorFallback: Boolean = true
+
+    private val odSkylerHosts = ConcurrentHashMap.newKeySet<String>()
+
+    private val exploreHttpClient: OkHttpClient by lazy {
+        okHttpClient.newBuilder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .protocols(listOf(Protocol.HTTP_1_1, Protocol.HTTP_2))
+            .retryOnConnectionFailure(true)
+            .dns { hostname ->
+                val addresses = Dns.SYSTEM.lookup(hostname)
+                val ipv4 = addresses.filterIsInstance<Inet4Address>()
+                val ipv6 = addresses.filterIsInstance<Inet6Address>()
+                if (ipv4.isNotEmpty()) ipv4 + ipv6 else addresses
+            }
+            .build()
+    }
+
+    fun setAllowMirrorFallback(enabled: Boolean) {
+        allowMirrorFallback = enabled
+    }
+
+    suspend fun testConnection(baseUrl: String): ExploreConnectionTestResult {
+        val cleanUrl = UserPreferencesRepository.normalizeExploreApiBaseUrl(baseUrl)
+        val started = System.currentTimeMillis()
+        return runCatching {
+            val response = searchSongsDirect(
+                activeUrl = cleanUrl,
+                query = "Coldplay Yellow",
+                page = 0,
+                limit = 10,
+            )
+            val latency = (System.currentTimeMillis() - started).coerceAtLeast(1L)
+            val songs = response.data?.results.orEmpty()
+            val decodedTitles = songs.map { decodeSaavnHtml(it.name) }.filter { it.isNotBlank() }
+            val realEnglish = songs.count { dto ->
+                val title = decodeSaavnHtml(dto.name).lowercase()
+                val isKaraoke = title.contains("karaoke") || title.contains("instrumental") || title.contains("piano version")
+                val lang = dto.language.orEmpty().lowercase()
+                !isKaraoke && (lang == "english" || title == "yellow")
+            }
+            ExploreConnectionTestResult(
+                testedUrl = cleanUrl,
+                reachable = true,
+                latencyMs = latency,
+                resultCount = songs.size,
+                realEnglishTrackCount = realEnglish,
+                karaokeOnly = songs.isNotEmpty() && realEnglish == 0,
+                sampleTitles = decodedTitles.take(3),
+            )
+        }.getOrElse { err ->
+            ExploreConnectionTestResult(
+                testedUrl = cleanUrl,
+                reachable = false,
+                latencyMs = (System.currentTimeMillis() - started).coerceAtLeast(1L),
+                resultCount = 0,
+                realEnglishTrackCount = 0,
+                karaokeOnly = false,
+                sampleTitles = emptyList(),
+                errorMessage = err.message ?: err.javaClass.simpleName,
+            )
+        }
+    }
+
     suspend fun globalSearch(baseUrl: String, query: String): SaavnGlobalSearchResponse =
         executeWithFallback(baseUrl) { activeUrl ->
-            if (isNativeSaavnApiUrl(activeUrl)) {
+            if (isNativeSaavnApiUrl(activeUrl) || isOdSkylerMirror(activeUrl)) {
                 val songs = searchSongsDirect(activeUrl, query, page = 0, limit = 10).data?.results.orEmpty()
                 val albums = searchAlbumsDirect(activeUrl, query, page = 0, limit = 6).data?.results.orEmpty()
                 SaavnGlobalSearchResponse(
@@ -91,7 +198,24 @@ class JioSaavnApiClient @Inject constructor(
             )
             SaavnNativeParser.parseArtistsSearchResponse(raw)
         } else {
-            getWrapper(activeUrl, "search/artists", mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()))
+            executeRestWithOdSkylerAutoDetect(
+                baseUrl = activeUrl,
+                saavnDevBlock = {
+                    getWrapper<SaavnArtistsSearchResponse>(
+                        activeUrl,
+                        "search/artists",
+                        mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()),
+                    )
+                },
+                odSkylerBlock = {
+                    val raw = getRaw(
+                        buildRestPath(activeUrl, "artists"),
+                        mapOf("q" to query, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                        isNative = false,
+                    )
+                    SaavnNativeParser.parseArtistsSearchResponse(raw)
+                },
+            )
         }
     }
 
@@ -111,7 +235,24 @@ class JioSaavnApiClient @Inject constructor(
             )
             SaavnNativeParser.parsePlaylistsSearchResponse(raw)
         } else {
-            getWrapper(activeUrl, "search/playlists", mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()))
+            executeRestWithOdSkylerAutoDetect(
+                baseUrl = activeUrl,
+                saavnDevBlock = {
+                    getWrapper<SaavnPlaylistsSearchResponse>(
+                        activeUrl,
+                        "search/playlists",
+                        mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()),
+                    )
+                },
+                odSkylerBlock = {
+                    val raw = getRaw(
+                        buildRestPath(activeUrl, "playlists"),
+                        mapOf("q" to query, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                        isNative = false,
+                    )
+                    SaavnNativeParser.parsePlaylistsSearchResponse(raw)
+                },
+            )
         }
     }
 
@@ -119,15 +260,24 @@ class JioSaavnApiClient @Inject constructor(
         baseUrl: String,
         languageCookie: String = "english,hindi",
     ): SaavnLaunchData = executeWithFallback(baseUrl) { activeUrl ->
-        if (isNativeSaavnApiUrl(activeUrl)) {
-            val raw = getRaw(
-                targetUrl = activeUrl,
-                params = nativeParams("webapi.getLaunchData"),
-                languageCookie = languageCookie,
-            )
-            SaavnNativeParser.parseLaunchData(raw)
-        } else {
-            SaavnLaunchData()
+        when {
+            isNativeSaavnApiUrl(activeUrl) -> {
+                val raw = getRaw(
+                    targetUrl = activeUrl,
+                    params = nativeParams("webapi.getLaunchData"),
+                    languageCookie = languageCookie,
+                )
+                SaavnNativeParser.parseLaunchData(raw)
+            }
+            isOdSkylerMirror(activeUrl) -> {
+                val raw = getRaw(
+                    targetUrl = buildRestPath(activeUrl, "home"),
+                    params = mapOf("lang" to languageCookie),
+                    isNative = false,
+                )
+                SaavnNativeParser.parseLaunchData(raw)
+            }
+            else -> SaavnLaunchData()
         }
     }
 
@@ -137,22 +287,31 @@ class JioSaavnApiClient @Inject constructor(
         page: Int = 0,
         limit: Int = 30,
     ): SaavnNewReleasesResult = executeWithFallback(baseUrl) { activeUrl ->
-        if (isNativeSaavnApiUrl(activeUrl)) {
-            val raw = getRaw(
-                targetUrl = activeUrl,
-                params = nativeParams(
-                    "content.getAlbums",
-                    mapOf(
-                        "n" to limit.toString(),
-                        "p" to (page + 1).coerceAtLeast(1).toString(),
-                        "languages" to languageCookie,
+        when {
+            isNativeSaavnApiUrl(activeUrl) -> {
+                val raw = getRaw(
+                    targetUrl = activeUrl,
+                    params = nativeParams(
+                        "content.getAlbums",
+                        mapOf(
+                            "n" to limit.toString(),
+                            "p" to (page + 1).coerceAtLeast(1).toString(),
+                            "languages" to languageCookie,
+                        ),
                     ),
-                ),
-                languageCookie = languageCookie,
-            )
-            SaavnNativeParser.parseNewReleases(raw)
-        } else {
-            SaavnNewReleasesResult()
+                    languageCookie = languageCookie,
+                )
+                SaavnNativeParser.parseNewReleases(raw)
+            }
+            isOdSkylerMirror(activeUrl) -> {
+                val raw = getRaw(
+                    targetUrl = buildRestPath(activeUrl, "new"),
+                    params = mapOf("lang" to languageCookie, "page" to (page + 1).coerceAtLeast(1).toString()),
+                    isNative = false,
+                )
+                SaavnNativeParser.parseNewReleases(raw)
+            }
+            else -> SaavnNewReleasesResult()
         }
     }
 
@@ -182,7 +341,7 @@ class JioSaavnApiClient @Inject constructor(
                 searchSongsDirect(activeUrl, fallbackQuery, page, limit)
             }
         } else {
-            getWrapper(activeUrl, "search/songs", mapOf("query" to fallbackQuery, "page" to page.toString(), "limit" to limit.toString()))
+            searchSongsDirect(activeUrl, fallbackQuery, page, limit)
         }
     }
 
@@ -212,7 +371,7 @@ class JioSaavnApiClient @Inject constructor(
                 searchAlbumsDirect(activeUrl, fallbackQuery, page, limit)
             }
         } else {
-            getWrapper(activeUrl, "search/albums", mapOf("query" to fallbackQuery, "page" to page.toString(), "limit" to limit.toString()))
+            searchAlbumsDirect(activeUrl, fallbackQuery, page, limit)
         }
     }
 
@@ -248,6 +407,13 @@ class JioSaavnApiClient @Inject constructor(
                 )
                 SaavnNativeParser.parsePlaylistsSearchResponse(searchRaw)
             }
+        } else if (isOdSkylerMirror(activeUrl)) {
+            val raw = getRaw(
+                buildRestPath(activeUrl, "playlists"),
+                mapOf("q" to fallbackQuery, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                isNative = false,
+            )
+            SaavnNativeParser.parsePlaylistsSearchResponse(raw)
         } else {
             getWrapper(activeUrl, "search/playlists", mapOf("query" to fallbackQuery, "page" to page.toString(), "limit" to limit.toString()))
         }
@@ -268,6 +434,10 @@ class JioSaavnApiClient @Inject constructor(
                 throw IllegalStateException("Song details unavailable from direct JioSaavn API")
             }
             parsed
+        } else if (isOdSkylerMirror(activeUrl)) {
+            val token = SaavnNativeParser.resolveToken(songId)
+            val raw = getRaw(buildRestPath(activeUrl, "song"), mapOf("token" to token), isNative = false)
+            SaavnNativeParser.parseSongResponse(raw)
         } else {
             getWrapper(activeUrl, "songs/$songId", mapOf("lyrics" to includeLyrics.toString()))
         }
@@ -283,6 +453,15 @@ class JioSaavnApiClient @Inject constructor(
                 nativeParams("song.getDetails", mapOf("pids" to songIds.joinToString(","))),
             )
             SaavnNativeParser.parseSongResponse(raw)
+        } else if (isOdSkylerMirror(activeUrl)) {
+            val songs = songIds.mapNotNull { id ->
+                runCatching {
+                    val token = SaavnNativeParser.resolveToken(id)
+                    val raw = getRaw(buildRestPath(activeUrl, "song"), mapOf("token" to token), isNative = false)
+                    SaavnNativeParser.parseSongResponse(raw).data?.firstOrNull()
+                }.getOrNull()
+            }
+            SaavnSongResponse(success = songs.isNotEmpty(), data = songs)
         } else {
             getWrapper(activeUrl, "songs", mapOf("ids" to songIds.joinToString(",")))
         }
@@ -320,6 +499,8 @@ class JioSaavnApiClient @Inject constructor(
                 nativeParams("reco.getreco", mapOf("pid" to songId, "n" to limit.toString())),
             )
             SaavnNativeParser.parseSongResponse("{\"songs\":$raw}")
+        } else if (isOdSkylerMirror(activeUrl)) {
+            SaavnSongResponse(success = false, data = emptyList())
         } else {
             getWrapper(activeUrl, "songs/$songId/suggestions", mapOf("limit" to limit.toString()))
         }
@@ -341,6 +522,10 @@ class JioSaavnApiClient @Inject constructor(
                     throw IllegalStateException("Album details unavailable from direct JioSaavn API")
                 }
                 parsed
+            } else if (isOdSkylerMirror(activeUrl)) {
+                val token = SaavnNativeParser.resolveToken(albumId)
+                val raw = getRaw(buildRestPath(activeUrl, "album"), mapOf("token" to token), isNative = false)
+                SaavnNativeParser.parseAlbumDetailResponse(raw)
             } else {
                 getWrapper(activeUrl, "albums", mapOf("id" to albumId))
             }
@@ -369,6 +554,14 @@ class JioSaavnApiClient @Inject constructor(
                 throw IllegalStateException("Playlist details unavailable from direct JioSaavn API")
             }
             parsed
+        } else if (isOdSkylerMirror(activeUrl)) {
+            val token = SaavnNativeParser.resolveToken(playlistId)
+            val raw = getRaw(
+                buildRestPath(activeUrl, "playlist"),
+                mapOf("token" to token, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                isNative = false,
+            )
+            SaavnNativeParser.parsePlaylistDetailResponse(raw)
         } else {
             getWrapper(activeUrl, "playlists", mapOf("id" to playlistId, "page" to page.toString(), "limit" to limit.toString()))
         }
@@ -397,6 +590,10 @@ class JioSaavnApiClient @Inject constructor(
                 throw IllegalStateException("Artist details unavailable from direct JioSaavn API")
             }
             parsed
+        } else if (isOdSkylerMirror(activeUrl)) {
+            val token = SaavnNativeParser.resolveToken(artistId)
+            val raw = getRaw(buildRestPath(activeUrl, "artist"), mapOf("token" to token, "page" to "0"), isNative = false)
+            SaavnNativeParser.parseArtistDetailResponse(raw)
         } else {
             getWrapper(
                 activeUrl,
@@ -415,18 +612,75 @@ class JioSaavnApiClient @Inject constructor(
         query: String,
         page: Int,
         limit: Int,
-    ): SaavnSongSearchResponse = if (isNativeSaavnApiUrl(activeUrl)) {
-        val raw = getRaw(
+    ): SaavnSongSearchResponse {
+        if (!isNativeSaavnApiUrl(activeUrl)) {
+            return executeRestWithOdSkylerAutoDetect(
+                baseUrl = activeUrl,
+                saavnDevBlock = {
+                    getWrapper<SaavnSongSearchResponse>(
+                        activeUrl,
+                        "search/songs",
+                        mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()),
+                    )
+                },
+                odSkylerBlock = {
+                    val raw = getRaw(
+                        buildRestPath(activeUrl, "songs"),
+                        mapOf("q" to query, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                        isNative = false,
+                    )
+                    SaavnNativeParser.parseSongSearchResponse(raw)
+                },
+            )
+        }
+
+        val pageStr = (page + 1).coerceAtLeast(1).toString()
+        val limitStr = limit.toString()
+        val rawWeb = getRaw(
             targetUrl = activeUrl,
-            params = nativeParams(
-                "search.getResults",
-                mapOf("q" to query, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
-            ),
+            params = nativeParams("search.getResults", mapOf("q" to query, "p" to pageStr, "n" to limitStr)),
             isAjaxSearch = true,
         )
-        SaavnNativeParser.parseSongSearchResponse(raw)
-    } else {
-        getWrapper(activeUrl, "search/songs", mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()))
+        val parsedWeb = SaavnNativeParser.parseSongSearchResponse(rawWeb)
+        if (!parsedWeb.data?.results.isNullOrEmpty()) return parsedWeb
+
+        // Secondary native attempts on the same JioSaavn host (ctx=android + autocomplete.get)
+        val rawAndroid = runCatching {
+            getRaw(
+                targetUrl = activeUrl,
+                params = nativeParams(
+                    "search.getResults",
+                    mapOf("q" to query, "p" to pageStr, "n" to limitStr, "ctx" to "android"),
+                ),
+                isAjaxSearch = true,
+            )
+        }.getOrNull()
+        val parsedAndroid = rawAndroid?.let(SaavnNativeParser::parseSongSearchResponse)
+        if (parsedAndroid != null && !parsedAndroid.data?.results.isNullOrEmpty()) return parsedAndroid
+
+        if (page == 0) {
+            val autoIds = runCatching {
+                val autoRaw = getRaw(
+                    targetUrl = activeUrl,
+                    params = mapOf("__call" to "autocomplete.get", "_format" to "json", "_marker" to "0", "ctx" to "web6dot0", "query" to query),
+                    isAjaxSearch = true,
+                )
+                SaavnNativeParser.parseAutocompleteSongIds(autoRaw)
+            }.getOrDefault(emptyList())
+            if (autoIds.isNotEmpty()) {
+                val detailsRaw = runCatching {
+                    getRaw(activeUrl, nativeParams("song.getDetails", mapOf("pids" to autoIds.take(limit).joinToString(","))))
+                }.getOrNull()
+                val hydrated = detailsRaw?.let(SaavnNativeParser::parseSongResponse)?.data.orEmpty()
+                if (hydrated.isNotEmpty()) {
+                    return SaavnSongSearchResponse(
+                        success = true,
+                        data = SaavnSongSearchResponse.Data(total = hydrated.size, start = 0, results = hydrated),
+                    )
+                }
+            }
+        }
+        return parsedWeb
     }
 
     private suspend fun searchAlbumsDirect(
@@ -445,30 +699,140 @@ class JioSaavnApiClient @Inject constructor(
         )
         SaavnNativeParser.parseAlbumsSearchResponse(raw)
     } else {
-        getWrapper(activeUrl, "search/albums", mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()))
+        executeRestWithOdSkylerAutoDetect(
+            baseUrl = activeUrl,
+            saavnDevBlock = {
+                getWrapper<SaavnAlbumsSearchResponse>(
+                    activeUrl,
+                    "search/albums",
+                    mapOf("query" to query, "page" to page.toString(), "limit" to limit.toString()),
+                )
+            },
+            odSkylerBlock = {
+                val raw = getRaw(
+                    buildRestPath(activeUrl, "albums"),
+                    mapOf("q" to query, "p" to (page + 1).coerceAtLeast(1).toString(), "n" to limit.toString()),
+                    isNative = false,
+                )
+                SaavnNativeParser.parseAlbumsSearchResponse(raw)
+            },
+        )
+    }
+
+    private suspend fun <T> executeRestWithOdSkylerAutoDetect(
+        baseUrl: String,
+        saavnDevBlock: suspend () -> T,
+        odSkylerBlock: suspend () -> T,
+    ): T {
+        val normalized = UserPreferencesRepository.normalizeExploreApiBaseUrl(baseUrl)
+        if (odSkylerHosts.contains(normalized)) {
+            return odSkylerBlock()
+        }
+        return try {
+            saavnDevBlock()
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (saavnErr: Throwable) {
+            val shouldProbeOdSkyler = !normalized.equals(UserPreferencesRepository.FALLBACK_EXPLORE_API_BASE_URL, ignoreCase = true)
+            if (!shouldProbeOdSkyler) throw saavnErr
+            try {
+                val res = odSkylerBlock()
+                odSkylerHosts.add(normalized)
+                res
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Throwable) {
+                throw saavnErr
+            }
+        }
+    }
+
+    private fun isOdSkylerMirror(baseUrl: String): Boolean =
+        odSkylerHosts.contains(UserPreferencesRepository.normalizeExploreApiBaseUrl(baseUrl))
+
+    private fun buildRestPath(baseUrl: String, segment: String): String {
+        val cleanBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return cleanBase + segment
     }
 
     private suspend fun <T> executeWithFallback(
         primaryBaseUrl: String,
         block: suspend (baseUrl: String) -> T,
     ): T {
-        return try {
-            block(primaryBaseUrl)
-        } catch (ce: kotlinx.coroutines.CancellationException) {
+        val normalizedPrimary = UserPreferencesRepository.normalizeExploreApiBaseUrl(primaryBaseUrl)
+        val primaryKind = if (isNativeSaavnApiUrl(normalizedPrimary)) {
+            ExploreEndpointKind.DIRECT_JIOSAAVN
+        } else if (normalizedPrimary.equals(UserPreferencesRepository.FALLBACK_EXPLORE_API_BASE_URL, ignoreCase = true)) {
+            ExploreEndpointKind.FALLBACK_MIRROR
+        } else {
+            ExploreEndpointKind.CUSTOM_MIRROR
+        }
+
+        val primaryAttempt: Result<T> = try {
+            Result.success(block(primaryBaseUrl))
+        } catch (ce: CancellationException) {
             throw ce
-        } catch (primaryErr: Throwable) {
-            val fallback = UserPreferencesRepository.FALLBACK_EXPLORE_API_BASE_URL
-            val normalizedPrimary = UserPreferencesRepository.normalizeExploreApiBaseUrl(primaryBaseUrl)
-            if (normalizedPrimary.equals(fallback, ignoreCase = true)) {
-                throw primaryErr
+        } catch (ioErr: IOException) {
+            if (isNativeSaavnApiUrl(normalizedPrimary)) {
+                try {
+                    Result.success(block(primaryBaseUrl))
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (retryErr: Throwable) {
+                    Result.failure(retryErr)
+                }
+            } else {
+                Result.failure(ioErr)
             }
-            try {
-                block(fallback)
-            } catch (ce: kotlinx.coroutines.CancellationException) {
-                throw ce
-            } catch (_: Throwable) {
-                throw primaryErr
-            }
+        } catch (err: Throwable) {
+            Result.failure(err)
+        }
+
+        primaryAttempt.onSuccess { value ->
+            _diagnostics.value = ExploreConnectionDiagnostics(
+                configuredUrl = normalizedPrimary,
+                lastUsedUrl = normalizedPrimary,
+                endpointKind = primaryKind,
+                usedFallback = false,
+                lastFallbackReason = null,
+                lastSuccessAtEpochMs = System.currentTimeMillis(),
+            )
+            return value
+        }
+
+        val primaryErr = primaryAttempt.exceptionOrNull()!!
+        val fallback = UserPreferencesRepository.FALLBACK_EXPLORE_API_BASE_URL
+        if (!allowMirrorFallback || normalizedPrimary.equals(fallback, ignoreCase = true)) {
+            _diagnostics.value = _diagnostics.value.copy(
+                configuredUrl = normalizedPrimary,
+                endpointKind = primaryKind,
+                usedFallback = false,
+                lastFallbackReason = primaryErr.message ?: primaryErr.javaClass.simpleName,
+            )
+            throw primaryErr
+        }
+
+        return try {
+            val result = block(fallback)
+            _diagnostics.value = ExploreConnectionDiagnostics(
+                configuredUrl = normalizedPrimary,
+                lastUsedUrl = fallback,
+                endpointKind = ExploreEndpointKind.FALLBACK_MIRROR,
+                usedFallback = true,
+                lastFallbackReason = primaryErr.message ?: primaryErr.javaClass.simpleName,
+                lastSuccessAtEpochMs = System.currentTimeMillis(),
+            )
+            result
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Throwable) {
+            _diagnostics.value = _diagnostics.value.copy(
+                configuredUrl = normalizedPrimary,
+                endpointKind = primaryKind,
+                usedFallback = false,
+                lastFallbackReason = primaryErr.message ?: primaryErr.javaClass.simpleName,
+            )
+            throw primaryErr
         }
     }
 
@@ -477,8 +841,7 @@ class JioSaavnApiClient @Inject constructor(
         path: String,
         params: Map<String, String> = emptyMap(),
     ): T {
-        val cleanBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        val body = getRaw(cleanBase + path, params, isNative = false)
+        val body = getRaw(buildRestPath(baseUrl, path), params, isNative = false)
         return gson.fromJson(body, T::class.java)
             ?: throw IllegalStateException("Empty JSON response from JioSaavn API")
     }
@@ -522,7 +885,7 @@ class JioSaavnApiClient @Inject constructor(
         }
         val request = requestBuilder.build()
 
-        okHttpClient.newCall(request).execute().use { response ->
+        exploreHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IllegalStateException("JioSaavn API error HTTP ${response.code}")
             }

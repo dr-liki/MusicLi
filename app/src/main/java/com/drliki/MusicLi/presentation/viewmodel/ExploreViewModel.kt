@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.drliki.MusicLi.data.explore.ExploreAlbum
 import com.drliki.MusicLi.data.explore.ExploreArtist
 import com.drliki.MusicLi.data.explore.ExploreBrowseCategory
+import com.drliki.MusicLi.data.explore.ExploreConnectionDiagnostics
+import com.drliki.MusicLi.data.explore.ExploreConnectionTestResult
 import com.drliki.MusicLi.data.explore.ExploreDownloadItem
 import com.drliki.MusicLi.data.explore.ExploreDownloadStatus
 import com.drliki.MusicLi.data.explore.ExploreHomeFeed
@@ -75,6 +77,12 @@ data class ExploreOptionsState(
     val downloadSubfolders: Boolean = true,
     val downloadLyrics: Boolean = true,
     val apiBaseUrl: String = UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL,
+    val allowMirrorFallback: Boolean = true,
+)
+
+data class ExploreConnectionTestUiState(
+    val isTesting: Boolean = false,
+    val result: ExploreConnectionTestResult? = null,
 )
 
 @HiltViewModel
@@ -89,6 +97,11 @@ class ExploreViewModel @Inject constructor(
 
     private val _detailState = MutableStateFlow<ExploreDetailState>(ExploreDetailState.Hidden)
     val detailState: StateFlow<ExploreDetailState> = _detailState.asStateFlow()
+
+    val connectionDiagnostics: StateFlow<ExploreConnectionDiagnostics> = exploreRepository.connectionDiagnostics
+
+    private val _connectionTestState = MutableStateFlow(ExploreConnectionTestUiState())
+    val connectionTestState: StateFlow<ExploreConnectionTestUiState> = _connectionTestState.asStateFlow()
 
     val downloads: StateFlow<List<ExploreDownloadItem>> = downloader.downloads
     val downloadedSongIds: StateFlow<Set<String>> = downloader.downloadedSongIds
@@ -105,15 +118,20 @@ class ExploreViewModel @Inject constructor(
             userPreferencesRepository.exploreDownloadSubfoldersFlow,
             userPreferencesRepository.exploreDownloadLyricsFlow,
             userPreferencesRepository.exploreApiBaseUrlFlow,
-        ) { subfolders, lyrics, apiUrl -> Triple(subfolders, lyrics, apiUrl) },
+            userPreferencesRepository.exploreAllowMirrorFallbackFlow,
+        ) { subfolders, lyrics, apiUrl, allowFallback ->
+            ExploreOptionsState(
+                downloadSubfolders = subfolders,
+                downloadLyrics = lyrics,
+                apiBaseUrl = apiUrl,
+                allowMirrorFallback = allowFallback,
+            )
+        },
     ) { first, second ->
-        ExploreOptionsState(
+        second.copy(
             streamQualityKbps = first.first,
             downloadQualityKbps = first.second,
             downloadSafUri = first.third,
-            downloadSubfolders = second.first,
-            downloadLyrics = second.second,
-            apiBaseUrl = second.third,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ExploreOptionsState())
 
@@ -137,8 +155,27 @@ class ExploreViewModel @Inject constructor(
         viewModelScope.launch { userPreferencesRepository.setExploreDownloadLyrics(enabled) }
     }
 
+    fun setAllowMirrorFallback(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreAllowMirrorFallback(enabled)
+            exploreRepository.clearFeedCache()
+        }
+    }
+
     fun setApiBaseUrl(url: String?) {
-        viewModelScope.launch { userPreferencesRepository.setExploreApiBaseUrl(url) }
+        viewModelScope.launch {
+            userPreferencesRepository.setExploreApiBaseUrl(url)
+            exploreRepository.clearFeedCache()
+            _connectionTestState.value = ExploreConnectionTestUiState()
+        }
+    }
+
+    fun runConnectionTest() {
+        viewModelScope.launch {
+            _connectionTestState.value = ExploreConnectionTestUiState(isTesting = true)
+            val result = exploreRepository.testApiConnection()
+            _connectionTestState.value = ExploreConnectionTestUiState(isTesting = false, result = result)
+        }
     }
 
     val downloadsUiState: StateFlow<ExploreDownloadsUiState> = combine(downloader.downloads) { array ->

@@ -54,6 +54,7 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -82,6 +83,7 @@ import coil.compose.AsyncImage
 import com.drliki.MusicLi.R
 import com.drliki.MusicLi.data.explore.ExploreDownloadItem
 import com.drliki.MusicLi.data.explore.ExploreDownloadStatus
+import com.drliki.MusicLi.data.explore.ExploreEndpointKind
 import com.drliki.MusicLi.presentation.components.MiniPlayerHeight
 import com.drliki.MusicLi.presentation.viewmodel.ExploreViewModel
 
@@ -94,6 +96,8 @@ fun ExploreDownloadsScreen(
 ) {
     val state by viewModel.downloadsUiState.collectAsStateWithLifecycle()
     val optionsState by viewModel.optionsState.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.connectionDiagnostics.collectAsStateWithLifecycle()
+    val connectionTestState by viewModel.connectionTestState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showOptionsSheet by remember { mutableStateOf(false) }
     var showApiUrlDialog by remember { mutableStateOf(false) }
@@ -391,20 +395,124 @@ fun ExploreDownloadsScreen(
                         .clickable { viewModel.setDownloadLyrics(!optionsState.downloadLyrics) },
                 )
 
+                val endpointStatus = when {
+                    diagnostics.usedFallback -> stringResource(
+                        R.string.presentation_batch_g_explore_status_fallback,
+                        diagnostics.lastFallbackReason ?: "unreachable",
+                    )
+                    diagnostics.endpointKind == ExploreEndpointKind.DIRECT_JIOSAAVN ->
+                        stringResource(R.string.presentation_batch_g_explore_status_direct)
+                    diagnostics.endpointKind == ExploreEndpointKind.FALLBACK_MIRROR ->
+                        stringResource(R.string.presentation_batch_g_explore_status_mirror)
+                    else -> stringResource(R.string.presentation_batch_g_explore_status_custom)
+                }
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.presentation_batch_g_explore_fallback_toggle_title)) },
+                    supportingContent = { Text(stringResource(R.string.presentation_batch_g_explore_fallback_toggle_subtitle)) },
+                    leadingContent = { Icon(Icons.Rounded.Public, null) },
+                    trailingContent = {
+                        Switch(
+                            checked = optionsState.allowMirrorFallback,
+                            onCheckedChange = viewModel::setAllowMirrorFallback,
+                        )
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { viewModel.setAllowMirrorFallback(!optionsState.allowMirrorFallback) },
+                )
+
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.setcat_explore_api_url_title)) },
                     supportingContent = {
-                        Text(
-                            optionsState.apiBaseUrl,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                optionsState.apiBaseUrl,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = endpointStatus,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (diagnostics.usedFallback) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     },
                     leadingContent = { Icon(Icons.Rounded.Public, null) },
+                    trailingContent = {
+                        OutlinedButton(
+                            onClick = { viewModel.runConnectionTest() },
+                            enabled = !connectionTestState.isTesting,
+                        ) {
+                            Text(
+                                if (connectionTestState.isTesting) {
+                                    stringResource(R.string.presentation_batch_g_explore_testing)
+                                } else {
+                                    stringResource(R.string.presentation_batch_g_explore_test_btn)
+                                }
+                            )
+                        }
+                    },
                     modifier = Modifier
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { showApiUrlDialog = true },
                 )
+
+                connectionTestState.result?.let { testRes ->
+                    ElevatedCard(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = if (testRes.reachable && !testRes.karaokeOnly) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            }
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = if (!testRes.reachable) {
+                                    stringResource(
+                                        R.string.presentation_batch_g_explore_test_failed,
+                                        testRes.errorMessage ?: "Connection failed",
+                                    )
+                                } else if (testRes.karaokeOnly) {
+                                    stringResource(
+                                        R.string.presentation_batch_g_explore_test_karaoke_warn,
+                                        testRes.latencyMs,
+                                    )
+                                } else {
+                                    stringResource(
+                                        R.string.presentation_batch_g_explore_test_ok,
+                                        testRes.realEnglishTrackCount,
+                                        testRes.resultCount,
+                                        testRes.latencyMs,
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            if (testRes.sampleTitles.isNotEmpty()) {
+                                Text(
+                                    text = testRes.sampleTitles.joinToString(" • "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
 
                 ListItem(
                     headlineContent = { Text("Storage Sense") },

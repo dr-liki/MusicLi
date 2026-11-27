@@ -469,4 +469,147 @@ class SaavnNativeAdapterAndFallbackTest {
             assertEquals("Believer", charts.songs.single().title)
             assertEquals("Most Searched Songs - English", charts.playlists.single().title)
         }
+
+    @Test
+    fun `JioSaavnApiClient auto-detects ODSkyler mirrors and resolves tokens cleanly`() = runTest {
+        val encrypted = encryptSaavnUrl("https://aac.saavncdn.com/593/yellow_96.mp4")
+        val requestedPaths = mutableListOf<String>()
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val req = chain.request()
+                val path = req.url.encodedPath + (req.url.encodedQuery?.let { "?$it" } ?: "")
+                requestedPaths += path
+                when {
+                    req.url.encodedPath.endsWith("/search/songs") -> Response.Builder()
+                        .request(req).protocol(Protocol.HTTP_1_1).code(404).message("Not Found")
+                        .body("Not found".toResponseBody("text/plain".toMediaType())).build()
+                    req.url.encodedPath.endsWith("/songs") -> Response.Builder()
+                        .request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                        .body(
+                            """
+                            {
+                              "total": 1,
+                              "start": 0,
+                              "results": [
+                                {
+                                  "id": "DXroj0Sq",
+                                  "token": "YEL_TOKEN",
+                                  "title": "Yellow",
+                                  "language": "english",
+                                  "isExplicit": false,
+                                  "more_info": {
+                                    "album_id": "alb_y",
+                                    "album": "Parachutes",
+                                    "encrypted_media_url": "$encrypted",
+                                    "duration": "266",
+                                    "artists": { "primary": [{"id": "4593", "name": "Coldplay"}] }
+                                  }
+                                }
+                              ]
+                            }
+                            """.trimIndent().toResponseBody("application/json".toMediaType())
+                        ).build()
+                    req.url.encodedPath.endsWith("/song") -> Response.Builder()
+                        .request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                        .body(
+                            """
+                            {
+                              "id": "DXroj0Sq",
+                              "token": "YEL_TOKEN",
+                              "title": "Yellow",
+                              "language": "english",
+                              "more_info": {
+                                "encrypted_media_url": "$encrypted",
+                                "artists": { "primary": [{"id": "4593", "name": "Coldplay"}] }
+                              }
+                            }
+                            """.trimIndent().toResponseBody("application/json".toMediaType())
+                        ).build()
+                    else -> Response.Builder()
+                        .request(req).protocol(Protocol.HTTP_1_1).code(404).message("Not Found")
+                        .body("{}".toResponseBody("application/json".toMediaType())).build()
+                }
+            })
+            .build()
+
+        val api = JioSaavnApiClient(client, Gson())
+        val mirrorUrl = "https://my-jiosaavn.vercel.app/api/"
+        val songs = api.searchSongs(mirrorUrl, "Coldplay Yellow").data?.results.orEmpty()
+        assertEquals(1, songs.size)
+        assertEquals("Yellow", songs.single().name)
+        assertEquals("Coldplay", songs.single().artists?.primary?.single()?.name)
+
+        val detail = api.getSongById(mirrorUrl, "DXroj0Sq").data?.single()!!
+        assertEquals("Yellow", detail.name)
+        assertTrue(requestedPaths.any { it.contains("/song?token=YEL_TOKEN") })
+    }
+
+    @Test
+    fun `JioSaavnApiClient recovers via autocomplete when search_getResults returns empty and respects allowMirrorFallback`() =
+        runTest {
+            val encrypted = encryptSaavnUrl("https://aac.saavncdn.com/593/yellow_96.mp4")
+            val callsMade = mutableListOf<String>()
+            val client = OkHttpClient.Builder()
+                .addInterceptor(Interceptor { chain ->
+                    val req = chain.request()
+                    val callParam = req.url.queryParameter("__call") ?: req.url.encodedPath
+                    callsMade += callParam
+                    val body = when (callParam) {
+                        "search.getResults" -> """{"total":0,"start":0,"results":[]}"""
+                        "autocomplete.get" -> """{"songs":{"data":[{"id":"auto_1","title":"Yellow"}]}}"""
+                        "song.getDetails" -> """{"songs":[{"id":"auto_1","title":"Yellow","language":"english","more_info":{"encrypted_media_url":"$encrypted"}}]}"""
+                        else -> """{}"""
+                    }
+                    Response.Builder()
+                        .request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                        .body(body.toResponseBody("application/json".toMediaType())).build()
+                })
+                .build()
+
+            val api = JioSaavnApiClient(client, Gson())
+            val res = api.searchSongs(UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL, "Coldplay Yellow")
+            assertEquals("auto_1", res.data?.results?.single()?.id)
+            assertTrue(callsMade.contains("autocomplete.get"))
+            assertTrue(callsMade.contains("song.getDetails"))
+
+            val failingClient = OkHttpClient.Builder()
+                .addInterceptor(Interceptor { chain ->
+                    Response.Builder()
+                        .request(chain.request()).protocol(Protocol.HTTP_1_1).code(503).message("Unavailable")
+                        .body("down".toResponseBody("text/plain".toMediaType())).build()
+                })
+                .build()
+            val blockedApi = JioSaavnApiClient(failingClient, Gson()).apply { setAllowMirrorFallback(false) }
+            assertThrows(IllegalStateException::class.java) {
+                kotlinx.coroutines.runBlocking {
+                    blockedApi.searchSongs(UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL, "Coldplay")
+                }
+            }
+            assertFalse(blockedApi.diagnostics.value.usedFallback)
+        }
+
+    @Test
+    fun `testConnection flags karaoke-only GeoIP responses cleanly`() = runTest {
+        val karaokeClient = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val json = """
+                    {
+                      "total": 1,
+                      "start": 0,
+                      "results": [
+                        {"id":"k1","title":"Yellow (Instrumental Karaoke Version)","language":"instrumental"}
+                      ]
+                    }
+                """.trimIndent()
+                Response.Builder()
+                    .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .body(json.toResponseBody("application/json".toMediaType())).build()
+            })
+            .build()
+        val api = JioSaavnApiClient(karaokeClient, Gson())
+        val testRes = api.testConnection(UserPreferencesRepository.DEFAULT_EXPLORE_API_BASE_URL)
+        assertTrue(testRes.reachable)
+        assertTrue(testRes.karaokeOnly)
+        assertEquals(0, testRes.realEnglishTrackCount)
+    }
 }

@@ -504,6 +504,14 @@ Backslash (\) can be used to escape character delimiters.</string>
         <item>Backup, restore, and setup events can no longer be lost during screen rotation.</item>
         <item>Spring cleaning: dead code removed, deprecated APIs migrated, and dependencies updated.</item>
     </string-array>
+    <string-array name="presentation_batch_g_changelog_v131_whats_new">
+        <item>Added an in-app Explore Connection Test, active endpoint status, and mirror fallback toggle in Explore Options.</item>
+        <item>Added support for custom ODSkyler Mumbai (bom1) JioSaavn mirror URLs alongside direct JioSaavn and saavn.dev mirrors.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v131_improvements">
+        <item>Fixed OkHttp User-Agent header preservation, added IPv4-first Explore networking, and migrated legacy melotune mirror configs back to direct JioSaavn.</item>
+        <item>Added intra-host ctx=android and autocomplete search retries plus English chart hydration on direct JioSaavn.</item>
+    </string-array>
     <string-array name="presentation_batch_g_changelog_v130_whats_new">
         <item>Fixed Explore missing English songs by switching the default source to direct JioSaavn with automatic fallback to the melotune mirror.</item>
         <item>Added Kannada to the Explore language selector bar.</item>
@@ -535,4 +543,15 @@ Backslash (\) can be used to escape character delimiters.</string>
     <string-array name="presentation_batch_g_changelog_v100_improvements">
         <item>Configured release signing, repository metadata, and in-app updater endpoints for dr-liki/MusicLi.</item>
     </string-array>
+    <string name="presentation_batch_g_explore_fallback_toggle_title">Allow mirror fallback</string>
+    <string name="presentation_batch_g_explore_fallback_toggle_subtitle">Fall back to melotune mirror when direct JioSaavn fails (may omit English tracks outside India)</string>
+    <string name="presentation_batch_g_explore_status_direct">Active: Direct JioSaavn (full catalog)</string>
+    <string name="presentation_batch_g_explore_status_mirror">Active: Melotune mirror (English catalog limited outside India)</string>
+    <string name="presentation_batch_g_explore_status_custom">Active: Custom mirror endpoint</string>
+    <string name="presentation_batch_g_explore_status_fallback">Fell back to melotune (%1$s)</string>
+    <string name="presentation_batch_g_explore_test_btn">Test</string>
+    <string name="presentation_batch_g_explore_testing">Testing…</string>
+    <string name="presentation_batch_g_explore_test_ok">Connected in %3$d ms — %1$d/%2$d English tracks returned</string>
+    <string name="presentation_batch_g_explore_test_karaoke_warn">Reached server in %1$d ms, but JioSaavn GeoIP returned only karaoke/instrumental results. Set a Mumbai (bom1) ODSkyler mirror or disable VPN.</string>
+    <string name="presentation_batch_g_explore_test_failed">Connection failed: %1$s</string>
 </resources>

@@ -6,6 +6,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
@@ -79,6 +80,18 @@ internal data class SaavnNewReleasesResult(
 )
 
 internal object SaavnNativeParser {
+
+    private val tokenById = ConcurrentHashMap<String, String>()
+
+    fun resolveToken(id: String): String = tokenById[id] ?: id
+
+    private fun recordToken(id: String, obj: JsonObject) {
+        val token = obj.strOrNull("token")
+            ?: obj.strOrNull("perma_url")?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        if (!token.isNullOrBlank() && id.isNotBlank()) {
+            tokenById[id] = token
+        }
+    }
 
     fun parseSongSearchResponse(rawJson: String): SaavnSongSearchResponse {
         val root = JsonParser.parseString(rawJson).asJsonObjectOrNull()
@@ -163,10 +176,21 @@ internal object SaavnNativeParser {
                 root.objArray("songs").mapNotNull(::parseSong)
             root.has("data") && root.get("data").isJsonArray ->
                 root.objArray("data").mapNotNull(::parseSong)
+            root.has("id") && (root.has("title") || root.has("song") || root.has("name")) ->
+                listOfNotNull(parseSong(root))
             else -> root.entrySet()
                 .mapNotNull { (_, v) -> v.asJsonObjectOrNull()?.let(::parseSong) }
         }
         return SaavnSongResponse(success = songs.isNotEmpty(), data = songs)
+    }
+
+    fun parseAutocompleteSongIds(rawJson: String): List<String> {
+        val root = JsonParser.parseString(rawJson).asJsonObjectOrNull() ?: return emptyList()
+        return root.objOrNull("songs")
+            ?.objArray("data")
+            .orEmpty()
+            .mapNotNull { it.strOrNull("id") }
+            .distinct()
     }
 
     fun parseAlbumDetailResponse(rawJson: String): SaavnAlbumDetailResponse {
@@ -277,9 +301,38 @@ internal object SaavnNativeParser {
 
     fun parseLaunchData(rawJson: String): SaavnLaunchData {
         val root = JsonParser.parseString(rawJson).asJsonObjectOrNull() ?: return SaavnLaunchData()
-        val trendingRaw = root.objArray("new_trending")
-        val newAlbumsRaw = root.objArray("new_albums")
+        if (root.has("modules") && root.get("modules").isJsonArray) {
+            val modules = root.objArray("modules")
+            fun moduleItems(id: String): List<JsonObject> = modules
+                .firstOrNull { it.strOrNull("id") == id }
+                ?.objArray("items")
+                .orEmpty()
+            val trendingRaw = moduleItems("new_trending")
+            val newAlbumsRaw = moduleItems("new_albums")
+            return buildLaunchDataFromBuckets(
+                trendingRaw = trendingRaw,
+                newAlbumsRaw = newAlbumsRaw,
+                chartsRaw = moduleItems("charts"),
+                topPlaylistsRaw = moduleItems("top_playlists"),
+                artistRecosRaw = moduleItems("artist_recos"),
+            )
+        }
+        return buildLaunchDataFromBuckets(
+            trendingRaw = root.objArray("new_trending"),
+            newAlbumsRaw = root.objArray("new_albums"),
+            chartsRaw = root.objArray("charts"),
+            topPlaylistsRaw = root.objArray("top_playlists"),
+            artistRecosRaw = root.objArray("artist_recos"),
+        )
+    }
 
+    private fun buildLaunchDataFromBuckets(
+        trendingRaw: List<JsonObject>,
+        newAlbumsRaw: List<JsonObject>,
+        chartsRaw: List<JsonObject>,
+        topPlaylistsRaw: List<JsonObject>,
+        artistRecosRaw: List<JsonObject>,
+    ): SaavnLaunchData {
         val trendingSongs = (trendingRaw + newAlbumsRaw)
             .filter { it.strOrNull("type") == "song" }
             .mapNotNull(::parseSong)
@@ -299,14 +352,14 @@ internal object SaavnNativeParser {
         }
 
         val albums = (explicitAlbums + singleAlbums).distinctBy { it.id }
-        val charts = root.objArray("charts").mapNotNull(::parsePlaylistItem)
+        val charts = chartsRaw.mapNotNull(::parsePlaylistItem)
         val topPlaylists = (
-            root.objArray("top_playlists") +
+            topPlaylistsRaw +
                 trendingRaw.filter { it.strOrNull("type") == "playlist" }
             )
             .mapNotNull(::parsePlaylistItem)
             .distinctBy { it.id }
-        val artistRecos = root.objArray("artist_recos").mapNotNull(::parseArtistRef)
+        val artistRecos = artistRecosRaw.mapNotNull(::parseArtistRef)
 
         return SaavnLaunchData(
             trendingSongs = trendingSongs,
@@ -333,6 +386,11 @@ internal object SaavnNativeParser {
     private fun parseSongAsAlbumItem(obj: JsonObject): SaavnAlbumSearchItemDto? {
         val moreInfo = obj.objOrNull("more_info")
         val albumId = moreInfo?.strOrNull("album_id") ?: obj.strOrNull("albumid") ?: return null
+        val albumToken = moreInfo?.strOrNull("album_token")
+            ?: moreInfo?.strOrNull("album_url")?.trimEnd('/')?.substringAfterLast('/')
+        if (!albumToken.isNullOrBlank()) {
+            tokenById[albumId] = albumToken
+        }
         val title = moreInfo?.strOrNull("album") ?: obj.strOrNull("title") ?: obj.strOrNull("name")
             ?: return null
         return SaavnAlbumSearchItemDto(
@@ -351,6 +409,7 @@ internal object SaavnNativeParser {
 
     private fun parseSong(obj: JsonObject): SaavnSongDto? {
         val id = obj.strOrNull("id")?.takeIf { it.isNotBlank() } ?: return null
+        recordToken(id, obj)
         val moreInfo = obj.objOrNull("more_info")
         val title = obj.strOrNull("title") ?: obj.strOrNull("song") ?: obj.strOrNull("name")
             ?: return null
@@ -368,7 +427,7 @@ internal object SaavnNativeParser {
         } else {
             emptyList()
         }
-        val explicit = parseBooleanFlag(obj.get("explicit_content"))
+        val explicit = parseBooleanFlag(obj.get("explicit_content") ?: obj.get("isExplicit"))
         val hasLyrics = parseBooleanFlag(moreInfo?.get("has_lyrics") ?: obj.get("has_lyrics"))
         val artistsGroup = parseArtistsGroup(obj, moreInfo)
         val lyricsText = moreInfo?.strOrNull("lyrics_snippet")
@@ -385,8 +444,10 @@ internal object SaavnNativeParser {
             language = obj.strOrNull("language"),
             hasLyrics = hasLyrics,
             lyrics = lyricsText?.let { SaavnLyricsDto(snippet = it) },
-            url = obj.strOrNull("perma_url"),
-            copyright = moreInfo?.strOrNull("copyright_text") ?: obj.strOrNull("copyright_text"),
+            url = obj.strOrNull("perma_url") ?: obj.strOrNull("track_url"),
+            copyright = moreInfo?.strOrNull("copyright_text")
+                ?: moreInfo?.strOrNull("copyright")
+                ?: obj.strOrNull("copyright_text"),
             album = if (!albumId.isNullOrBlank() || !albumName.isNullOrBlank()) {
                 SaavnAlbumRefDto(id = albumId, name = albumName, url = moreInfo?.strOrNull("album_url"))
             } else {
@@ -400,6 +461,7 @@ internal object SaavnNativeParser {
 
     private fun parseAlbumItem(obj: JsonObject): SaavnAlbumSearchItemDto? {
         val id = obj.strOrNull("id") ?: obj.strOrNull("albumid") ?: return null
+        recordToken(id, obj)
         val title = obj.strOrNull("title") ?: obj.strOrNull("name") ?: return null
         val moreInfo = obj.objOrNull("more_info")
         return SaavnAlbumSearchItemDto(
@@ -418,6 +480,7 @@ internal object SaavnNativeParser {
 
     private fun parsePlaylistItem(obj: JsonObject): SaavnPlaylistsSearchResponse.Data.ItemDto? {
         val id = obj.strOrNull("id") ?: obj.strOrNull("listid") ?: return null
+        recordToken(id, obj)
         val title = obj.strOrNull("title") ?: obj.strOrNull("listname") ?: obj.strOrNull("name") ?: return null
         val moreInfo = obj.objOrNull("more_info")
         return SaavnPlaylistsSearchResponse.Data.ItemDto(
@@ -438,6 +501,7 @@ internal object SaavnNativeParser {
 
     private fun parseArtistRef(obj: JsonObject): SaavnArtistRefDto? {
         val id = obj.strOrNull("id") ?: obj.strOrNull("artistId") ?: return null
+        recordToken(id, obj)
         val name = obj.strOrNull("name") ?: obj.strOrNull("title") ?: return null
         val rawRole = obj.strOrNull("role") ?: obj.strOrNull("subtitle")
         val cleanRole = if (rawRole.equals("Artist Radio", ignoreCase = true)) "Artist" else rawRole
@@ -463,6 +527,26 @@ internal object SaavnNativeParser {
                     featured = featured,
                     all = all.ifEmpty { (primary + featured).distinctBy { it.name } },
                 )
+            }
+        }
+        val nestedArtists = moreInfo?.objOrNull("artists") ?: obj.objOrNull("artists")
+        if (nestedArtists != null) {
+            val primary = nestedArtists.objArray("primary").mapNotNull(::parseArtistRef)
+            val featured = nestedArtists.objArray("featured").mapNotNull(::parseArtistRef)
+            val credits = nestedArtists.objArray("credits").mapNotNull(::parseArtistRef)
+            if (primary.isNotEmpty() || featured.isNotEmpty() || credits.isNotEmpty()) {
+                return SaavnArtistsGroupDto(
+                    primary = primary,
+                    featured = featured,
+                    all = (primary + featured + credits).distinctBy { it.name },
+                )
+            }
+        }
+        val nestedList = moreInfo?.objArray("artists").orEmpty()
+        if (nestedList.isNotEmpty()) {
+            val parsedList = nestedList.mapNotNull(::parseArtistRef)
+            if (parsedList.isNotEmpty()) {
+                return SaavnArtistsGroupDto(primary = parsedList, all = parsedList)
             }
         }
         val rawPrimary = (moreInfo?.strOrNull("music") ?: obj.strOrNull("primary_artists") ?: obj.strOrNull("subtitle"))

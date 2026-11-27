@@ -4,6 +4,17 @@ All notable changes to PixelPlayerOSS will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-27
+
+### Fixed
+- Preserved custom `User-Agent` headers in `AppModule.provideOkHttpClient()` and `provideFastOkHttpClient()`, and added an IPv4-first 15–20s Explore HTTP client so direct `www.jiosaavn.com/api.php` requests don't silently fail into the `melotune` fallback mirror on mobile data.
+- Added one-time migration resetting previously saved `"https://melotune.harshbits.com/api/"` preferences back to direct JioSaavn (`www.jiosaavn.com/api.php`) while leaving custom user mirrors intact.
+- Added intra-host `ctx=android` and `autocomplete.get` -> `song.getDetails` search recovery on direct JioSaavn, plus English chart playlist hydration (`International : India Superhits Top 50`) for the Explore English feed.
+
+### Added
+- Added an in-app **Test Connection** diagnostic, live endpoint status indicator, and **Allow mirror fallback** toggle inside Explore Options.
+- Added auto-detection and adapter support for custom `ODSkyler/jiosaavn-api` (`bom1` Mumbai) mirror URLs alongside `saavn.dev` wrappers and direct `jiosaavn.com/api.php`.
+
 ## [1.3.0] - 2026-11-27
 
 ### Fixed

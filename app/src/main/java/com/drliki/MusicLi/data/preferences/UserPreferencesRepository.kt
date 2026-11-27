@@ -319,6 +319,8 @@ constructor(
         val UPDATE_LAST_NOTIFIED_VERSION = stringPreferencesKey("update_last_notified_version")
 
         val EXPLORE_API_BASE_URL = stringPreferencesKey("explore_api_base_url")
+        val EXPLORE_MIGRATED_DEFAULT_V131 = booleanPreferencesKey("explore_migrated_default_v131")
+        val EXPLORE_ALLOW_MIRROR_FALLBACK = booleanPreferencesKey("explore_allow_mirror_fallback")
         val EXPLORE_STREAM_QUALITY = intPreferencesKey("explore_stream_quality")
         val EXPLORE_DOWNLOAD_QUALITY = intPreferencesKey("explore_download_quality")
         val EXPLORE_DOWNLOAD_SUBFOLDERS = booleanPreferencesKey("explore_download_subfolders")
@@ -1102,9 +1104,37 @@ constructor(
         normalizeExploreApiBaseUrl(raw.ifBlank { DEFAULT_EXPLORE_API_BASE_URL })
     }
 
+    val exploreAllowMirrorFallbackFlow: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXPLORE_ALLOW_MIRROR_FALLBACK] ?: true
+    }
+
+    suspend fun setExploreAllowMirrorFallback(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXPLORE_ALLOW_MIRROR_FALLBACK] = enabled
+        }
+    }
+
+    /**
+     * Migrates legacy saved melotune mirror URLs back to direct JioSaavn once while leaving
+     * custom user-specified mirrors untouched.
+     */
+    suspend fun migrateLegacyExploreUrlIfNeeded() {
+        dataStore.edit { preferences ->
+            if (preferences[PreferencesKeys.EXPLORE_MIGRATED_DEFAULT_V131] == true) return@edit
+            val current = preferences[PreferencesKeys.EXPLORE_API_BASE_URL]?.trim().orEmpty()
+            if (current.isNotBlank() &&
+                normalizeExploreApiBaseUrl(current).equals(FALLBACK_EXPLORE_API_BASE_URL, ignoreCase = true)
+            ) {
+                preferences.remove(PreferencesKeys.EXPLORE_API_BASE_URL)
+            }
+            preferences[PreferencesKeys.EXPLORE_MIGRATED_DEFAULT_V131] = true
+        }
+    }
+
     suspend fun setExploreApiBaseUrl(url: String?) {
         dataStore.edit { preferences ->
             val trimmed = url?.trim().orEmpty()
+            preferences[PreferencesKeys.EXPLORE_MIGRATED_DEFAULT_V131] = true
             if (trimmed.isBlank()) {
                 preferences.remove(PreferencesKeys.EXPLORE_API_BASE_URL)
             } else {
