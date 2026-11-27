@@ -31,7 +31,6 @@ import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SaveAlt
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -43,6 +42,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -92,22 +92,24 @@ fun CloudDownloadsScreen(
     }
 
     if (confirmDownloadAll) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { confirmDownloadAll = false },
-            title = { Text(stringResource(R.string.cloud_download_all_title)) },
-            text = { Text(stringResource(R.string.cloud_download_all_description)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDownloadAll = false
-                    viewModel.downloadAll()
-                }) { Text(stringResource(R.string.cloud_download_all_action)) }
+            icon = Icons.Rounded.CloudDownload,
+            title = stringResource(R.string.cloud_download_all_title),
+            confirmText = stringResource(R.string.cloud_download_all_action),
+            onConfirm = {
+                confirmDownloadAll = false
+                viewModel.downloadAll()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDownloadAll = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            }
-        )
+            dismissText = stringResource(android.R.string.cancel),
+            onDismiss = { confirmDownloadAll = false }
+        ) {
+            Text(
+                text = stringResource(R.string.cloud_download_all_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     Scaffold(

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.drliki.MusicLi.data.model.Song
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import com.drliki.MusicLi.presentation.components.SongPickerList
 import com.drliki.MusicLi.presentation.components.SmartImage
 import com.drliki.MusicLi.presentation.utils.GenreIconProvider
@@ -395,67 +396,65 @@ fun GenreValidatorContent(
     if (showCustomDialog) {
         var newGenreName by remember { mutableStateOf("") }
         var selectedIcon by remember { mutableIntStateOf(GenreIconProvider.SELECTABLE_ICONS.first()) }
-        
-        AlertDialog(
+
+        MusicLiDialog(
             onDismissRequest = { showCustomDialog = false },
-            title = { Text(addCustomGenreTitle) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = newGenreName,
-                        onValueChange = { newGenreName = it },
-                        label = { Text(genreNameLabel) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        selectIconLabel,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 48.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.height(200.dp)
-                    ) {
-                        items(GenreIconProvider.SELECTABLE_ICONS, key = { it }) { iconRes ->
-                            val isSelected = selectedIcon == iconRes
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
-                                    .clickable { selectedIcon = iconRes }
-                                    .padding(10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = androidx.compose.ui.res.painterResource(id = iconRes),
-                                    contentDescription = null,
-                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+            title = addCustomGenreTitle,
+            confirmText = addLabel,
+            onConfirm = {
+                if (newGenreName.isNotBlank()) {
+                    onAddCustomGenre(newGenreName, selectedIcon)
+                    onGenreSelected(newGenreName)
+                    showCustomDialog = false
+                }
+            },
+            confirmEnabled = newGenreName.isNotBlank(),
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showCustomDialog = false },
+            scrollable = false
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = newGenreName,
+                    onValueChange = { newGenreName = it },
+                    label = { Text(genreNameLabel) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    selectIconLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 48.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.height(200.dp)
+                ) {
+                    items(GenreIconProvider.SELECTABLE_ICONS, key = { it }) { iconRes ->
+                        val isSelected = selectedIcon == iconRes
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
+                                .clickable { selectedIcon = iconRes }
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newGenreName.isNotBlank()) {
-                            onAddCustomGenre(newGenreName, selectedIcon)
-                            onGenreSelected(newGenreName)
-                            showCustomDialog = false
-                        }
-                    }
-                ) { Text(addLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomDialog = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
-        )
+        }
     }
 }

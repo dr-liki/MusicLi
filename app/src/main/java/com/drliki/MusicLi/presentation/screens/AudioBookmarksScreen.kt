@@ -2,6 +2,7 @@
 
 package com.drliki.MusicLi.presentation.screens
 
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import com.drliki.MusicLi.ui.theme.rememberDisplayFont
 
 import android.content.ClipData
@@ -1523,40 +1524,21 @@ private fun ConfirmDeleteBookmarksDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        title = {
-            Text(
-                text = title,
-                fontFamily = RoundedSans,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
-            ) {
-                Text(stringResource(R.string.delete_action))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    )
+        isDestructive = true,
+        title = title,
+        confirmText = stringResource(R.string.delete_action),
+        onConfirm = onConfirm,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -2297,51 +2279,36 @@ private fun RenameBookmarkDialog(
     val trimmedTitle = title.trim()
     val canRename = trimmedTitle.isNotEmpty() && trimmedTitle != bookmark.title
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        title = {
+        title = "Rename bookmark",
+        confirmText = stringResource(R.string.action_rename),
+        onConfirm = { onRename(trimmedTitle) },
+        confirmEnabled = canRename,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = "Rename bookmark",
-                fontFamily = RoundedSans,
-                fontWeight = FontWeight.Bold
+                text = "Update the label for this saved cue.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Update the label for this saved cue.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                label = { Text(stringResource(R.string.audio_bookmarks_name_label)) },
+                isError = title.isNotEmpty() && trimmedTitle.isEmpty(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
                 )
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.audio_bookmarks_name_label)) },
-                    isError = title.isNotEmpty() && trimmedTitle.isEmpty(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onRename(trimmedTitle) },
-                enabled = canRename
-            ) {
-                Text(stringResource(R.string.action_rename))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            )
         }
-    )
+    }
 }
 
 @Composable

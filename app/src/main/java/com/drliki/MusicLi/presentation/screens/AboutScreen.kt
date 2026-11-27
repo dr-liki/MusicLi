@@ -44,18 +44,23 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Balance
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -99,7 +104,9 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Size
+import com.drliki.MusicLi.BuildConfig
 import com.drliki.MusicLi.R
+import com.drliki.MusicLi.presentation.components.BetaInfoBottomSheet
 import com.drliki.MusicLi.presentation.components.CollapsibleCommonTopBar
 import com.drliki.MusicLi.presentation.components.MiniPlayerHeight
 import com.drliki.MusicLi.presentation.components.SmartImage
@@ -173,6 +180,7 @@ private data class ProjectLink(
     val onClick: () -> Unit,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(UnstableApi::class)
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -244,6 +252,7 @@ fun AboutScreen(
 
     val topBarHeight = remember { Animatable(maxTopBarHeightPx) }
     var collapseFraction by remember { mutableStateOf(0f) }
+    var showReleaseInfoSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(topBarHeight.value) {
         collapseFraction = 1f - (
@@ -330,6 +339,17 @@ fun AboutScreen(
                 )
             }
 
+            item(key = "release_info_card") {
+                AboutReleaseInfoCard(
+                    versionName = versionName,
+                    onClick = { showReleaseInfoSheet = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 12.dp),
+                )
+            }
+
             item(key = "support_card") {
                 AboutSupportCard(
                     onSponsorClick = { openUrl(context, ForkRepoUrl) },
@@ -400,6 +420,15 @@ fun AboutScreen(
             expandedTitleStartPadding = 20.dp,
             collapsedTitleStartPadding = 68.dp
         )
+    }
+
+    if (showReleaseInfoSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showReleaseInfoSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            BetaInfoBottomSheet()
+        }
     }
 }
 
@@ -535,6 +564,89 @@ private fun CommunitySignalsRow() {
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AboutReleaseInfoCard(
+    versionName: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val buildChannelLabel = when (BuildConfig.BUILD_TYPE) {
+        "release" -> stringResource(R.string.presentation_batch_g_topbar_build_stable)
+        "debug" -> stringResource(R.string.presentation_batch_g_topbar_build_debug)
+        else -> BuildConfig.BUILD_TYPE.replaceFirstChar { it.uppercase() }
+    }
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = AbsoluteSmoothCornerShape(26.dp, 60),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondary,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Verified,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondary,
+                    modifier = Modifier
+                        .padding(11.dp)
+                        .size(22.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = buildChannelLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f),
+                    ) {
+                        Text(
+                            text = "v$versionName",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.presentation_batch_g_beta_sheet_github_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }

@@ -726,78 +726,36 @@ fun CreatePlaylistDialogRedesigned(
         nameFocusRequester.requestFocus()
     }
 
-    BasicAlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
+        title = stringResource(R.string.create_playlist_dialog_title),
+        confirmText = stringResource(R.string.action_create),
+        onConfirm = { onCreate(playlistName.trim()) },
+        confirmEnabled = playlistName.isNotBlank(),
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
     ) {
-        Surface(
-            shape = RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.create_playlist_dialog_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = RoundedSans,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    label = { Text(stringResource(R.string.create_playlist_name_label)) },
-                    placeholder = { Text(stringResource(R.string.create_playlist_name_placeholder)) },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
-                        .focusRequester(nameFocusRequester),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (playlistName.isNotBlank()) onCreate(playlistName.trim()) }
-                    ),
-                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    )
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.cancel), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-
-                    Button(
-                        onClick = { onCreate(playlistName.trim()) },
-                        modifier = Modifier.weight(1f),
-                        enabled = playlistName.isNotBlank(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text(stringResource(R.string.action_create), fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
+        OutlinedTextField(
+            value = playlistName,
+            onValueChange = { playlistName = it },
+            label = { Text(stringResource(R.string.create_playlist_name_label)) },
+            placeholder = { Text(stringResource(R.string.create_playlist_name_placeholder)) },
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(nameFocusRequester),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { if (playlistName.isNotBlank()) onCreate(playlistName.trim()) }
+            ),
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            )
+        )
     }
 }

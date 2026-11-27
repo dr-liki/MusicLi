@@ -379,60 +379,44 @@ private fun ShortcutsConfigDialog(
 ) {
     var tempShortcuts by remember { mutableStateOf(enabledShortcuts) }
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(R.string.sidebar_shortcuts_dialog_title),
-                fontWeight = FontWeight.Bold
-            )
+        title = stringResource(R.string.sidebar_shortcuts_dialog_title),
+        confirmText = stringResource(R.string.action_save),
+        onConfirm = {
+            onSave(tempShortcuts)
+            onDismiss()
         },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SidebarShortcutKeys.ALL.forEach { key ->
-                    val checked = key in tempShortcuts
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                tempShortcuts = if (checked) tempShortcuts - key else tempShortcuts + key
-                            }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Checkbox(
-                            checked = checked,
-                            onCheckedChange = { isChecked ->
-                                tempShortcuts = if (isChecked) tempShortcuts + key else tempShortcuts - key
-                            }
-                        )
-                        Text(
-                            text = shortcutLabel(key),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SidebarShortcutKeys.ALL.forEach { key ->
+                val checked = key in tempShortcuts
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            tempShortcuts = if (checked) tempShortcuts - key else tempShortcuts + key
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = { isChecked ->
+                            tempShortcuts = if (isChecked) tempShortcuts + key else tempShortcuts - key
+                        }
+                    )
+                    Text(
+                        text = shortcutLabel(key),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(tempShortcuts)
-                    onDismiss()
-                }
-            ) {
-                Text(stringResource(R.string.action_save), fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    )
+        }
+    }
 }

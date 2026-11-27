@@ -34,9 +34,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.RestartAlt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -381,54 +381,26 @@ fun WordDelimiterConfigScreen(
         )
 
         if (showResetDialog) {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = { showResetDialog = false },
-                title = {
-                    Text(
-                        text = stringResource(R.string.word_delimiter_reset_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                icon = Icons.Rounded.RestartAlt,
+                isDestructive = true,
+                title = stringResource(R.string.word_delimiter_reset_title),
+                confirmText = stringResource(R.string.action_reset),
+                onConfirm = {
+                    viewModel.resetWordDelimitersToDefault()
+                    Toast.makeText(context, context.getString(R.string.word_delimiter_toast_reset), Toast.LENGTH_SHORT).show()
+                    showResetDialog = false
                 },
-                text = {
-                    Text(
-                        text = stringResource(R.string.word_delimiter_reset_message),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Rounded.RestartAlt,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.resetWordDelimitersToDefault()
-                            Toast.makeText(context, context.getString(R.string.word_delimiter_toast_reset), Toast.LENGTH_SHORT).show()
-                            showResetDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text(stringResource(R.string.action_reset))
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showResetDialog = false }
-                    ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(24.dp)
-            )
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = { showResetDialog = false }
+            ) {
+                Text(
+                    text = stringResource(R.string.word_delimiter_reset_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

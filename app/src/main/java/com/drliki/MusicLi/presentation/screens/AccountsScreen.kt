@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -1041,78 +1043,81 @@ private fun ListenBrainzTokenDialog(
     var serverUrl by remember { mutableStateOf(initialServerUrl.orEmpty()) }
     val failedState = connectState as? ListenBrainzConnectState.Failed
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.accounts_listenbrainz_token_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(R.string.accounts_listenbrainz_token_dialog_body),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it },
-                    label = { Text(stringResource(R.string.accounts_listenbrainz_token_hint)) },
-                    singleLine = true,
-                    isError = failedState != null && !failedState.invalidUrl,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = { serverUrl = it },
-                    label = { Text(stringResource(R.string.accounts_listenbrainz_server_hint)) },
-                    supportingText = {
-                        Text(stringResource(R.string.accounts_listenbrainz_server_supporting))
-                    },
-                    singleLine = true,
-                    isError = failedState?.invalidUrl == true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (failedState != null) {
+        title = stringResource(R.string.accounts_listenbrainz_token_dialog_title),
+        confirmText = stringResource(R.string.accounts_listenbrainz_connect),
+        onConfirm = { onConnect(token, serverUrl) },
+        confirmEnabled = token.isNotBlank() && connectState != ListenBrainzConnectState.Connecting,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.accounts_listenbrainz_token_dialog_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = token,
+                onValueChange = { token = it },
+                label = { Text(stringResource(R.string.accounts_listenbrainz_token_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                isError = failedState != null && !failedState.invalidUrl,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = { serverUrl = it },
+                label = { Text(stringResource(R.string.accounts_listenbrainz_server_hint)) },
+                supportingText = {
+                    Text(stringResource(R.string.accounts_listenbrainz_server_supporting))
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                isError = failedState?.invalidUrl == true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (connectState == ListenBrainzConnectState.Connecting) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    LoadingIndicator(modifier = Modifier.size(18.dp))
                     Text(
-                        text = stringResource(
-                            if (failedState.invalidUrl) {
-                                R.string.accounts_listenbrainz_invalid_url
-                            } else {
-                                R.string.accounts_listenbrainz_connect_failed
-                            }
-                        ),
+                        text = stringResource(R.string.accounts_listenbrainz_connect),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-                TextButton(
-                    onClick = {
-                        safeStartActivity(
-                            context = context,
-                            intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://listenbrainz.org/settings/"))
-                        )
-                    }
-                ) {
-                    Text(stringResource(R.string.accounts_listenbrainz_get_token))
-                }
             }
-        },
-        confirmButton = {
+            if (failedState != null) {
+                Text(
+                    text = stringResource(
+                        if (failedState.invalidUrl) {
+                            R.string.accounts_listenbrainz_invalid_url
+                        } else {
+                            R.string.accounts_listenbrainz_connect_failed
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             TextButton(
-                onClick = { onConnect(token, serverUrl) },
-                enabled = token.isNotBlank() && connectState != ListenBrainzConnectState.Connecting
-            ) {
-                if (connectState == ListenBrainzConnectState.Connecting) {
-                    LoadingIndicator(modifier = Modifier.size(16.dp))
-                } else {
-                    Text(stringResource(R.string.accounts_listenbrainz_connect))
+                onClick = {
+                    safeStartActivity(
+                        context = context,
+                        intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://listenbrainz.org/settings/"))
+                    )
                 }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+            ) {
+                Text(stringResource(R.string.accounts_listenbrainz_get_token))
             }
         }
-    )
+    }
 }

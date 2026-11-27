@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VisibilityOff
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -239,32 +240,25 @@ fun LyricsMoreBottomSheet(
             }
 
             if (showResetDialog) {
-                androidx.compose.material3.AlertDialog(
+                MusicLiDialog(
                     onDismissRequest = { showResetDialog = false },
-                    title = { Text(stringResource(R.string.lyrics_more_dialog_reset_title)) },
-                    text = { Text(stringResource(R.string.lyrics_more_dialog_reset_message)) },
-                    confirmButton = {
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                showResetDialog = false
-                                onDismissRequest()
-                                onResetImportedLyrics()
-                            }
-                        ) {
-                            Text(stringResource(R.string.action_reset), color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                    isDestructive = true,
+                    title = stringResource(R.string.lyrics_more_dialog_reset_title),
+                    confirmText = stringResource(R.string.action_reset),
+                    onConfirm = {
+                        showResetDialog = false
+                        onDismissRequest()
+                        onResetImportedLyrics()
                     },
-                    dismissButton = {
-                        androidx.compose.material3.TextButton(
-                            onClick = { showResetDialog = false }
-                        ) {
-                            Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                    dismissText = stringResource(R.string.cancel),
+                    onDismiss = { showResetDialog = false }
+                ) {
+                    Text(
+                        text = stringResource(R.string.lyrics_more_dialog_reset_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Column(

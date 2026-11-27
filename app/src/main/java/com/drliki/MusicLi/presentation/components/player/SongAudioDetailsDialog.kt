@@ -29,13 +29,11 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -136,9 +134,9 @@ fun SongAudioDetailsDialog(
         song.contentUriString.startsWith("jellyfin://") ||
         song.contentUriString.startsWith("telegram://")
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = {
+        titleContent = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -169,146 +167,133 @@ fun SongAudioDetailsDialog(
                 }
             }
         },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        confirmText = "More Info",
+        onConfirm = {
+            onDismiss()
+            onOpenFullSongInfo()
+        },
+        dismissText = "Close",
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Audio Format",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Text(
+                        text = "Audio Format",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    AudioDetailRow(
+                        icon = Icons.Rounded.GraphicEq,
+                        label = "Codec / MIME",
+                        value = if (!effectiveMime.isNullOrBlank() && !codecLabel.equals(effectiveMime, ignoreCase = true)) {
+                            "$codecLabel ($effectiveMime)"
+                        } else {
+                            codecLabel
+                        }
+                    )
+                    effectiveSampleRate?.let { sr ->
                         AudioDetailRow(
-                            icon = Icons.Rounded.GraphicEq,
-                            label = "Codec / MIME",
-                            value = if (!effectiveMime.isNullOrBlank() && !codecLabel.equals(effectiveMime, ignoreCase = true)) {
-                                "$codecLabel ($effectiveMime)"
-                            } else {
-                                codecLabel
+                            icon = Icons.Rounded.Info,
+                            label = "Sample Rate",
+                            value = String.format(Locale.US, "%.1f kHz (%d Hz)", sr / 1000.0, sr)
+                        )
+                    }
+                    effectiveBitrate?.let { br ->
+                        AudioDetailRow(
+                            icon = Icons.Rounded.AudioFile,
+                            label = "Bitrate",
+                            value = "${br / 1000} kbps"
+                        )
+                    }
+                    channelLabel?.let { ch ->
+                        AudioDetailRow(
+                            icon = Icons.Rounded.MusicNote,
+                            label = "Channels",
+                            value = extraDetails.bitsPerSample?.let { "$ch • $it-bit" } ?: ch
+                        )
+                    }
+                    extraDetails.fileSizeBytes?.takeIf { it > 0L }?.let { size ->
+                        AudioDetailRow(
+                            icon = Icons.Rounded.Storage,
+                            label = "File Size",
+                            value = Formatter.formatShortFileSize(context, size)
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Track Details",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    AudioDetailRow(
+                        icon = Icons.Rounded.Schedule,
+                        label = stringResource(R.string.song_info_label_duration),
+                        value = formatDuration(song.duration)
+                    )
+                    if (song.album.isNotBlank()) {
+                        AudioDetailRow(
+                            icon = Icons.Rounded.Album,
+                            label = stringResource(R.string.song_field_album),
+                            value = buildString {
+                                append(song.album)
+                                if (song.year > 0) append(" (${song.year})")
                             }
                         )
-                        effectiveSampleRate?.let { sr ->
-                            AudioDetailRow(
-                                icon = Icons.Rounded.Info,
-                                label = "Sample Rate",
-                                value = String.format(Locale.US, "%.1f kHz (%d Hz)", sr / 1000.0, sr)
-                            )
-                        }
-                        effectiveBitrate?.let { br ->
-                            AudioDetailRow(
-                                icon = Icons.Rounded.AudioFile,
-                                label = "Bitrate",
-                                value = "${br / 1000} kbps"
-                            )
-                        }
-                        channelLabel?.let { ch ->
-                            AudioDetailRow(
-                                icon = Icons.Rounded.MusicNote,
-                                label = "Channels",
-                                value = extraDetails.bitsPerSample?.let { "$ch • $it-bit" } ?: ch
-                            )
-                        }
-                        extraDetails.fileSizeBytes?.takeIf { it > 0L }?.let { size ->
-                            AudioDetailRow(
-                                icon = Icons.Rounded.Storage,
-                                label = "File Size",
-                                value = Formatter.formatShortFileSize(context, size)
-                            )
-                        }
                     }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Track Details",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    if (!song.genre.isNullOrBlank()) {
                         AudioDetailRow(
-                            icon = Icons.Rounded.Schedule,
-                            label = stringResource(R.string.song_info_label_duration),
-                            value = formatDuration(song.duration)
-                        )
-                        if (song.album.isNotBlank()) {
-                            AudioDetailRow(
-                                icon = Icons.Rounded.Album,
-                                label = stringResource(R.string.song_field_album),
-                                value = buildString {
-                                    append(song.album)
-                                    if (song.year > 0) append(" (${song.year})")
-                                }
-                            )
-                        }
-                        if (!song.genre.isNullOrBlank()) {
-                            AudioDetailRow(
-                                icon = Icons.Rounded.MusicNote,
-                                label = stringResource(R.string.song_field_genre),
-                                value = song.genre
-                            )
-                        }
-                        if (song.trackNumber > 0) {
-                            AudioDetailRow(
-                                icon = Icons.Rounded.Info,
-                                label = "Track / Disc",
-                                value = song.discNumber?.takeIf { it > 0 }?.let { "Track ${song.trackNumber} • Disc $it" }
-                                    ?: "Track ${song.trackNumber}"
-                            )
-                        }
-                        AudioDetailRow(
-                            icon = Icons.Rounded.Lyrics,
-                            label = stringResource(R.string.lyrics),
-                            value = lyricsLabel
-                        )
-                        AudioDetailRow(
-                            icon = if (isRemoteStream) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
-                            label = if (isRemoteStream) stringResource(R.string.song_info_label_provider) else stringResource(R.string.song_info_label_path),
-                            value = locationLabel,
-                            maxLines = 3
+                            icon = Icons.Rounded.MusicNote,
+                            label = stringResource(R.string.song_field_genre),
+                            value = song.genre
                         )
                     }
+                    if (song.trackNumber > 0) {
+                        AudioDetailRow(
+                            icon = Icons.Rounded.Info,
+                            label = "Track / Disc",
+                            value = song.discNumber?.takeIf { it > 0 }?.let { "Track ${song.trackNumber} • Disc $it" }
+                                ?: "Track ${song.trackNumber}"
+                        )
+                    }
+                    AudioDetailRow(
+                        icon = Icons.Rounded.Lyrics,
+                        label = stringResource(R.string.lyrics),
+                        value = lyricsLabel
+                    )
+                    AudioDetailRow(
+                        icon = if (isRemoteStream) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                        label = if (isRemoteStream) stringResource(R.string.song_info_label_provider) else stringResource(R.string.song_info_label_path),
+                        value = locationLabel,
+                        maxLines = 3
+                    )
                 }
             }
-        },
-        confirmButton = {
-            FilledTonalButton(
-                onClick = {
-                    onDismiss()
-                    onOpenFullSongInfo()
-                }
-            ) {
-                Text("More Info")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    )
+        }
+    }
 }
 
 @Composable

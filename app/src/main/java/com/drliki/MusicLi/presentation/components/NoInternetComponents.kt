@@ -31,35 +31,21 @@ import androidx.compose.ui.text.style.TextOverflow
 fun NoInternetDialog(
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                imageVector = Icons.Rounded.WifiOff,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-        },
-        title = {
-            Text(
-                text = stringResource(R.string.no_internet_dialog_title),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-        },
-        text = {
-            Text(
-                text = stringResource(R.string.no_internet_dialog_message),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.ok), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    )
+        icon = Icons.Rounded.WifiOff,
+        title = stringResource(R.string.no_internet_dialog_title),
+        confirmText = stringResource(R.string.ok),
+        onConfirm = onDismiss
+    ) {
+        Text(
+            text = stringResource(R.string.no_internet_dialog_message),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable

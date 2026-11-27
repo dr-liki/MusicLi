@@ -68,7 +68,7 @@ fun VideoCandidatePickerDialog(
 
     Dialog(
         onDismissRequest = viewModel::dismissVideoPicker,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         Surface(
             shape = RoundedCornerShape(28.dp),
@@ -76,7 +76,7 @@ fun VideoCandidatePickerDialog(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 24.dp),
+                .padding(horizontal = 12.dp, vertical = 16.dp),
         ) {
             Column(
                 modifier = Modifier

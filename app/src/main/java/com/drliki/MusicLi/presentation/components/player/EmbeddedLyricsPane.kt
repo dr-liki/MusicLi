@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -861,44 +862,46 @@ fun EmbeddedLyricsPane(
         val hasSynced = !lyrics.synced.isNullOrEmpty()
         val hasPlain = !lyrics.plain.isNullOrEmpty()
         val songToSave = stablePlayerState.currentSong!!
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showSaveLyricsDialog = false },
-            title = { Text(stringResource(R.string.save_lyrics_dialog_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.save_lyrics_dialog_message))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    if (hasSynced) {
-                        FilledTonalButton(
-                            onClick = {
-                                showSaveLyricsDialog = false
-                                onSaveLyricsToFile?.invoke(songToSave, lyrics, true)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.save_synced_lyrics))
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
+            icon = Icons.Rounded.FileDownload,
+            title = stringResource(R.string.save_lyrics_dialog_title),
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showSaveLyricsDialog = false }
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.save_lyrics_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (hasSynced) {
+                    FilledTonalButton(
+                        onClick = {
+                            showSaveLyricsDialog = false
+                            onSaveLyricsToFile?.invoke(songToSave, lyrics, true)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(stringResource(R.string.save_synced_lyrics))
                     }
-                    if (hasPlain) {
-                        OutlinedButton(
-                            onClick = {
-                                showSaveLyricsDialog = false
-                                onSaveLyricsToFile?.invoke(songToSave, lyrics, false)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.save_plain_lyrics))
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showSaveLyricsDialog = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (hasPlain) {
+                    OutlinedButton(
+                        onClick = {
+                            showSaveLyricsDialog = false
+                            onSaveLyricsToFile?.invoke(songToSave, lyrics, false)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(stringResource(R.string.save_plain_lyrics))
+                    }
                 }
             }
-        )
+        }
     }
 }

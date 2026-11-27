@@ -31,9 +31,9 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Stream
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -379,31 +379,25 @@ fun StorageSenseScreen(
     }
 
     if (showConfirmLyricsDialog) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showConfirmLyricsDialog = false },
-            title = { Text("Clear Cached Lyrics?") },
-            text = {
-                Text("This clears locally cached and manually downloaded lyrics files from Storage Sense. Embedded audio file tags and .lrc sidecar files are kept.")
+            icon = Icons.Rounded.DeleteSweep,
+            isDestructive = true,
+            title = "Clear Cached Lyrics?",
+            confirmText = "Clear",
+            onConfirm = {
+                showConfirmLyricsDialog = false
+                viewModel.clearLyricsCache()
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirmLyricsDialog = false
-                        viewModel.clearLyricsCache()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text("Clear")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmLyricsDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showConfirmLyricsDialog = false }
+        ) {
+            Text(
+                text = "This clears locally cached and manually downloaded lyrics files from Storage Sense. Embedded audio file tags and .lrc sidecar files are kept.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

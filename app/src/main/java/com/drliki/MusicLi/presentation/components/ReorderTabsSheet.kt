@@ -106,29 +106,25 @@ fun ReorderTabsSheet(
     }
 
     if (showResetDialog) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(stringResource(R.string.reorder_tabs_reset_dialog_title)) },
-            text = { Text(stringResource(R.string.reorder_tabs_reset_dialog_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onReset()
-                        localTabs = tabs
-                        showResetDialog = false
-                    }
-                ) {
-                    Text(stringResource(R.string.action_reset), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            isDestructive = true,
+            title = stringResource(R.string.reorder_tabs_reset_dialog_title),
+            confirmText = stringResource(R.string.action_reset),
+            onConfirm = {
+                onReset()
+                localTabs = tabs
+                showResetDialog = false
             },
-            dismissButton = {
-                TextButton(
-                    onClick = { showResetDialog = false }
-                ) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showResetDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.reorder_tabs_reset_dialog_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     val sheetState = rememberModalSheetState(skipPartiallyExpanded = true)

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 
 package com.drliki.MusicLi.presentation.screens
 
@@ -21,12 +21,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -34,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -41,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,11 +62,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.drliki.MusicLi.BuildConfig
 import com.drliki.MusicLi.R
 import com.drliki.MusicLi.data.update.AppRelease
 import com.drliki.MusicLi.data.update.UpdateChannel
 import com.drliki.MusicLi.data.update.UpdateError
 import com.drliki.MusicLi.data.update.UpdateStatus
+import com.drliki.MusicLi.presentation.components.ChangelogBottomSheet
 import com.drliki.MusicLi.presentation.components.MiniPlayerHeight
 import com.drliki.MusicLi.presentation.viewmodel.UpdatesUiState
 import com.drliki.MusicLi.presentation.viewmodel.UpdatesViewModel
@@ -76,6 +83,7 @@ fun UpdatesScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var switchRelease by rememberSaveable { mutableStateOf<String?>(null) }
+    var showChangelogSheet by rememberSaveable { mutableStateOf(false) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
@@ -124,6 +132,12 @@ fun UpdatesScreen(
                     onOpenPrompt = { intent -> context.startActivitySafely(Intent(intent)) },
                     onOpenUrl = { url -> context.openUrl(url) },
                     onShowSwitch = { switchRelease = it.versionName },
+                )
+            }
+            item(key = "changelog") {
+                UpdatesChangelogCard(
+                    installedVersion = state.installedVersion.ifBlank { BuildConfig.VERSION_NAME },
+                    onClick = { showChangelogSheet = true },
                 )
             }
             item(key = "settings") {
@@ -186,6 +200,71 @@ fun UpdatesScreen(
             },
             onDismiss = { switchRelease = null }
         )
+    }
+
+    if (showChangelogSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showChangelogSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            ChangelogBottomSheet()
+        }
+    }
+}
+
+@Composable
+private fun UpdatesChangelogCard(
+    installedVersion: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.secondary,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.History,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondary,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(22.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.presentation_batch_g_changelog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Release notes & recent improvements (v$installedVersion)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        }
     }
 }
 
@@ -326,37 +405,68 @@ private fun ChannelSwitchDialog(
     onUninstall: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.updates_switch_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.updates_switch_dialog_body))
-                Text(stringResource(R.string.updates_switch_step_backup))
-                FilledTonalButton(onClick = onBackup, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.updates_switch_action_backup))
+        icon = Icons.Rounded.SystemUpdate,
+        title = stringResource(R.string.updates_switch_dialog_title),
+        dismissText = stringResource(R.string.updates_switch_action_close),
+        onDismiss = onDismiss
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.updates_switch_dialog_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.updates_switch_step_backup),
+                style = MaterialTheme.typography.bodySmall
+            )
+            FilledTonalButton(
+                onClick = onBackup,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.updates_switch_action_backup))
+            }
+            if (release.channel == UpdateChannel.STABLE) {
+                Text(
+                    text = stringResource(R.string.updates_switch_step_download_stable, release.versionName),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                FilledTonalButton(
+                    onClick = onDownload,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.updates_switch_action_open_fdroid))
                 }
-                if (release.channel == UpdateChannel.STABLE) {
-                    Text(stringResource(R.string.updates_switch_step_download_stable, release.versionName))
-                    FilledTonalButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.updates_switch_action_open_fdroid))
-                    }
-                } else {
-                    Text(stringResource(R.string.updates_switch_step_download_alpha, release.versionName))
-                    FilledTonalButton(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.updates_switch_action_download))
-                    }
-                }
-                Text(stringResource(R.string.updates_switch_step_uninstall))
-                OutlinedButton(onClick = onUninstall, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.updates_switch_action_uninstall), color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(
+                    text = stringResource(R.string.updates_switch_step_download_alpha, release.versionName),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                FilledTonalButton(
+                    onClick = onDownload,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.updates_switch_action_download))
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.updates_switch_action_close)) }
+            Text(
+                text = stringResource(R.string.updates_switch_step_uninstall),
+                style = MaterialTheme.typography.bodySmall
+            )
+            OutlinedButton(
+                onClick = onUninstall,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.updates_switch_action_uninstall), color = MaterialTheme.colorScheme.error)
+            }
         }
-    )
+    }
 }
 
 private fun channelLabel(channel: UpdateChannel): Int = when (channel) {

@@ -40,8 +40,8 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -425,38 +425,29 @@ fun ExploreDownloadsScreen(
         var draftUrl by remember(optionsState.apiBaseUrl) {
             mutableStateOf(optionsState.apiBaseUrl)
         }
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showApiUrlDialog = false },
-            title = { Text(stringResource(R.string.setcat_explore_api_url_dialog_title)) },
-            text = {
-                OutlinedTextField(
-                    value = draftUrl,
-                    onValueChange = { draftUrl = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            icon = Icons.Rounded.Public,
+            title = stringResource(R.string.setcat_explore_api_url_dialog_title),
+            confirmText = stringResource(android.R.string.ok),
+            onConfirm = {
+                viewModel.setApiBaseUrl(draftUrl)
+                showApiUrlDialog = false
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.setApiBaseUrl(draftUrl)
-                        showApiUrlDialog = false
-                    }
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.setApiBaseUrl(null)
-                        showApiUrlDialog = false
-                    }
-                ) {
-                    Text("Reset")
-                }
-            },
-        )
+            dismissText = "Reset",
+            onDismiss = {
+                viewModel.setApiBaseUrl(null)
+                showApiUrlDialog = false
+            }
+        ) {
+            OutlinedTextField(
+                value = draftUrl,
+                onValueChange = { draftUrl = it },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

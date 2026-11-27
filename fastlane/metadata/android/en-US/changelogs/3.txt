@@ -1,0 +1,4 @@
+- Upgraded Explore UI: 2x2 Browse & Discover bento grid, Play FAB & menu overlays on cards, section subtitles with Shuffle All, vertical recent searches with individual removal, and refined Artist Spotlight cards.
+- Unified edge-to-edge-width popup dialogs (MusicLiDialog) across the app with consistent margins, tonal icon badges, and 50/50 side-by-side action buttons.
+- Moved Release & Build Info from the Home header bar into a card in Settings -> About.
+- Added a Changelog card inside Settings -> Updates with MusicLi 1.0.0 - 1.2.0 release notes.

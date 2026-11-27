@@ -247,11 +247,9 @@ fun HomeScreen(
     val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode, useNavigationRail)
 
     var showOptionsBottomSheet by remember { mutableStateOf(false) }
-    var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
     var songForOptions by remember { mutableStateOf<HomeSongOptions?>(null) }
     val sheetState = rememberModalSheetState()
-    val betaSheetState = rememberModalSheetState()
     val scope = rememberCoroutineScope()
     LocalContext.current
 
@@ -336,11 +334,8 @@ fun HomeScreen(
                     onNavigationIconClick = {
                         navController.navigateSafely(Screen.Settings.route)
                     },
-                    onBetaClick = {
-                        showBetaInfoBottomSheet = true
-                    },
                     onStreamingClick = {
-                          showStreamingProviderSheet = true
+                        showStreamingProviderSheet = true
                     },
                     onMenuClick = onOpenSidebar,
                     isScrolled = isScrolledPastThreshold.value
@@ -710,14 +705,6 @@ fun HomeScreen(
                     }
                 }
             )
-        }
-    }
-    if (showBetaInfoBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showBetaInfoBottomSheet = false },
-            sheetState = betaSheetState,
-        ) {
-            BetaInfoBottomSheet()
         }
     }
     if (showStreamingProviderSheet) {

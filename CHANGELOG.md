@@ -4,6 +4,17 @@ All notable changes to PixelPlayerOSS will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-27
+
+### Added
+- Upgraded Explore UI with a 2×2 Browse & Discover bento grid (`New Releases`, `Charts`, `Playlists`, `Artists`), section subtitles with Shuffle All actions, Play FAB + `⋮` More menu + `NEW`/`E` badge overlays on square cards, upgraded circular Artist Spotlight cards, and a vertical Recent Searches list with per-item removal and `Clear all`.
+- Unified edge-to-edge-width popup dialog shell (`MusicLiDialog` & `MusicLiDialogShell`) across app popups with `12.dp` horizontal margins, tonal top icon badges, and 50/50 side-by-side Outlined/Filled action buttons.
+- Moved Release & Build Info (`BetaInfoBottomSheet`) from the Home top bar pill into an interactive card inside Settings → About.
+- Added an interactive Changelog card inside Settings → Updates opening the updated in-app `ChangelogBottomSheet` covering MusicLi `1.2.0`, `1.1.0`, and `1.0.0`.
+
+### Changed
+- Simplified `HomeGradientTopBar` by removing the standalone build-type status pill button.
+
 ## [1.1.0] - 2026-11-27
 
 ### Added

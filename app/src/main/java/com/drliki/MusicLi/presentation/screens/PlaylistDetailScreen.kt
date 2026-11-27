@@ -1,6 +1,7 @@
 package com.drliki.MusicLi.presentation.screens
 
 import com.drliki.MusicLi.presentation.components.SwipeToQueueBox
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import com.drliki.MusicLi.presentation.components.rememberSwipeToQueue
 import android.widget.Toast
 import com.drliki.MusicLi.presentation.navigation.navigateSafely
@@ -1114,29 +1115,25 @@ fun PlaylistDetailScreen(
         )
     }
     if (showDeleteConfirmation && currentPlaylist != null) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text(deletePlaylistConfirmTitle) },
-            text = {
-                Text(deletePlaylistConfirmBody)
+            isDestructive = true,
+            title = deletePlaylistConfirmTitle,
+            confirmText = stringResource(R.string.delete_action),
+            onConfirm = {
+                playlistViewModel.deletePlaylist(currentPlaylist.id)
+                onDeletePlayListClick()
+                showDeleteConfirmation = false
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        playlistViewModel.deletePlaylist(currentPlaylist.id)
-                        onDeletePlayListClick()
-                        showDeleteConfirmation = false
-                    }
-                ) {
-                    Text(stringResource(R.string.delete_action), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showDeleteConfirmation = false }
+        ) {
+            Text(
+                text = deletePlaylistConfirmBody,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     if (showSongInfoBottomSheet && selectedSongForInfo != null) {
@@ -1346,25 +1343,22 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
     val renameTitle = stringResource(R.string.presentation_batch_b_rename_playlist_dialog_title)
     val newNameLabel = stringResource(R.string.presentation_batch_b_new_name)
     val renameAction = stringResource(R.string.action_rename)
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = { Text(renameTitle) },
-        text = {
-            OutlinedTextField(
-                value = newName,
-                onValueChange = { newName = it },
-                label = { Text(newNameLabel) },
-                shape = CircleShape,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (newName.text.isNotBlank()) onRename(newName.text) },
-                enabled = newName.text.isNotBlank() && newName.text != currentName
-            ) { Text(renameAction, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-    )
+        title = renameTitle,
+        confirmText = renameAction,
+        onConfirm = { if (newName.text.isNotBlank()) onRename(newName.text) },
+        confirmEnabled = newName.text.isNotBlank() && newName.text != currentName,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        OutlinedTextField(
+            value = newName,
+            onValueChange = { newName = it },
+            label = { Text(newNameLabel) },
+            shape = RoundedCornerShape(16.dp),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }

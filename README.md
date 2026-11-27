@@ -25,7 +25,15 @@ MusicLi (`com.drliki.MusicLi`) is an independent, free and open-source Android m
 
 The app works **100% offline by default**. No ads, no analytics, no telemetry, and no Google Play Services runtime dependencies—optional network features stay dormant until you enable or trigger them.
 
-## Highlights in v1.0.0
+## What's New in v1.2.0
+
+- **Upgraded Explore Experience**: Added a 2×2 **Browse & Discover** bento grid (`New Releases`, `Charts`, `Playlists`, `Artists`), Play FAB + `⋮` More menu + `NEW`/`E`/`MIX` badge overlays on cards, section subtitles with Shuffle All buttons, refined outlined circular Artist Spotlight cards, and a vertical Recent Searches list with per-item removal and `Clear all`.
+- **Unified Edge-to-Edge Dialogs (`MusicLiDialog`)**: Standardized popup dialogs across the app onto a shared edge-to-edge-width Material 3 Expressive container (`12.dp` horizontal margins, tonal top icon badges, and 50/50 side-by-side Outlined/Filled action buttons).
+- **Relocated Release Info & Updates Changelog**: Moved the Release & Build Info sheet from the Home top bar pill into an interactive card inside **Settings → About**, and added an interactive **Changelog** card inside **Settings → Updates** featuring MusicLi `1.2.0`, `1.1.0`, and `1.0.0` release notes.
+
+## Highlights in v1.1.0 & v1.0.0
+
+- **v1.1.0 Highlights**: Continuous wrap-around circular scrolling in the Home Discover carousel, pull-to-refresh + Refresh action in Explore, direct JioSaavn artist page navigation from streaming tracks, and pre-filled Title/Artist manual search inside the Found Matches lyrics picker.
 
 - **Independent Identity**: Dedicated `MusicLi` branding, `com.drliki.MusicLi` application ID (installable alongside PixelPlayerOSS), Material 3 `'M'` adaptive icon, and animated splash screen.
 - **Bulk Auto Synced Lyrics & Multi-Provider Lookup**: Search across 9 providers (`LRCLIB`, `BetterLyrics`, `lrc.red`, `Paxsenix`, `KuGou`, `JioSaavn`, `YouTube`, `NetEase`, `Lyrics.ovh`) or batch-embed synced lyrics across your library with provider priority ordering and rate-limit pause/resume.

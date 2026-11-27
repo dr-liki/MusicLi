@@ -674,53 +674,54 @@ fun LyricsSheet(
         val hasSynced = !lyrics?.synced.isNullOrEmpty()
         val hasPlain = !lyrics?.plain.isNullOrEmpty()
         
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showSaveLyricsDialog = false },
-            title = { Text(stringResource(R.string.save_lyrics_dialog_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.save_lyrics_dialog_message))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    if (hasSynced) {
-                        FilledTonalButton(
-                            onClick = {
-                                showSaveLyricsDialog = false
-                                onSaveLyricsToFile(
-                                    currentSong!!,
-                                    lyrics!!,
-                                    true
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.save_synced_lyrics))
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
+            title = stringResource(R.string.save_lyrics_dialog_title),
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showSaveLyricsDialog = false }
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.save_lyrics_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (hasSynced) {
+                    FilledTonalButton(
+                        onClick = {
+                            showSaveLyricsDialog = false
+                            onSaveLyricsToFile(
+                                currentSong!!,
+                                lyrics!!,
+                                true
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(stringResource(R.string.save_synced_lyrics))
                     }
-                    if (hasPlain) {
-                        OutlinedButton(
-                            onClick = {
-                                showSaveLyricsDialog = false
-                                onSaveLyricsToFile(
-                                    currentSong!!,
-                                    lyrics!!,
-                                    false
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.save_plain_lyrics))
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showSaveLyricsDialog = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (hasPlain) {
+                    OutlinedButton(
+                        onClick = {
+                            showSaveLyricsDialog = false
+                            onSaveLyricsToFile(
+                                currentSong!!,
+                                lyrics!!,
+                                false
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(stringResource(R.string.save_plain_lyrics))
+                    }
                 }
             }
-        )
+        }
     }
 
     

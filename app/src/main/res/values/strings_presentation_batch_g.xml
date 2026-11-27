@@ -504,4 +504,27 @@ Backslash (\) can be used to escape character delimiters.</string>
         <item>Backup, restore, and setup events can no longer be lost during screen rotation.</item>
         <item>Spring cleaning: dead code removed, deprecated APIs migrated, and dependencies updated.</item>
     </string-array>
+    <string-array name="presentation_batch_g_changelog_v120_whats_new">
+        <item>Upgraded Explore UI with a 2x2 Browse &amp; Discover bento grid, Play FAB and menu overlays on cards, section subtitles with Shuffle All, and vertical recent searches with individual remove controls.</item>
+        <item>Unified edge-to-edge-width popup dialogs (MusicLiDialog) across the app with consistent margins, tonal icon badges, and 50/50 side-by-side action buttons.</item>
+        <item>Moved Release &amp; Build Info into the About screen and added an interactive Changelog card inside the Updates screen.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v120_improvements">
+        <item>Cleaner Home header bar without the persistent release-status pill button.</item>
+        <item>Refreshed artist spotlight cards in Explore with circular outlines and badge accents.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v110_whats_new">
+        <item>Continuous wrap-around circular scrolling on the Home discovery carousel across phone and tablet layouts.</item>
+        <item>Pull-to-refresh and top-bar Refresh button in Explore, plus direct JioSaavn artist page navigation from streaming tracks.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v110_improvements">
+        <item>Pre-filled Title &amp; Artist/Album inputs with side-by-side Search and Cancel buttons in the Found Matches lyrics picker.</item>
+        <item>Cleaner Explore Downloads header without the redundant Storage Sense icon shortcut.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v100_whats_new">
+        <item>Initial MusicLi release under com.drliki.MusicLi with custom adaptive app icon branding.</item>
+    </string-array>
+    <string-array name="presentation_batch_g_changelog_v100_improvements">
+        <item>Configured release signing, repository metadata, and in-app updater endpoints for dr-liki/MusicLi.</item>
+    </string-array>
 </resources>

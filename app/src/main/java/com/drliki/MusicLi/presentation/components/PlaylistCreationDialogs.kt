@@ -106,76 +106,68 @@ fun PlaylistCreationTypeDialog(
         smoothnessAsPercentBR = 60
     )
 
-    Dialog(
+    MusicLiDialogShell(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = true)
+        shape = dialogShape
     ) {
-        Surface(
-            shape = dialogShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = stringResource(R.string.presentation_batch_e_create_playlist_title),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontFamily = RoundedSans,
-                            fontWeight = FontWeight.Bold
-                        )
+                Text(
+                    text = stringResource(R.string.presentation_batch_e_create_playlist_title),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = RoundedSans,
+                        fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = stringResource(R.string.presentation_batch_e_create_playlist_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                    )
-                }
-
-                CreationModeCard(
-                    title = stringResource(R.string.presentation_batch_e_creation_mode_manual),
-                    subtitle = stringResource(R.string.presentation_batch_e_creation_mode_manual_subtitle),
-                    icon = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    },
-                    onClick = onManualSelected,
-                    enabled = true,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-
-                // Smart Mix runs offline, so it never needs setup first.
-                CreationModeCard(
-                    title = stringResource(R.string.mix_title),
-                    subtitle = stringResource(R.string.mix_library_subtitle),
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_smart_mix),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    },
-                    onClick = onSmartMixSelected,
-                    enabled = true,
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                Text(
+                    text = stringResource(R.string.presentation_batch_e_create_playlist_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
             }
+
+            CreationModeCard(
+                title = stringResource(R.string.presentation_batch_e_creation_mode_manual),
+                subtitle = stringResource(R.string.presentation_batch_e_creation_mode_manual_subtitle),
+                icon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                },
+                onClick = onManualSelected,
+                enabled = true,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            // Smart Mix runs offline, so it never needs setup first.
+            CreationModeCard(
+                title = stringResource(R.string.mix_title),
+                subtitle = stringResource(R.string.mix_library_subtitle),
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_smart_mix),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                },
+                onClick = onSmartMixSelected,
+                enabled = true,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            )
         }
     }
 }

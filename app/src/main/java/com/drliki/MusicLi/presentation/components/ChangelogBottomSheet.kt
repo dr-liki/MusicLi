@@ -64,22 +64,27 @@ data class ChangelogVersion(
 @Composable
 private fun changelogVersions(): List<ChangelogVersion> = listOf(
     ChangelogVersion(
-        version = "0.2.0",
-        date = "2026-07-12",
+        version = "1.2.0",
+        date = "2026-11-27",
         sections = listOf(
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_whats_new, R.array.presentation_batch_g_changelog_v020_whats_new),
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_improvements, R.array.presentation_batch_g_changelog_v020_improvements),
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_under_the_hood, R.array.presentation_batch_g_changelog_v020_under_the_hood)
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_whats_new, R.array.presentation_batch_g_changelog_v120_whats_new),
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_improvements, R.array.presentation_batch_g_changelog_v120_improvements)
         )
     ),
     ChangelogVersion(
-        version = "0.1.0",
-        date = "2026-06-09",
+        version = "1.1.0",
+        date = "2026-11-27",
         sections = listOf(
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_initial_release, R.array.presentation_batch_g_changelog_070_whats_new),
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_removed_for_foss, R.array.presentation_batch_g_changelog_070_improvements),
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_release_readiness, R.array.presentation_batch_g_changelog_070_fixes),
-            ChangelogSection(R.string.presentation_batch_g_changelog_sec_security_privacy, R.array.presentation_batch_g_changelog_070_added)
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_whats_new, R.array.presentation_batch_g_changelog_v110_whats_new),
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_improvements, R.array.presentation_batch_g_changelog_v110_improvements)
+        )
+    ),
+    ChangelogVersion(
+        version = "1.0.0",
+        date = "2026-11-26",
+        sections = listOf(
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_initial_release, R.array.presentation_batch_g_changelog_v100_whats_new),
+            ChangelogSection(R.string.presentation_batch_g_changelog_sec_improvements, R.array.presentation_batch_g_changelog_v100_improvements)
         )
     )
 )

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -280,50 +281,42 @@ fun PlaybackSpeedInputDialog(
         focusRequester.requestFocus()
     }
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.playback_speed_custom_title)) },
-        text = {
-            OutlinedTextField(
-                value = fieldValue,
-                onValueChange = { candidate ->
-                    if (PlaybackSpeedUtils.isEditableInput(candidate.text)) fieldValue = candidate
-                },
-                label = { Text(stringResource(R.string.playback_speed_custom_field_label)) },
-                suffix = { Text(stringResource(R.string.playback_speed_multiplier_suffix)) },
-                supportingText = {
-                    Text(
-                        if (isError) {
-                            stringResource(R.string.playback_speed_custom_error, minText, maxText)
-                        } else {
-                            stringResource(R.string.playback_speed_custom_supporting, minText, maxText)
-                        }
-                    )
-                },
-                isError = isError,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { parsed?.let(onConfirm) }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { parsed?.let(onConfirm) },
-                enabled = parsed != null
-            ) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
+        title = stringResource(R.string.playback_speed_custom_title),
+        confirmText = stringResource(R.string.ok),
+        onConfirm = { parsed?.let(onConfirm) },
+        confirmEnabled = parsed != null,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        OutlinedTextField(
+            value = fieldValue,
+            onValueChange = { candidate ->
+                if (PlaybackSpeedUtils.isEditableInput(candidate.text)) fieldValue = candidate
+            },
+            label = { Text(stringResource(R.string.playback_speed_custom_field_label)) },
+            suffix = { Text(stringResource(R.string.playback_speed_multiplier_suffix)) },
+            supportingText = {
+                Text(
+                    if (isError) {
+                        stringResource(R.string.playback_speed_custom_error, minText, maxText)
+                    } else {
+                        stringResource(R.string.playback_speed_custom_supporting, minText, maxText)
+                    }
+                )
+            },
+            isError = isError,
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Decimal,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { parsed?.let(onConfirm) }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+        )
+    }
 }

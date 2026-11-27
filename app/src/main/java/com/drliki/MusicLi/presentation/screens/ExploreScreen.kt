@@ -1,6 +1,7 @@
 package com.drliki.MusicLi.presentation.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -35,13 +36,19 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -57,6 +64,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -67,6 +75,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -319,33 +328,6 @@ fun ExploreScreen(
             }
 
             if (uiState.query.isBlank()) {
-                // Recent searches
-                if (uiState.recentSearches.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            uiState.recentSearches.forEach { recent ->
-                                FilterChip(
-                                    selected = false,
-                                    onClick = { exploreViewModel.submitSearch(recent) },
-                                    label = { Text(recent) },
-                                )
-                            }
-                            FilterChip(
-                                selected = false,
-                                onClick = exploreViewModel::clearRecentSearches,
-                                leadingIcon = { Icon(Icons.Rounded.Clear, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                                label = { Text("Clear") },
-                            )
-                        }
-                    }
-                }
-
                 // Language / Mood filter chips
                 item {
                     Row(
@@ -362,6 +344,31 @@ fun ExploreScreen(
                                 label = { Text(language) },
                             )
                         }
+                    }
+                }
+
+                // 2x2 Browse & Discover bento grid
+                item {
+                    val langPrefix = uiState.selectedLanguage
+                        .takeUnless { it.equals("All", ignoreCase = true) }
+                        ?.let { "$it " }
+                        .orEmpty()
+                    ExploreBrowseDiscoverGrid(
+                        onCategoryClick = { querySuffix, filter ->
+                            exploreViewModel.browseCategory("$langPrefix$querySuffix", filter)
+                        },
+                    )
+                }
+
+                // Vertical Recent searches
+                if (uiState.recentSearches.isNotEmpty()) {
+                    item {
+                        ExploreRecentSearchesSection(
+                            recentSearches = uiState.recentSearches,
+                            onSearchClick = { recent -> exploreViewModel.submitSearch(recent) },
+                            onRemoveClick = exploreViewModel::removeRecentSearch,
+                            onClearAllClick = exploreViewModel::clearRecentSearches,
+                        )
                     }
                 }
 
@@ -387,7 +394,16 @@ fun ExploreScreen(
                     val feed = uiState.feed
                     if (feed.trendingSongs.isNotEmpty()) {
                         item {
-                            ExploreSectionHeader(title = "Trending Songs")
+                            ExploreSectionHeader(
+                                title = "Trending Songs",
+                                subtitle = "Hot tracks playing now",
+                                onShuffleClick = {
+                                    val shuffled = feed.trendingSongs.shuffled()
+                                    shuffled.firstOrNull()?.let { first ->
+                                        streamSongs(shuffled, first, "Explore: Trending")
+                                    }
+                                },
+                            )
                         }
                         item {
                             LazyRow(
@@ -401,6 +417,8 @@ fun ExploreScreen(
                                         isDownloaded = downloadedIds.contains(song.id),
                                         onPlayClick = { streamSongs(feed.trendingSongs, song, "Explore: Trending") },
                                         onDownloadClick = { exploreViewModel.downloadSong(song) },
+                                        onPlayNextClick = { enqueueSong(song, true) },
+                                        onAddToQueueClick = { enqueueSong(song, false) },
                                     )
                                 }
                             }
@@ -409,7 +427,10 @@ fun ExploreScreen(
 
                     if (feed.topAlbums.isNotEmpty()) {
                         item {
-                            ExploreSectionHeader(title = "Top Albums")
+                            ExploreSectionHeader(
+                                title = "Top Albums",
+                                subtitle = "Popular albums & EPs",
+                            )
                         }
                         item {
                             LazyRow(
@@ -421,6 +442,7 @@ fun ExploreScreen(
                                         title = album.title,
                                         subtitle = album.artist,
                                         artworkUrl = album.artworkUrl,
+                                        badgeText = album.year.takeIf { it >= 2026 }?.let { "NEW" },
                                         onClick = { exploreViewModel.openAlbum(album) },
                                     )
                                 }
@@ -430,7 +452,10 @@ fun ExploreScreen(
 
                     if (feed.featuredPlaylists.isNotEmpty()) {
                         item {
-                            ExploreSectionHeader(title = "Featured Playlists")
+                            ExploreSectionHeader(
+                                title = "Featured Playlists",
+                                subtitle = "Curated mixes & charts",
+                            )
                         }
                         item {
                             LazyRow(
@@ -442,6 +467,7 @@ fun ExploreScreen(
                                         title = playlist.title,
                                         subtitle = playlist.subtitle,
                                         artworkUrl = playlist.artworkUrl,
+                                        badgeText = "MIX",
                                         onClick = { exploreViewModel.openPlaylist(playlist) },
                                     )
                                 }
@@ -451,7 +477,10 @@ fun ExploreScreen(
 
                     if (feed.topArtists.isNotEmpty()) {
                         item {
-                            ExploreSectionHeader(title = "Artists")
+                            ExploreSectionHeader(
+                                title = "Artists",
+                                subtitle = "Spotlight voices & creators",
+                            )
                         }
                         item {
                             LazyRow(
@@ -527,7 +556,18 @@ fun ExploreScreen(
                     val showArtists = uiState.selectedFilter == ExploreFilterTab.ALL || uiState.selectedFilter == ExploreFilterTab.ARTISTS
 
                     if (showSongs && res.songs.isNotEmpty()) {
-                        item { ExploreSectionHeader(title = "Songs") }
+                        item {
+                            ExploreSectionHeader(
+                                title = "Songs",
+                                subtitle = "${res.songs.size} matches",
+                                onShuffleClick = {
+                                    val shuffled = res.songs.shuffled()
+                                    shuffled.firstOrNull()?.let { first ->
+                                        streamSongs(shuffled, first, "Explore: ${uiState.query}")
+                                    }
+                                },
+                            )
+                        }
                         items(res.songs, key = { "res_song_${it.id}" }) { song ->
                             ExploreSongRowItem(
                                 song = song,
@@ -646,14 +686,347 @@ fun ExploreScreen(
 }
 
 @Composable
-private fun ExploreSectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(horizontal = 20.dp),
-    )
+private fun ExploreSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    onShuffleClick: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (onShuffleClick != null) {
+            Spacer(Modifier.width(12.dp))
+            FilledTonalButton(
+                onClick = onShuffleClick,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.height(34.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Shuffle,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Shuffle",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreBrowseDiscoverGrid(
+    onCategoryClick: (querySuffix: String, filter: ExploreFilterTab) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ExploreSectionHeader(
+            title = "Browse & Discover",
+            subtitle = "Jump straight into curated feeds",
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ExploreBrowseCategoryTile(
+                    title = "New Releases",
+                    subtitle = "Fresh albums & hits",
+                    icon = Icons.Rounded.NewReleases,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = { onCategoryClick("new releases", ExploreFilterTab.ALBUMS) },
+                    modifier = Modifier.weight(1f),
+                )
+                ExploreBrowseCategoryTile(
+                    title = "Charts",
+                    subtitle = "Trending & viral",
+                    icon = Icons.Rounded.Whatshot,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = { onCategoryClick("top charts", ExploreFilterTab.ALL) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ExploreBrowseCategoryTile(
+                    title = "Playlists",
+                    subtitle = "Moods & mixes",
+                    icon = Icons.Rounded.QueueMusic,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = { onCategoryClick("best playlists", ExploreFilterTab.PLAYLISTS) },
+                    modifier = Modifier.weight(1f),
+                )
+                ExploreBrowseCategoryTile(
+                    title = "Artists",
+                    subtitle = "Top voices",
+                    icon = Icons.Rounded.Person,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    onClick = { onCategoryClick("top artists", ExploreFilterTab.ARTISTS) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreBrowseCategoryTile(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(22.dp),
+        color = containerColor,
+        modifier = modifier.height(78.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = contentColor.copy(alpha = 0.14f),
+                modifier = Modifier.size(38.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.78f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreRecentSearchesSection(
+    recentSearches: List<String>,
+    onSearchClick: (String) -> Unit,
+    onRemoveClick: (String) -> Unit,
+    onClearAllClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Recent searches",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = onClearAllClick,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(30.dp),
+            ) {
+                Text(
+                    text = "Clear all",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                recentSearches.forEachIndexed { index, recent ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSearchClick(recent) }
+                            .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.History,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = recent,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(
+                            onClick = { onRemoveClick(recent) },
+                            modifier = Modifier.size(34.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Remove search",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                    if (index != recentSearches.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 14.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreSongOptionsMenu(
+    song: ExploreSong,
+    expanded: Boolean,
+    isDownloaded: Boolean,
+    onDismissRequest: () -> Unit,
+    onPlayClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+    onPlayNextClick: (() -> Unit)? = null,
+    onAddToQueueClick: (() -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+    ) {
+        DropdownMenuItem(
+            text = { Text("Play now") },
+            leadingIcon = { Icon(Icons.Rounded.PlayArrow, null) },
+            onClick = {
+                onDismissRequest()
+                onPlayClick()
+            },
+        )
+        if (onPlayNextClick != null) {
+            DropdownMenuItem(
+                text = { Text("Play next") },
+                leadingIcon = { Icon(Icons.Rounded.PlaylistAdd, null) },
+                onClick = {
+                    onDismissRequest()
+                    onPlayNextClick()
+                },
+            )
+        }
+        if (onAddToQueueClick != null) {
+            DropdownMenuItem(
+                text = { Text("Add to queue") },
+                leadingIcon = { Icon(Icons.Rounded.QueueMusic, null) },
+                onClick = {
+                    onDismissRequest()
+                    onAddToQueueClick()
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text(if (isDownloaded) "Downloaded" else "Download") },
+            leadingIcon = {
+                Icon(if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download, null)
+            },
+            enabled = !isDownloaded,
+            onClick = {
+                onDismissRequest()
+                onDownloadClick()
+            },
+        )
+        song.saavnUrl?.takeIf { it.isNotBlank() }?.let { shareUrl ->
+            DropdownMenuItem(
+                text = { Text("Share link") },
+                leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                onClick = {
+                    onDismissRequest()
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, song.title)
+                        putExtra(android.content.Intent.EXTRA_TEXT, "${song.title} — ${song.artist}\n$shareUrl")
+                    }
+                    context.startActivity(android.content.Intent.createChooser(intent, song.title))
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -663,12 +1036,21 @@ private fun ExploreSongSquareCard(
     isDownloaded: Boolean,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onPlayNextClick: (() -> Unit)? = null,
+    onAddToQueueClick: (() -> Unit)? = null,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val badgeText = when {
+        song.explicitContent -> "E"
+        song.year >= 2026 -> "NEW"
+        else -> null
+    }
+
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier
-            .width(148.dp)
+            .width(160.dp)
             .clickable(onClick = onPlayClick),
     ) {
         Column {
@@ -676,8 +1058,8 @@ private fun ExploreSongSquareCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .padding(7.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 AsyncImage(
@@ -686,16 +1068,93 @@ private fun ExploreSongSquareCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
+                if (badgeText != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (song.explicitContent) {
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (song.explicitContent) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onPrimary
+                            },
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp),
+                ) {
+                    Surface(
+                        onClick = { menuExpanded = true },
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.56f),
+                        modifier = Modifier.size(30.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "More options",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                    ExploreSongOptionsMenu(
+                        song = song,
+                        expanded = menuExpanded,
+                        isDownloaded = isDownloaded,
+                        onDismissRequest = { menuExpanded = false },
+                        onPlayClick = onPlayClick,
+                        onDownloadClick = onDownloadClick,
+                        onPlayNextClick = onPlayNextClick,
+                        onAddToQueueClick = onAddToQueueClick,
+                    )
+                }
                 ArtworkDownloadBadgeButton(
                     downloadItem = downloadItem,
                     isDownloaded = isDownloaded,
                     onClick = onDownloadClick,
+                    sizeDp = 28,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(Alignment.BottomStart)
                         .padding(6.dp),
                 )
+                Surface(
+                    onClick = onPlayClick,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    tonalElevation = 4.dp,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(34.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play ${song.title}",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
-            Column(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp)) {
+            Column(modifier = Modifier.padding(start = 11.dp, end = 11.dp, top = 2.dp, bottom = 11.dp)) {
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.titleSmall,
@@ -728,7 +1187,6 @@ private fun ExploreSongRowItem(
     subfolder: String? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     Surface(
         onClick = onPlayClick,
         shape = RoundedCornerShape(16.dp),
@@ -798,65 +1256,16 @@ private fun ExploreSongRowItem(
                         contentDescription = "More options",
                     )
                 }
-                DropdownMenu(
+                ExploreSongOptionsMenu(
+                    song = song,
                     expanded = menuExpanded,
+                    isDownloaded = isDownloaded,
                     onDismissRequest = { menuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Play now") },
-                        leadingIcon = { Icon(Icons.Rounded.PlayArrow, null) },
-                        onClick = {
-                            menuExpanded = false
-                            onPlayClick()
-                        },
-                    )
-                    if (onPlayNextClick != null) {
-                        DropdownMenuItem(
-                            text = { Text("Play next") },
-                            leadingIcon = { Icon(Icons.Rounded.PlaylistAdd, null) },
-                            onClick = {
-                                menuExpanded = false
-                                onPlayNextClick()
-                            },
-                        )
-                    }
-                    if (onAddToQueueClick != null) {
-                        DropdownMenuItem(
-                            text = { Text("Add to queue") },
-                            leadingIcon = { Icon(Icons.Rounded.QueueMusic, null) },
-                            onClick = {
-                                menuExpanded = false
-                                onAddToQueueClick()
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(if (isDownloaded) "Downloaded" else "Download") },
-                        leadingIcon = {
-                            Icon(if (isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download, null)
-                        },
-                        enabled = !isDownloaded,
-                        onClick = {
-                            menuExpanded = false
-                            onDownloadClick()
-                        },
-                    )
-                    song.saavnUrl?.takeIf { it.isNotBlank() }?.let { shareUrl ->
-                        DropdownMenuItem(
-                            text = { Text("Share link") },
-                            leadingIcon = { Icon(Icons.Rounded.Share, null) },
-                            onClick = {
-                                menuExpanded = false
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, song.title)
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "${song.title} — ${song.artist}\n$shareUrl")
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, song.title))
-                            },
-                        )
-                    }
-                }
+                    onPlayClick = onPlayClick,
+                    onDownloadClick = onDownloadClick,
+                    onPlayNextClick = onPlayNextClick,
+                    onAddToQueueClick = onAddToQueueClick,
+                )
             }
         }
     }
@@ -868,27 +1277,67 @@ private fun ExploreCollectionSquareCard(
     subtitle: String,
     artworkUrl: String?,
     onClick: () -> Unit,
+    badgeText: String? = null,
 ) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier
-            .width(148.dp)
+            .width(160.dp)
             .clickable(onClick = onClick),
     ) {
         Column {
-            AsyncImage(
-                model = artworkUrl,
-                contentDescription = title,
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .padding(7.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
-            Column(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp)) {
+            ) {
+                AsyncImage(
+                    model = artworkUrl,
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (!badgeText.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.90f),
+                    tonalElevation = 4.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(32.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+            Column(modifier = Modifier.padding(start = 11.dp, end = 11.dp, top = 2.dp, bottom = 11.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
@@ -917,25 +1366,49 @@ private fun ExploreArtistCircleCard(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(104.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .width(108.dp)
+            .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(6.dp),
     ) {
-        AsyncImage(
-            model = artist.artworkUrl,
-            contentDescription = artist.name,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(88.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Spacer(Modifier.height(6.dp))
+        Box(modifier = Modifier.size(96.dp)) {
+            AsyncImage(
+                model = artist.artworkUrl,
+                contentDescription = artist.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .border(
+                        width = 1.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape,
+                    )
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(26.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         Text(
             text = artist.name,
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

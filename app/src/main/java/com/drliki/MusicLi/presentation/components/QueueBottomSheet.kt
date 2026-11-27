@@ -1180,28 +1180,24 @@ fun QueueBottomSheet(
         }
 
         if (showClearQueueDialog) {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = { showClearQueueDialog = false },
-                title = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_title)) },
-                text = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_message)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            onClearQueue()
-                            showClearQueueDialog = false
-                        }
-                    ) {
-                        Text(stringResource(R.string.presentation_batch_b_clear), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                isDestructive = true,
+                title = stringResource(R.string.presentation_batch_e_clear_queue_dialog_title),
+                confirmText = stringResource(R.string.presentation_batch_b_clear),
+                onConfirm = {
+                    onClearQueue()
+                    showClearQueueDialog = false
                 },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showClearQueueDialog = false }
-                    ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            )
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = { showClearQueueDialog = false }
+            ) {
+                Text(
+                    text = stringResource(R.string.presentation_batch_e_clear_queue_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

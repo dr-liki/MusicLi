@@ -2,6 +2,7 @@
 
 package com.drliki.MusicLi.presentation.screens
 
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import com.drliki.MusicLi.ui.theme.withInterfaceFont
 
 import com.drliki.MusicLi.presentation.navigation.navigateSafely
@@ -2156,63 +2157,60 @@ fun LibraryScreen(
     if (showMergePlaylistDialog && pendingMergePlaylistIds.isNotEmpty()) {
         var mergePlaylistName by remember { mutableStateOf("") }
 
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = {
                 showMergePlaylistDialog = false
                 pendingMergePlaylistIds = emptyList()
                 mergePlaylistName = ""
             },
-            title = { Text(stringResource(R.string.presentation_batch_d_merge_playlists_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.presentation_batch_d_merge_playlists_prompt))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = mergePlaylistName,
-                        onValueChange = { mergePlaylistName = it },
-                        placeholder = { Text(stringResource(R.string.presentation_batch_d_merge_playlists_placeholder)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+            title = stringResource(R.string.presentation_batch_d_merge_playlists_title),
+            confirmText = stringResource(R.string.action_merge),
+            onConfirm = {
+                if (mergePlaylistName.isNotEmpty()) {
+                    playlistViewModel.mergePlaylistsIntoOne(
+                        pendingMergePlaylistIds,
+                        mergePlaylistName
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.presentation_batch_d_merge_playlists_body,
-                            pendingMergePlaylistIds.size
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (mergePlaylistName.isNotEmpty()) {
-                            playlistViewModel.mergePlaylistsIntoOne(
-                                pendingMergePlaylistIds,
-                                mergePlaylistName
-                            )
-                            playlistMultiSelectionState.clearSelection()
-                            showMergePlaylistDialog = false
-                            pendingMergePlaylistIds = emptyList()
-                            mergePlaylistName = ""
-                        }
-                    }
-                ) {
-                    Text(stringResource(R.string.action_merge))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
+                    playlistMultiSelectionState.clearSelection()
                     showMergePlaylistDialog = false
                     pendingMergePlaylistIds = emptyList()
                     mergePlaylistName = ""
-                }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            },
+            confirmEnabled = mergePlaylistName.isNotBlank(),
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = {
+                showMergePlaylistDialog = false
+                pendingMergePlaylistIds = emptyList()
+                mergePlaylistName = ""
             }
-        )
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.presentation_batch_d_merge_playlists_prompt),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = mergePlaylistName,
+                    onValueChange = { mergePlaylistName = it },
+                    placeholder = { Text(stringResource(R.string.presentation_batch_d_merge_playlists_placeholder)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.presentation_batch_d_merge_playlists_body,
+                        pendingMergePlaylistIds.size
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 
     if (showBatchEditSheet && selectedSongs.isNotEmpty()) {

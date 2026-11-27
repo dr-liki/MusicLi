@@ -101,7 +101,6 @@ fun GenreGradientTopBar(
 @Composable
 fun HomeGradientTopBar(
     onNavigationIconClick: () -> Unit,
-    onBetaClick: () -> Unit,
     onStreamingClick: () -> Unit,
     onMenuClick: () -> Unit,
     isScrolled: Boolean = false,
@@ -136,25 +135,6 @@ fun HomeGradientTopBar(
                     Icon(
                         imageVector = Icons.Rounded.Menu,
                         contentDescription = stringResource(R.string.sidebar_open)
-                    )
-                }
-                FilledTonalButton(
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onBetaClick
-                ) {
-                    Text(
-                        text = when (BuildConfig.BUILD_TYPE) {
-                            "release" -> stringResource(R.string.presentation_batch_g_topbar_build_stable)
-                            "debug" -> stringResource(R.string.presentation_batch_g_topbar_build_debug)
-                            else -> BuildConfig.BUILD_TYPE.replaceFirstChar { it.uppercase() }
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }

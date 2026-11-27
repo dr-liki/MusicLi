@@ -43,6 +43,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -388,54 +389,26 @@ fun DelimiterConfigScreen(
         )
 
         if (showResetDialog) {
-            androidx.compose.material3.AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = { showResetDialog = false },
-                title = {
-                    Text(
-                        text = stringResource(R.string.delimiter_reset_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                icon = Icons.Rounded.RestartAlt,
+                isDestructive = true,
+                title = stringResource(R.string.delimiter_reset_title),
+                confirmText = stringResource(R.string.action_reset),
+                onConfirm = {
+                    viewModel.resetDelimitersToDefault()
+                    Toast.makeText(context, context.getString(R.string.delimiter_toast_reset), Toast.LENGTH_SHORT).show()
+                    showResetDialog = false
                 },
-                text = {
-                    Text(
-                        text = stringResource(R.string.delimiter_reset_message),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Rounded.RestartAlt,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.resetDelimitersToDefault()
-                            Toast.makeText(context, context.getString(R.string.delimiter_toast_reset), Toast.LENGTH_SHORT).show()
-                            showResetDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text(stringResource(R.string.action_reset))
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showResetDialog = false }
-                    ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(24.dp)
-            )
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = { showResetDialog = false }
+            ) {
+                Text(
+                    text = stringResource(R.string.delimiter_reset_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

@@ -274,17 +274,19 @@ private fun EditSongContent(
     )
 
     if (showInfoDialog) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showInfoDialog = false },
-            icon = { Icon(Icons.Rounded.Info, contentDescription = stringResource(R.string.cd_info_icon)) },
-            title = { Text(stringResource(R.string.edit_song_info_dialog_title)) },
-            text = { Text(stringResource(R.string.edit_song_info_dialog_body)) },
-            confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) {
-                    Text(stringResource(R.string.edit_song_got_it), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        )
+            icon = Icons.Rounded.Info,
+            title = stringResource(R.string.edit_song_info_dialog_title),
+            confirmText = stringResource(R.string.edit_song_got_it),
+            onConfirm = { showInfoDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.edit_song_info_dialog_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     Scaffold(
@@ -1041,23 +1043,16 @@ fun CoverArtCropperDialog(
 
     val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
 
-    BasicAlertDialog(
+    MusicLiDialogShell(
         onDismissRequest = {
             if (!isSaving) onDismiss()
         }
     ) {
-        Surface(
-            shape = RoundedCornerShape(32.dp),
-            tonalElevation = 6.dp,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .widthIn(max = 420.dp)
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
                 Text(
                     text = stringResource(R.string.edit_song_crop_dialog_title),
                     style = MaterialTheme.typography.headlineSmall,
@@ -1205,14 +1200,13 @@ fun CoverArtCropperDialog(
                             }
                         }
                     ) {
-                        if (isSaving) {
-                            LoadingIndicator(
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text(stringResource(R.string.edit_song_apply_cover_art))
+                    if (isSaving) {
+                        LoadingIndicator(
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
+                    Text(stringResource(R.string.edit_song_apply_cover_art))
                 }
             }
         }

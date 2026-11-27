@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.AlertDialog
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -800,28 +801,25 @@ fun EmbeddedQueuePane(
         }
 
         if (showClearQueueDialog) {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = { showClearQueueDialog = false },
-                title = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_title)) },
-                text = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_message)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            playerViewModel.clearQueueExceptCurrent()
-                            showClearQueueDialog = false
-                        }
-                    ) {
-                        Text(stringResource(R.string.presentation_batch_b_clear), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                icon = Icons.Filled.ClearAll,
+                isDestructive = true,
+                title = stringResource(R.string.presentation_batch_e_clear_queue_dialog_title),
+                confirmText = stringResource(R.string.presentation_batch_b_clear),
+                onConfirm = {
+                    playerViewModel.clearQueueExceptCurrent()
+                    showClearQueueDialog = false
                 },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showClearQueueDialog = false }
-                    ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            )
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = { showClearQueueDialog = false }
+            ) {
+                Text(
+                    text = stringResource(R.string.presentation_batch_e_clear_queue_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         if (showSavePlaylistSheet) {

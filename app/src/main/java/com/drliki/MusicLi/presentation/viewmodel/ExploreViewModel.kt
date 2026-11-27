@@ -265,6 +265,26 @@ class ExploreViewModel @Inject constructor(
         }
     }
 
+    fun removeRecentSearch(query: String) {
+        val updated = _uiState.value.recentSearches.filterNot {
+            it.equals(query, ignoreCase = true)
+        }
+        _uiState.update { it.copy(recentSearches = updated) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveExploreRecentSearches(updated)
+        }
+    }
+
+    fun browseCategory(query: String, filter: ExploreFilterTab) {
+        val trimmed = query.trim()
+        searchJob?.cancel()
+        if (trimmed.isBlank()) return
+        _uiState.update { it.copy(query = trimmed, selectedFilter = filter) }
+        searchJob = viewModelScope.launch {
+            executeSearch(trimmed)
+        }
+    }
+
     fun clearSearch() {
         searchJob?.cancel()
         _uiState.update {

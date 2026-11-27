@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -545,27 +546,25 @@ fun LyricsSettingsScreen(
     }
 
     if (showClearLyricsDialog) {
-        AlertDialog(
-            icon = { Icon(Icons.Outlined.Warning, null) },
-            title = { Text(stringResource(R.string.dialog_reset_lyrics_title)) },
-            text = { Text(stringResource(R.string.dialog_cannot_undo)) },
+        MusicLiDialog(
             onDismissRequest = { showClearLyricsDialog = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showClearLyricsDialog = false
-                        playerViewModel.resetAllLyrics()
-                    }
-                ) {
-                    Text(stringResource(R.string.confirm), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            icon = Icons.Outlined.Warning,
+            isDestructive = true,
+            title = stringResource(R.string.dialog_reset_lyrics_title),
+            confirmText = stringResource(R.string.confirm),
+            onConfirm = {
+                showClearLyricsDialog = false
+                playerViewModel.resetAllLyrics()
             },
-            dismissButton = {
-                TextButton(onClick = { showClearLyricsDialog = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showClearLyricsDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.dialog_cannot_undo),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

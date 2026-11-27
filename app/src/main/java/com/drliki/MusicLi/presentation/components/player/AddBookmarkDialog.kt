@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drliki.MusicLi.data.model.Lyrics
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import java.util.Locale
 
 private val BookmarkTitleWhitespaceRegex = Regex("\\s+")
@@ -73,175 +74,141 @@ fun AddBookmarkDialog(
         }
     }
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                tonalElevation = 2.dp
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Bookmark,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .size(24.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+        icon = Icons.Rounded.Bookmark,
+        title = stringResource(R.string.add_bookmark_title),
+        confirmText = stringResource(R.string.action_save),
+        onConfirm = {
+            if (resolvedTitle.isNotBlank()) {
+                onSave(resolvedTitle)
             }
         },
-        title = {
-            Text(
-                text = stringResource(R.string.add_bookmark_title),
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+        confirmEnabled = resolvedTitle.isNotBlank(),
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(22.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Bookmark,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Column {
-                            Text(
-                                text = formattedTime,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                text = stringResource(R.string.add_bookmark_saved_point),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
-                            )
-                        }
-                    }
-                }
-
-                if (availableLyricTitle != null) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { useLyricTitle = !useLyricTitle },
-                        shape = RoundedCornerShape(24.dp),
-                        color = if (useLyricTitle) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.add_bookmark_use_lyric_line),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = if (useLyricTitle) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
-                                Text(
-                                    text = availableLyricTitle,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontStyle = FontStyle.Italic,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = if (useLyricTitle) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                            Switch(
-                                checked = useLyricTitle,
-                                onCheckedChange = { useLyricTitle = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
-                                )
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = if (useLyricTitle && availableLyricTitle != null) {
-                        availableLyricTitle
-                    } else {
-                        customTitle
-                    },
-                    onValueChange = { customTitle = it },
-                    enabled = !useLyricTitle,
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = null
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bookmark,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (resolvedTitle.isNotBlank()) {
-                        onSave(resolvedTitle)
+                    Column {
+                        Text(
+                            text = formattedTime,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = stringResource(R.string.add_bookmark_saved_point),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
+                        )
                     }
+                }
+            }
+
+            if (availableLyricTitle != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { useLyricTitle = !useLyricTitle },
+                    shape = RoundedCornerShape(24.dp),
+                    color = if (useLyricTitle) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.add_bookmark_use_lyric_line),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (useLyricTitle) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                            Text(
+                                text = availableLyricTitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontStyle = FontStyle.Italic,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (useLyricTitle) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                        Switch(
+                            checked = useLyricTitle,
+                            onCheckedChange = { useLyricTitle = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
+                            )
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = if (useLyricTitle && availableLyricTitle != null) {
+                    availableLyricTitle
+                } else {
+                    customTitle
                 },
-                enabled = resolvedTitle.isNotBlank(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(stringResource(R.string.action_save))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-        shape = RoundedCornerShape(32.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    )
+                onValueChange = { customTitle = it },
+                enabled = !useLyricTitle,
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = null
+                    )
+                },
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+    }
 }
 
 internal fun resolveLyricBookmarkTitle(

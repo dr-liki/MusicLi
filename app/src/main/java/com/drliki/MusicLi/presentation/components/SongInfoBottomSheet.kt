@@ -907,89 +907,92 @@ fun SongInfoBottomSheet(
         SongInfoBottomSheetViewModel.MusicBrainzUiState.Applied -> Unit
 
         SongInfoBottomSheetViewModel.MusicBrainzUiState.Loading -> {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = {},
-                confirmButton = {},
-                title = { Text(stringResource(R.string.musicbrainz_lookup)) },
-                text = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        LoadingIndicator(modifier = Modifier.size(28.dp))
-                        Text(stringResource(R.string.musicbrainz_searching))
-                    }
+                title = stringResource(R.string.musicbrainz_lookup)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    LoadingIndicator(modifier = Modifier.size(28.dp))
+                    Text(
+                        text = stringResource(R.string.musicbrainz_searching),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            )
+            }
         }
 
         is SongInfoBottomSheetViewModel.MusicBrainzUiState.Error -> {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = songInfoViewModel::dismissMusicBrainz,
-                confirmButton = {
-                    TextButton(onClick = { songInfoViewModel.searchMusicBrainz(song) }) {
-                        Text(stringResource(R.string.cloud_download_retry))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = songInfoViewModel::dismissMusicBrainz) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                },
-                title = { Text(stringResource(R.string.musicbrainz_lookup_failed)) },
-                text = { Text(state.message) }
-            )
+                isDestructive = true,
+                title = stringResource(R.string.musicbrainz_lookup_failed),
+                confirmText = stringResource(R.string.cloud_download_retry),
+                onConfirm = { songInfoViewModel.searchMusicBrainz(song) },
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = songInfoViewModel::dismissMusicBrainz
+            ) {
+                Text(
+                    text = state.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         is SongInfoBottomSheetViewModel.MusicBrainzUiState.Results -> {
-            AlertDialog(
+            MusicLiDialog(
                 onDismissRequest = songInfoViewModel::dismissMusicBrainz,
-                confirmButton = {
-                    TextButton(onClick = songInfoViewModel::dismissMusicBrainz) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                },
-                title = { Text(stringResource(R.string.musicbrainz_choose_match)) },
-                text = {
-                    if (state.matches.isEmpty()) {
-                        Text(stringResource(R.string.musicbrainz_no_results))
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.heightIn(max = 420.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(state.matches, key = { it.recordingId + (it.releaseId ?: "") }) { match ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            songInfoViewModel.applyMusicBrainzMatch(song, match)
-                                        },
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Column(Modifier.padding(14.dp)) {
-                                        Text(match.title, fontWeight = FontWeight.Bold)
-                                        Text(
-                                            listOfNotNull(
-                                                match.artist.takeIf { it.isNotBlank() },
-                                                match.album.takeIf { it.isNotBlank() },
-                                                match.year.takeIf { it > 0 }?.toString()
-                                            ).joinToString(" · "),
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            stringResource(R.string.musicbrainz_match_score, match.score),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                title = stringResource(R.string.musicbrainz_choose_match),
+                scrollable = false,
+                dismissText = stringResource(R.string.cancel),
+                onDismiss = songInfoViewModel::dismissMusicBrainz
+            ) {
+                if (state.matches.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.musicbrainz_no_results),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.matches, key = { it.recordingId + (it.releaseId ?: "") }) { match ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        songInfoViewModel.applyMusicBrainzMatch(song, match)
+                                    },
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(match.title, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        listOfNotNull(
+                                            match.artist.takeIf { it.isNotBlank() },
+                                            match.album.takeIf { it.isNotBlank() },
+                                            match.year.takeIf { it > 0 }?.toString()
+                                        ).joinToString(" · "),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        stringResource(R.string.musicbrainz_match_score, match.score),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
                     }
                 }
-            )
+            }
         }
     }
 
@@ -1046,62 +1049,41 @@ private fun ToneTargetPickerDialog(
     onDismiss: () -> Unit,
     onTargetSelected: (ToneTarget) -> Unit,
 ) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTR = 32.dp,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusBR = 32.dp,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusTL = 32.dp,
-                smoothnessAsPercentBL = 60,
-                cornerRadiusBL = 32.dp,
-                smoothnessAsPercentTR = 60,
-            ),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+    MusicLiDialog(
+        onDismissRequest = onDismiss,
+        titleContent = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ToneDialogIcon(target = null)
-                    Text(
-                        text = stringResource(R.string.song_info_tone_picker_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                ToneDialogIcon(target = null)
                 Text(
-                    text = stringResource(R.string.song_info_tone_picker_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.song_info_tone_picker_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
                 )
+            }
+        },
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                text = stringResource(R.string.song_info_tone_picker_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-                Column(
-                    modifier = Modifier.clip(RoundedCornerShape(22.dp)),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    ToneTarget.values().forEach { target ->
-                        ToneTargetOption(
-                            target = target,
-                            onClick = { onTargetSelected(target) },
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel))
-                    }
+            Column(
+                modifier = Modifier.clip(RoundedCornerShape(22.dp)),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                ToneTarget.values().forEach { target ->
+                    ToneTargetOption(
+                        target = target,
+                        onClick = { onTargetSelected(target) },
+                    )
                 }
             }
         }
@@ -1148,61 +1130,36 @@ private fun ToneConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTR = 32.dp,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusBR = 32.dp,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusTL = 32.dp,
-                smoothnessAsPercentBL = 60,
-                cornerRadiusBL = 32.dp,
-                smoothnessAsPercentTR = 60,
-            ),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+    MusicLiDialog(
+        onDismissRequest = onDismiss,
+        titleContent = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ToneDialogIcon(target = target)
-                    Text(
-                        text = stringResource(R.string.song_info_tone_confirm_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                ToneDialogIcon(target = target)
                 Text(
-                    text = stringResource(
-                        R.string.song_info_tone_confirm_body,
-                        song.title,
-                        stringResource(target.confirmLabelResId),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.song_info_tone_confirm_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                    FilledTonalButton(onClick = onConfirm) {
-                        Text(stringResource(R.string.song_info_tone_confirm_action))
-                    }
-                }
             }
-        }
+        },
+        confirmText = stringResource(R.string.song_info_tone_confirm_action),
+        onConfirm = onConfirm,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss,
+    ) {
+        Text(
+            text = stringResource(
+                R.string.song_info_tone_confirm_body,
+                song.title,
+                stringResource(target.confirmLabelResId),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

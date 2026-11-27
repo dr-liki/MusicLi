@@ -2,6 +2,7 @@
 
 package com.drliki.MusicLi.presentation.screens
 
+import com.drliki.MusicLi.presentation.components.MusicLiDialog
 import com.drliki.MusicLi.presentation.navigation.navigateSafely
 import com.drliki.MusicLi.presentation.components.BackupModuleSelectionDialog
 import java.text.SimpleDateFormat
@@ -1713,191 +1714,170 @@ fun SettingsCategoryScreen(
     }
 
     if (showRegenerateAllPalettesDialog) {
-        AlertDialog(
-            icon = {
-                Icon(
-                    Icons.Outlined.Style,
-                    null,
-                    tint = if (isPaletteBulkRegenerateRunning) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.secondary
-                    }
-                )
-            },
-            title = {
-                Text(
-                    if (isPaletteBulkRegenerateRunning) {
-                        stringResource(R.string.dialog_regenerating_palettes_title)
-                    } else {
-                        stringResource(R.string.dialog_regenerate_palettes_title)
-                    }
-                )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = if (isPaletteBulkRegenerateRunning) {
-                            stringResource(R.string.dialog_regenerate_palettes_progress_body, paletteBulkTotalCount)
-                        } else {
-                            stringResource(R.string.dialog_regenerate_palettes_confirm_body, paletteRegenerateTargets.size)
-                        }
-                    )
-
-                    if (isPaletteBulkRegenerateRunning) {
-                        val progress = if (paletteBulkTotalCount > 0) {
-                            paletteBulkCompletedCount.toFloat() / paletteBulkTotalCount.toFloat()
-                        } else {
-                            0f
-                        }
-
-                        LinearWavyProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
-
-                        Text(
-                            text = stringResource(R.string.dialog_palette_progress_format, paletteBulkCompletedCount, paletteBulkTotalCount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
+        MusicLiDialog(
             onDismissRequest = {
                 if (!isPaletteBulkRegenerateRunning) {
                     showRegenerateAllPalettesDialog = false
                 }
             },
-            confirmButton = {
-                if (isPaletteBulkRegenerateRunning) {
-                    TextButton(
-                        onClick = {},
-                        enabled = false
-                    ) {
-                        Text(stringResource(R.string.working_ellipsis), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                } else {
-                    TextButton(
-                        onClick = {
-                            isPaletteBulkRegenerateRunning = true
-                            paletteBulkCompletedCount = 0
-                            paletteBulkTotalCount = paletteRegenerateTargets.size
+            icon = Icons.Outlined.Style,
+            iconTint = if (isPaletteBulkRegenerateRunning) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.secondary
+            },
+            title = if (isPaletteBulkRegenerateRunning) {
+                stringResource(R.string.dialog_regenerating_palettes_title)
+            } else {
+                stringResource(R.string.dialog_regenerate_palettes_title)
+            },
+            confirmText = if (isPaletteBulkRegenerateRunning) {
+                stringResource(R.string.working_ellipsis)
+            } else {
+                stringResource(R.string.dialog_regenerate)
+            },
+            confirmEnabled = !isPaletteBulkRegenerateRunning,
+            onConfirm = {
+                if (!isPaletteBulkRegenerateRunning) {
+                    isPaletteBulkRegenerateRunning = true
+                    paletteBulkCompletedCount = 0
+                    paletteBulkTotalCount = paletteRegenerateTargets.size
 
-                            coroutineScope.launch {
-                                var successCount = 0
-                                paletteRegenerateTargets.forEachIndexed { index, song ->
-                                    if (playerViewModel.forceRegenerateAlbumPaletteForSong(song)) {
-                                        successCount++
-                                    }
-                                    paletteBulkCompletedCount = index + 1
-                                }
-
-                                isPaletteBulkRegenerateRunning = false
-                                showRegenerateAllPalettesDialog = false
-
-                                val totalCount = paletteRegenerateTargets.size
-                                Toast.makeText(
-                                    context,
-                                    if (successCount == totalCount) {
-                                        context.getString(R.string.toast_regenerated_palettes_all, successCount)
-                                    } else {
-                                        context.getString(R.string.toast_regenerated_palettes_partial, successCount, totalCount)
-                                    },
-                                    Toast.LENGTH_LONG
-                                ).show()
+                    coroutineScope.launch {
+                        var successCount = 0
+                        paletteRegenerateTargets.forEachIndexed { index, song ->
+                            if (playerViewModel.forceRegenerateAlbumPaletteForSong(song)) {
+                                successCount++
                             }
+                            paletteBulkCompletedCount = index + 1
                         }
-                    ) {
-                        Text(stringResource(R.string.dialog_regenerate))
+
+                        isPaletteBulkRegenerateRunning = false
+                        showRegenerateAllPalettesDialog = false
+
+                        val totalCount = paletteRegenerateTargets.size
+                        Toast.makeText(
+                            context,
+                            if (successCount == totalCount) {
+                                context.getString(R.string.toast_regenerated_palettes_all, successCount)
+                            } else {
+                                context.getString(R.string.toast_regenerated_palettes_partial, successCount, totalCount)
+                            },
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             },
-            dismissButton = {
-                if (!isPaletteBulkRegenerateRunning) {
-                    TextButton(
-                        onClick = { showRegenerateAllPalettesDialog = false }
-                    ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            dismissText = if (!isPaletteBulkRegenerateRunning) stringResource(R.string.cancel) else null,
+            onDismiss = { showRegenerateAllPalettesDialog = false }
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isPaletteBulkRegenerateRunning) {
+                        stringResource(R.string.dialog_regenerate_palettes_progress_body, paletteBulkTotalCount)
+                    } else {
+                        stringResource(R.string.dialog_regenerate_palettes_confirm_body, paletteRegenerateTargets.size)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (isPaletteBulkRegenerateRunning) {
+                    val progress = if (paletteBulkTotalCount > 0) {
+                        paletteBulkCompletedCount.toFloat() / paletteBulkTotalCount.toFloat()
+                    } else {
+                        0f
                     }
+
+                    LinearWavyProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(50)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    )
+
+                    Text(
+                        text = stringResource(R.string.dialog_palette_progress_format, paletteBulkCompletedCount, paletteBulkTotalCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        )
+        }
     }
 
     
     if (showRebuildDatabaseWarning) {
-        AlertDialog(
-            icon = { Icon(Icons.Outlined.Warning, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(stringResource(R.string.dialog_rebuild_database_title)) },
-            text = { Text(stringResource(R.string.dialog_rebuild_database_message)) },
+        MusicLiDialog(
             onDismissRequest = { showRebuildDatabaseWarning = false },
-            confirmButton = { 
-                TextButton(
-                    onClick = { 
-                        showRebuildDatabaseWarning = false
-                        refreshRequested = true
-                        syncRequestObservedRunning = false
-                        syncIndicatorLabel = context.getString(R.string.sync_indicator_rebuilding)
-                        Toast.makeText(context, context.getString(R.string.toast_rebuilding_database), Toast.LENGTH_SHORT).show()
-                        settingsViewModel.rebuildDatabase() 
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { 
-                    Text(stringResource(R.string.rebuild)) 
-                } 
+            icon = Icons.Outlined.Warning,
+            isDestructive = true,
+            title = stringResource(R.string.dialog_rebuild_database_title),
+            confirmText = stringResource(R.string.rebuild),
+            onConfirm = {
+                showRebuildDatabaseWarning = false
+                refreshRequested = true
+                syncRequestObservedRunning = false
+                syncIndicatorLabel = context.getString(R.string.sync_indicator_rebuilding)
+                Toast.makeText(context, context.getString(R.string.toast_rebuilding_database), Toast.LENGTH_SHORT).show()
+                settingsViewModel.rebuildDatabase()
             },
-            dismissButton = { TextButton(onClick = { showRebuildDatabaseWarning = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showRebuildDatabaseWarning = false }
+        ) {
+            Text(
+                text = stringResource(R.string.dialog_rebuild_database_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     if (showRegenerateDailyMixDialog) {
-        AlertDialog(
-            icon = { Icon(painterResource(R.drawable.rounded_instant_mix_24), null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text(stringResource(R.string.dialog_regenerate_daily_mix_title)) },
-            text = { Text(stringResource(R.string.dialog_regenerate_daily_mix_body)) },
+        MusicLiDialog(
             onDismissRequest = { showRegenerateDailyMixDialog = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRegenerateDailyMixDialog = false
-                        playerViewModel.forceUpdateDailyMix()
-                        Toast.makeText(context, context.getString(R.string.toast_daily_mix_regeneration_started), Toast.LENGTH_SHORT).show()
-                    }
-                ) {
-                    Text(stringResource(R.string.dialog_regenerate), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            title = stringResource(R.string.dialog_regenerate_daily_mix_title),
+            confirmText = stringResource(R.string.dialog_regenerate),
+            onConfirm = {
+                showRegenerateDailyMixDialog = false
+                playerViewModel.forceUpdateDailyMix()
+                Toast.makeText(context, context.getString(R.string.toast_daily_mix_regeneration_started), Toast.LENGTH_SHORT).show()
             },
-            dismissButton = { TextButton(onClick = { showRegenerateDailyMixDialog = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showRegenerateDailyMixDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.dialog_regenerate_daily_mix_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     if (showRegenerateStatsDialog) {
-        AlertDialog(
-            icon = { Icon(painterResource(R.drawable.rounded_monitoring_24), null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text(stringResource(R.string.dialog_regenerate_stats_title)) },
-            text = { Text(stringResource(R.string.dialog_regenerate_stats_body)) },
+        MusicLiDialog(
             onDismissRequest = { showRegenerateStatsDialog = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRegenerateStatsDialog = false
-                        statsViewModel.forceRegenerateStats()
-                        Toast.makeText(context, context.getString(R.string.toast_stats_regeneration_started), Toast.LENGTH_SHORT).show()
-                    }
-                ) {
-                    Text(stringResource(R.string.dialog_regenerate), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            title = stringResource(R.string.dialog_regenerate_stats_title),
+            confirmText = stringResource(R.string.dialog_regenerate),
+            onConfirm = {
+                showRegenerateStatsDialog = false
+                statsViewModel.forceRegenerateStats()
+                Toast.makeText(context, context.getString(R.string.toast_stats_regeneration_started), Toast.LENGTH_SHORT).show()
             },
-            dismissButton = { TextButton(onClick = { showRegenerateStatsDialog = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showRegenerateStatsDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.dialog_regenerate_stats_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     if (showExportDataDialog) {
@@ -3111,65 +3091,62 @@ private fun BackupEncryptionDialog(
     val passwordsMismatch = encryptEnabled && confirmPassword.isNotEmpty() && password != confirmPassword
     val canConfirm = !encryptEnabled || (password.length >= 4 && password == confirmPassword)
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.backup_encrypt_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.backup_encrypt_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = encryptEnabled,
-                        onCheckedChange = { encryptEnabled = it }
-                    )
-                }
-                if (encryptEnabled) {
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text(stringResource(R.string.backup_password_hint)) },
-                        singleLine = true,
-                        isError = passwordTooShort,
-                        supportingText = if (passwordTooShort) {
-                            { Text(stringResource(R.string.backup_password_too_short)) }
-                        } else null,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text(stringResource(R.string.backup_password_confirm_hint)) },
-                        singleLine = true,
-                        isError = passwordsMismatch,
-                        supportingText = if (passwordsMismatch) {
-                            { Text(stringResource(R.string.backup_password_mismatch)) }
-                        } else null,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+        title = stringResource(R.string.backup_encrypt_title),
+        confirmText = stringResource(R.string.backup_confirm_export_pxpl),
+        onConfirm = { onConfirm(if (encryptEnabled) password else null) },
+        confirmEnabled = canConfirm,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = onDismiss
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.backup_encrypt_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = encryptEnabled,
+                    onCheckedChange = { encryptEnabled = it }
+                )
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = canConfirm,
-                onClick = { onConfirm(if (encryptEnabled) password else null) }
-            ) { Text(stringResource(R.string.backup_confirm_export_pxpl), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            if (encryptEnabled) {
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.backup_password_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    isError = passwordTooShort,
+                    supportingText = if (passwordTooShort) {
+                        { Text(stringResource(R.string.backup_password_too_short)) }
+                    } else null,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text(stringResource(R.string.backup_password_confirm_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    isError = passwordsMismatch,
+                    supportingText = if (passwordsMismatch) {
+                        { Text(stringResource(R.string.backup_password_mismatch)) }
+                    } else null,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
-    )
+    }
 }
 
 /** Password prompt for opening an encrypted backup. */
@@ -3182,51 +3159,46 @@ private fun BackupPasswordPromptDialog(
 ) {
     var password by remember { mutableStateOf("") }
 
-    AlertDialog(
+    MusicLiDialog(
         onDismissRequest = { if (!isInspecting) onDismiss() },
-        title = { Text(stringResource(R.string.backup_encrypted_prompt_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(R.string.backup_encrypted_prompt_body),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.backup_password_hint)) },
-                    singleLine = true,
-                    enabled = !isInspecting,
-                    isError = wrongPassword,
-                    supportingText = if (wrongPassword) {
-                        { Text(stringResource(R.string.backup_wrong_password)) }
-                    } else null,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (isInspecting) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        LoadingIndicator(modifier = Modifier.size(24.dp))
-                    }
+        title = stringResource(R.string.backup_encrypted_prompt_title),
+        confirmText = stringResource(R.string.backup_unlock),
+        onConfirm = { onConfirm(password) },
+        confirmEnabled = password.isNotEmpty() && !isInspecting,
+        dismissText = stringResource(R.string.cancel),
+        onDismiss = { if (!isInspecting) onDismiss() }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.backup_encrypted_prompt_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(stringResource(R.string.backup_password_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isInspecting,
+                isError = wrongPassword,
+                supportingText = if (wrongPassword) {
+                    { Text(stringResource(R.string.backup_wrong_password)) }
+                } else null,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (isInspecting) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    LoadingIndicator(modifier = Modifier.size(24.dp))
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = password.isNotEmpty() && !isInspecting,
-                onClick = { onConfirm(password) }
-            ) { Text(stringResource(R.string.backup_unlock), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        },
-        dismissButton = {
-            TextButton(enabled = !isInspecting, onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
         }
-    )
+    }
 }
 
 @Composable

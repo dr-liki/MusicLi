@@ -93,25 +93,25 @@ fun ReorderPresetsSheet(
     var showResetDialog by remember { mutableStateOf(false) }
 
     if (showResetDialog) {
-        AlertDialog(
+        MusicLiDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(stringResource(R.string.presentation_batch_e_reset_presets_title)) },
-            text = { Text(stringResource(R.string.presentation_batch_e_reset_presets_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onReset()
-                        showResetDialog = false
-                        onDismiss()
-                    }
-                ) {
-                    Text(stringResource(R.string.cd_reset), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            isDestructive = true,
+            title = stringResource(R.string.presentation_batch_e_reset_presets_title),
+            confirmText = stringResource(R.string.cd_reset),
+            onConfirm = {
+                onReset()
+                showResetDialog = false
+                onDismiss()
             },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            }
-        )
+            dismissText = stringResource(R.string.cancel),
+            onDismiss = { showResetDialog = false }
+        ) {
+            Text(
+                text = stringResource(R.string.presentation_batch_e_reset_presets_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
     
     data class PresetItem(val preset: EqualizerPreset, val isPinned: Boolean)
